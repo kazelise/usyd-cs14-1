@@ -1,13 +1,32 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const [authed, setAuthed] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.replace("/auth");
+    } else {
+      setAuthed(true);
+    }
+  }, [router]);
 
   function logout() {
     localStorage.removeItem("token");
     router.push("/auth");
+  }
+
+  if (!authed) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-400">Checking authentication...</p>
+      </div>
+    );
   }
 
   return (

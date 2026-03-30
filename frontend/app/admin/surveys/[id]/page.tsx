@@ -48,6 +48,11 @@ export default function SurveyEditPage() {
   const [editShares, setEditShares] = useState(0);
   const [editTitle, setEditTitle] = useState("");
 
+  // A/B group visibility state
+  const [editingGroups, setEditingGroups] = useState<number | null>(null);
+  const [groupVisibility, setGroupVisibility] = useState<number[]>([]);
+  const [groupOverrides, setGroupOverrides] = useState<Record<string, { display_likes: number; display_comments_count: number; display_shares: number }>>({});
+
   // Add comment state
   const [commentPostId, setCommentPostId] = useState<number | null>(null);
   const [commentAuthor, setCommentAuthor] = useState("");
@@ -120,6 +125,40 @@ export default function SurveyEditPage() {
     setCommentPostId(null);
     setCommentAuthor("");
     setCommentText("");
+    await loadData();
+  }
+
+  function startEditGroups(post: Post) {
+    setEditingGroups(post.id);
+    // Initialize with all groups visible if not set
+    const allGroups = Array.from({ length: survey?.num_groups || 1 }, (_, i) => i + 1);
+    setGroupVisibility(post.visible_to_groups || allGroups);
+    // Initialize group overrides
+    const overrides: Record<string, { display_likes: number; display_comments_count: number; display_shares: number }> = {};
+    for (const g of allGroups) {
+      const existing = (post as any).group_overrides?.[String(g)];
+      overrides[String(g)] = {
+        display_likes: existing?.display_likes ?? post.display_likes,
+        display_comments_count: existing?.display_comments_count ?? post.display_comments_count,
+        display_shares: existing?.display_shares ?? post.display_shares,
+      };
+    }
+    setGroupOverrides(overrides);
+  }
+
+  async function saveGroupSettings(postId: number) {
+    // Only send group_overrides if values actually differ between groups
+    const vals = Object.values(groupOverrides);
+    const allSame = vals.every(
+      (v) => v.display_likes === vals[0].display_likes &&
+        v.display_comments_count === vals[0].display_comments_count &&
+        v.display_shares === vals[0].display_shares
+    );
+    await api.updatePost(surveyId, postId, {
+      visible_to_groups: groupVisibility.length === (survey?.num_groups || 1) ? null : groupVisibility,
+      group_overrides: allSame ? null : groupOverrides,
+    });
+    setEditingGroups(null);
     await loadData();
   }
 
@@ -289,12 +328,90 @@ export default function SurveyEditPage() {
                       className="text-xs text-blue-600 hover:underline">Edit Numbers</button>
                     <button onClick={() => { setCommentPostId(post.id); setCommentAuthor(""); setCommentText(""); }}
                       className="text-xs text-blue-600 hover:underline">Add Comment</button>
+                    {survey.num_groups > 1 && (
+                      <button onClick={() => startEditGroups(post)}
+                        className="text-xs text-purple-600 hover:underline">A/B Groups</button>
+                    )}
                   </>
                 )}
               </div>
             )}
 
             {/* Add Comment Form */}
+            {/* A/B Group Settings Panel */}
+            {editingGroups === post.id && survey.num_groups > 1 && (
+              <div className="bg-purple-50 border-t px-4 py-3 space-y-3">
+                <p className="text-sm font-medium text-purple-700">A/B Group Settings</p>
+                {/* Visibility checkboxes */}
+                <div className="flex gap-4 items-center">
+                  <span className="text-xs text-gray-500">Visible to:</span>
+                  {Array.from({ length: survey.num_groups }, (_, i) => i + 1).map((g) => (
+                    <label key={g} className="flex items-center gap-1 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={groupVisibility.includes(g)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setGroupVisibility((prev) => [...prev, g].sort());
+                          } else {
+                            setGroupVisibility((prev) => prev.filter((x) => x !== g));
+                          }
+                        }}
+                      />
+                      Group {g}
+                    </label>
+                  ))}
+                </div>
+                {/* Per-group number overrides */}
+                <div className="space-y-2">
+                  <span className="text-xs text-gray-500">Per-group engagement numbers:</span>
+                  {Array.from({ length: survey.num_groups }, (_, i) => i + 1)
+                    .filter((g) => groupVisibility.includes(g))
+                    .map((g) => (
+                    <div key={g} className="flex gap-2 items-center">
+                      <span className="text-xs font-medium w-16">Group {g}:</span>
+                      <label className="text-xs text-gray-500">Likes</label>
+                      <input
+                        type="number"
+                        value={groupOverrides[String(g)]?.display_likes ?? 0}
+                        onChange={(e) => setGroupOverrides((prev) => ({
+                          ...prev,
+                          [String(g)]: { ...prev[String(g)], display_likes: Number(e.target.value) },
+                        }))}
+                        className="w-20 px-2 py-1 border rounded text-sm"
+                      />
+                      <label className="text-xs text-gray-500">Comments</label>
+                      <input
+                        type="number"
+                        value={groupOverrides[String(g)]?.display_comments_count ?? 0}
+                        onChange={(e) => setGroupOverrides((prev) => ({
+                          ...prev,
+                          [String(g)]: { ...prev[String(g)], display_comments_count: Number(e.target.value) },
+                        }))}
+                        className="w-20 px-2 py-1 border rounded text-sm"
+                      />
+                      <label className="text-xs text-gray-500">Shares</label>
+                      <input
+                        type="number"
+                        value={groupOverrides[String(g)]?.display_shares ?? 0}
+                        onChange={(e) => setGroupOverrides((prev) => ({
+                          ...prev,
+                          [String(g)]: { ...prev[String(g)], display_shares: Number(e.target.value) },
+                        }))}
+                        className="w-20 px-2 py-1 border rounded text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => saveGroupSettings(post.id)}
+                    className="px-3 py-1 bg-purple-600 text-white rounded text-sm">Save Groups</button>
+                  <button onClick={() => setEditingGroups(null)}
+                    className="px-3 py-1 text-gray-500 text-sm">Cancel</button>
+                </div>
+              </div>
+            )}
+
             {commentPostId === post.id && (
               <form onSubmit={addComment} className="bg-blue-50 border-t px-4 py-3 flex gap-2 items-end">
                 <input type="text" value={commentAuthor} onChange={(e) => setCommentAuthor(e.target.value)}
