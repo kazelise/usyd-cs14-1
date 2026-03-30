@@ -193,6 +193,13 @@ async def list_posts(
     db: AsyncSession = Depends(get_db),
 ):
     """List all posts in a survey (with their fake comments)."""
+    # Verify ownership
+    survey_result = await db.execute(
+        select(Survey).where(Survey.id == survey_id, Survey.researcher_id == researcher.id)
+    )
+    if not survey_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Survey not found")
+
     result = await db.execute(
         select(SurveyPost)
         .options(selectinload(SurveyPost.comments))
@@ -310,10 +317,16 @@ async def start_survey(
     await db.flush()
     await db.refresh(response)
 
-    # Filter posts by group visibility
+    # Filter posts by group visibility and apply group overrides
     visible_posts = []
     for post in survey.posts:
         if post.visible_to_groups is None or assigned_group in post.visible_to_groups:
+            # Apply per-group display overrides if configured
+            if post.group_overrides and str(assigned_group) in post.group_overrides:
+                overrides = post.group_overrides[str(assigned_group)]
+                for field, value in overrides.items():
+                    if hasattr(post, field):
+                        setattr(post, field, value)
             visible_posts.append(post)
 
     return StartSurveyResponse(
@@ -367,4 +380,5 @@ async def complete_response(
         raise HTTPException(status_code=404, detail="Response not found")
     response.status = "completed"
     response.completed_at = datetime.utcnow()
+    await db.flush()
     return {"status": "completed"}

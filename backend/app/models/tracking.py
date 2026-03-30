@@ -10,7 +10,7 @@ From the meeting:
 
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Float, SmallInteger, JSON, UniqueConstraint
+from sqlalchemy import BigInteger, ForeignKey, String, Float, SmallInteger, JSON, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -96,7 +96,7 @@ class GazeRecord(Base):
     post_id: Mapped[int | None] = mapped_column(
         ForeignKey("survey_posts.id"), nullable=True
     )  # which post was on screen, null if between posts
-    timestamp_ms: Mapped[int] = mapped_column(nullable=False)  # client-side timestamp
+    timestamp_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)  # client-side timestamp
     screen_x: Mapped[float] = mapped_column(Float, nullable=False)
     screen_y: Mapped[float] = mapped_column(Float, nullable=False)
     left_iris_x: Mapped[float | None] = mapped_column(Float)
@@ -124,7 +124,7 @@ class ClickRecord(Base):
     post_id: Mapped[int | None] = mapped_column(
         ForeignKey("survey_posts.id"), nullable=True
     )
-    timestamp_ms: Mapped[int] = mapped_column(nullable=False)
+    timestamp_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
     screen_x: Mapped[float] = mapped_column(Float, nullable=False)
     screen_y: Mapped[float] = mapped_column(Float, nullable=False)
     target_element: Mapped[str | None] = mapped_column(String(50))  # e.g. "headline", "image", "like_button"

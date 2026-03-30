@@ -157,6 +157,7 @@ async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(g
             left_iris_x=g.left_iris_x, left_iris_y=g.left_iris_y,
             right_iris_x=g.right_iris_x, right_iris_y=g.right_iris_y,
         ))
+    await db.flush()
     return GazeBatchOut(saved=len(body.data))
 
 
@@ -172,4 +173,5 @@ async def record_click_batch(body: ClickBatchRequest, db: AsyncSession = Depends
             timestamp_ms=c.timestamp_ms, screen_x=c.screen_x, screen_y=c.screen_y,
             target_element=c.target_element,
         ))
+    await db.flush()
     return ClickBatchOut(saved=len(body.data))

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 
@@ -56,30 +56,34 @@ export default function SurveyParticipantPage() {
   const clickBuffer = useRef<any[]>([]);
 
   useEffect(() => {
-    startSurvey();
-  }, [shareCode]);
+    let clickListener: ((e: MouseEvent) => void) | null = null;
+    let flushInterval: ReturnType<typeof setInterval> | null = null;
 
-  async function startSurvey() {
-    try {
-      const res = await api.startSurvey(shareCode);
-      setSession(res);
+    async function init() {
+      try {
+        const res = await api.startSurvey(shareCode);
+        setSession(res);
 
-      // Start click tracking
-      if (res.click_tracking_enabled) {
-        document.addEventListener("click", handleClick);
-        // Flush click buffer every 10 seconds
-        const interval = setInterval(() => flushClicks(res.response_id), 10000);
-        return () => {
-          document.removeEventListener("click", handleClick);
-          clearInterval(interval);
-        };
+        // Start click tracking
+        if (res.click_tracking_enabled) {
+          clickListener = handleClick;
+          document.addEventListener("click", clickListener);
+          flushInterval = setInterval(() => flushClicks(res.response_id), 10000);
+        }
+      } catch (err: any) {
+        setError(err.message || "Survey not found");
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      setError(err.message || "Survey not found");
-    } finally {
-      setLoading(false);
     }
-  }
+
+    init();
+
+    return () => {
+      if (clickListener) document.removeEventListener("click", clickListener);
+      if (flushInterval) clearInterval(flushInterval);
+    };
+  }, [shareCode]);
 
   function handleClick(e: MouseEvent) {
     // Determine what element was clicked
@@ -265,6 +269,14 @@ export default function SurveyParticipantPage() {
                 </button>
                 <button
                   data-track="share"
+                  onClick={() => {
+                    if (session) {
+                      api.recordInteraction(session.response_id, {
+                        post_id: post.id,
+                        action_type: "share",
+                      });
+                    }
+                  }}
                   className="flex-1 py-2 text-sm font-medium text-gray-500 text-center hover:bg-gray-50 border-l"
                 >
                   🔗 Share
