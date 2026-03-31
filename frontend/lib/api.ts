@@ -55,6 +55,36 @@ export const api = {
     request(`/surveys/responses/${responseId}/complete`, { method: "POST" }),
 
   // Tracking
+  createCalibrationSession: (data: {
+    response_id: number;
+    screen_width: number;
+    screen_height: number;
+    camera_width?: number | null;
+    camera_height?: number | null;
+  }) => request("/tracking/calibration/sessions", { method: "POST", body: JSON.stringify(data) }),
+  recordCalibrationPoint: (
+    sessionId: number,
+    data: {
+      point_index: number;
+      target_screen_x: number;
+      target_screen_y: number;
+      samples: Array<{
+        timestamp_ms: number;
+        left_iris_x: number;
+        left_iris_y: number;
+        right_iris_x: number;
+        right_iris_y: number;
+        face_detected: boolean;
+        head_rotation?: Record<string, number> | null;
+      }>;
+    },
+  ) =>
+    request(`/tracking/calibration/sessions/${sessionId}/points`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  completeCalibration: (sessionId: number) =>
+    request(`/tracking/calibration/sessions/${sessionId}/complete`, { method: "POST" }),
   recordGaze: (data: { response_id: number; data: any[] }) =>
     request("/tracking/gaze", { method: "POST", body: JSON.stringify(data) }),
   recordClicks: (data: { response_id: number; data: any[] }) =>

@@ -24,10 +24,16 @@ interface Post {
 
 interface Survey {
   id: number;
+  description: string | null;
   title: string;
   status: string;
   share_code: string;
   num_groups: number;
+  gaze_tracking_enabled: boolean;
+  gaze_interval_ms: number;
+  click_tracking_enabled: boolean;
+  calibration_enabled: boolean;
+  calibration_points: number;
 }
 
 export default function SurveyEditPage() {
@@ -40,6 +46,16 @@ export default function SurveyEditPage() {
   const [newUrl, setNewUrl] = useState("");
   const [addingPost, setAddingPost] = useState(false);
   const [error, setError] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState("");
+
+  const [surveyTitle, setSurveyTitle] = useState("");
+  const [surveyDescription, setSurveyDescription] = useState("");
+  const [gazeTrackingEnabled, setGazeTrackingEnabled] = useState(true);
+  const [clickTrackingEnabled, setClickTrackingEnabled] = useState(true);
+  const [calibrationEnabled, setCalibrationEnabled] = useState(true);
+  const [gazeIntervalMs, setGazeIntervalMs] = useState(1000);
+  const [calibrationPoints, setCalibrationPoints] = useState(9);
 
   // Edit post state
   const [editingPost, setEditingPost] = useState<number | null>(null);
@@ -69,6 +85,13 @@ export default function SurveyEditPage() {
         api.listPosts(surveyId),
       ]);
       setSurvey(s);
+      setSurveyTitle(s.title);
+      setSurveyDescription(s.description || "");
+      setGazeTrackingEnabled(s.gaze_tracking_enabled);
+      setClickTrackingEnabled(s.click_tracking_enabled);
+      setCalibrationEnabled(s.calibration_enabled);
+      setGazeIntervalMs(s.gaze_interval_ms);
+      setCalibrationPoints(s.calibration_points);
       setPosts(p);
     } catch {
       router.push("/auth");
@@ -168,6 +191,28 @@ export default function SurveyEditPage() {
     await loadData();
   }
 
+  async function saveSurveySettings() {
+    setSavingSettings(true);
+    setSettingsSaved("");
+    try {
+      await api.updateSurvey(surveyId, {
+        title: surveyTitle,
+        description: surveyDescription || null,
+        gaze_tracking_enabled: gazeTrackingEnabled,
+        click_tracking_enabled: clickTrackingEnabled,
+        calibration_enabled: calibrationEnabled,
+        gaze_interval_ms: gazeIntervalMs,
+        calibration_points: calibrationPoints,
+      });
+      setSettingsSaved("Camera settings saved.");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save survey settings.");
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
   if (!survey) return <p className="text-gray-400 mt-10">Loading...</p>;
 
   const shareUrl = typeof window !== "undefined"
@@ -211,6 +256,142 @@ export default function SurveyEditPage() {
       </div>
 
       {/* Add Post by URL */}
+      <section className="mb-8 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_340px]">
+        <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+          <div className="border-b border-slate-100 bg-[linear-gradient(135deg,#f8fafc_0%,#ecfeff_100%)] px-6 py-5">
+            <p className="text-xs uppercase tracking-[0.28em] text-sky-600">Camera Configuration</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Webcam calibration UI</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-500">
+              Configure the participant-facing camera permission, face detection, calibration dots, and quality review flow.
+            </p>
+          </div>
+
+          <div className="grid gap-6 p-6 lg:grid-cols-2">
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-400">
+                  Survey title
+                </label>
+                <input
+                  type="text"
+                  value={surveyTitle}
+                  onChange={(e) => setSurveyTitle(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-400">
+                  Survey description
+                </label>
+                <textarea
+                  value={surveyDescription}
+                  onChange={(e) => setSurveyDescription(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-400">
+                  Gaze sampling interval
+                </label>
+                <input
+                  type="number"
+                  min={250}
+                  step={250}
+                  value={gazeIntervalMs}
+                  onChange={(e) => setGazeIntervalMs(Number(e.target.value))}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {[
+                {
+                  label: "Calibration required",
+                  description: "Participant must pass the webcam setup before the survey feed unlocks.",
+                  checked: calibrationEnabled,
+                  onChange: setCalibrationEnabled,
+                },
+                {
+                  label: "Gaze tracking enabled",
+                  description: "Allows continuous gaze samples during survey participation.",
+                  checked: gazeTrackingEnabled,
+                  onChange: setGazeTrackingEnabled,
+                },
+                {
+                  label: "Click tracking enabled",
+                  description: "Records participant click coordinates and target metadata.",
+                  checked: clickTrackingEnabled,
+                  onChange: setClickTrackingEnabled,
+                },
+              ].map((item) => (
+                <label key={item.label} className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <input
+                    type="checkbox"
+                    checked={item.checked}
+                    onChange={(e) => item.onChange(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">{item.description}</p>
+                  </div>
+                </label>
+              ))}
+
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-400">
+                  Calibration points
+                </label>
+                <select
+                  value={calibrationPoints}
+                  onChange={(e) => setCalibrationPoints(Number(e.target.value))}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-400"
+                >
+                  <option value={5}>5 points</option>
+                  <option value={9}>9 points</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+            <div className="text-sm text-slate-500">{settingsSaved || "Changes stay local until you publish the survey."}</div>
+            <button
+              onClick={saveSurveySettings}
+              disabled={savingSettings}
+              className="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50"
+            >
+              {savingSettings ? "Saving..." : "Save Camera Settings"}
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-[28px] border border-slate-200 bg-slate-950 p-6 text-white shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
+          <p className="text-xs uppercase tracking-[0.28em] text-cyan-300">Participant Preview</p>
+          <h3 className="mt-3 text-2xl font-semibold tracking-tight">Calibration pipeline</h3>
+          <div className="mt-6 space-y-4 text-sm text-slate-300">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="font-medium text-white">1. Camera permission</p>
+              <p className="mt-1 leading-6">Request webcam access and create the calibration session after the stream is live.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="font-medium text-white">2. Face detected indicator</p>
+              <p className="mt-1 leading-6">Show live status, brightness diagnostics, and stability feedback before dot capture starts.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="font-medium text-white">3. Calibration dots animation</p>
+              <p className="mt-1 leading-6">Capture 12 samples per point and submit each point to the tracking API.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="font-medium text-white">4. Quality score display</p>
+              <p className="mt-1 leading-6">Present backend quality metrics before unlocking the participant survey feed.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {survey.status === "draft" && (
         <form onSubmit={addPost} className="mb-8 bg-white p-4 rounded-lg border">
           <label className="block text-sm font-medium mb-2">
