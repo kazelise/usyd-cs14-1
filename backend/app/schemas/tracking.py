@@ -1,8 +1,8 @@
 """Tracking schemas: calibration, gaze, clicks. Owned by Backend C."""
 
 from datetime import datetime
-from pydantic import BaseModel, Field
 
+from pydantic import BaseModel, Field
 
 # ── Calibration ───────────────────────────────────────
 
