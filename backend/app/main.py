@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import engine, Base
+from app.database import Base, engine
 from app.routers import auth, surveys, tracking
 
 
@@ -19,9 +19,31 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="CS14-1 Survey Platform",
-    description="Social media survey platform with gaze & click tracking.",
+    description=(
+        "A survey platform for researchers to study how users interact with "
+        "social media content. Supports A/B group testing, gaze tracking "
+        "(via MediaPipe Face Mesh), and click tracking."
+    ),
     version="0.1.0",
     lifespan=lifespan,
+    openapi_tags=[
+        {
+            "name": "Auth",
+            "description": "Researcher registration and JWT authentication.",
+        },
+        {
+            "name": "Surveys",
+            "description": "Survey CRUD, post management, and participant endpoints.",
+        },
+        {
+            "name": "Tracking (Backend C)",
+            "description": (
+                "Webcam calibration, continuous gaze tracking, and mouse click "
+                "tracking. Data is collected during survey participation and "
+                "stored for later analysis."
+            ),
+        },
+    ],
 )
 
 app.add_middleware(

@@ -1,8 +1,8 @@
 """Tracking schemas: calibration, gaze, clicks. Owned by Backend C."""
 
 from datetime import datetime
-from pydantic import BaseModel, Field
 
+from pydantic import BaseModel, Field
 
 # ── Calibration ───────────────────────────────────────
 
@@ -82,42 +82,52 @@ class CalibrationCompleteOut(BaseModel):
 
 
 class GazeDataPoint(BaseModel):
-    """A single gaze data point from the frontend."""
-    post_id: int | None = None
-    timestamp_ms: int
-    screen_x: float
-    screen_y: float
-    left_iris_x: float | None = None
-    left_iris_y: float | None = None
-    right_iris_x: float | None = None
-    right_iris_y: float | None = None
+    """A single gaze data point captured by the browser eye-tracking module."""
+
+    post_id: int | None = Field(None, description="ID of the post currently on screen, null if between posts", examples=[1])
+    timestamp_ms: int = Field(..., description="Client-side timestamp in milliseconds", examples=[1711800000000])
+    screen_x: float = Field(..., description="Estimated gaze X position on screen in pixels", examples=[512.5])
+    screen_y: float = Field(..., description="Estimated gaze Y position on screen in pixels", examples=[384.0])
+    left_iris_x: float | None = Field(None, description="Left iris X coordinate (normalized 0-1)", examples=[0.45])
+    left_iris_y: float | None = Field(None, description="Left iris Y coordinate (normalized 0-1)", examples=[0.52])
+    right_iris_x: float | None = Field(None, description="Right iris X coordinate (normalized 0-1)", examples=[0.55])
+    right_iris_y: float | None = Field(None, description="Right iris Y coordinate (normalized 0-1)", examples=[0.51])
 
 
 class GazeBatchRequest(BaseModel):
-    """Frontend sends gaze data in batches (e.g., every 5-10 seconds)."""
-    response_id: int
-    data: list[GazeDataPoint]
+    """Batch of gaze data points. Frontend sends these every 5-10 seconds during survey participation."""
+
+    response_id: int = Field(..., description="Survey response ID from /surveys/{share_code}/start", examples=[1])
+    data: list[GazeDataPoint] = Field(..., description="Array of gaze data points to record")
 
 
 class GazeBatchOut(BaseModel):
-    saved: int
+    """Response after successfully saving gaze data."""
+
+    saved: int = Field(..., description="Number of gaze records saved", examples=[15])
 
 
 # ── Click Tracking ────────────────────────────────────
 
 
 class ClickDataPoint(BaseModel):
-    post_id: int | None = None
-    timestamp_ms: int
-    screen_x: float
-    screen_y: float
-    target_element: str | None = None  # "headline", "image", "like_button", etc.
+    """A single mouse click event captured during survey participation."""
+
+    post_id: int | None = Field(None, description="ID of the post that was clicked, null if outside a post", examples=[1])
+    timestamp_ms: int = Field(..., description="Client-side timestamp in milliseconds", examples=[1711800000000])
+    screen_x: float = Field(..., description="Click X position on screen in pixels", examples=[450.0])
+    screen_y: float = Field(..., description="Click Y position on screen in pixels", examples=[320.0])
+    target_element: str | None = Field(None, description="Clicked element type: headline, image, like_button, comment_button, share_count, or other", examples=["like_button"])
 
 
 class ClickBatchRequest(BaseModel):
-    response_id: int
-    data: list[ClickDataPoint]
+    """Batch of click events. Frontend flushes the click buffer every 10 seconds."""
+
+    response_id: int = Field(..., description="Survey response ID from /surveys/{share_code}/start", examples=[1])
+    data: list[ClickDataPoint] = Field(..., description="Array of click events to record")
 
 
 class ClickBatchOut(BaseModel):
-    saved: int
+    """Response after successfully saving click data."""
+
+    saved: int = Field(..., description="Number of click records saved", examples=[5])
