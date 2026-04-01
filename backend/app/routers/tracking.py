@@ -4,19 +4,29 @@ from datetime import datetime
 from statistics import median
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models.tracking import (
-    CalibrationPoint, CalibrationSession, ClickRecord, GazeRecord,
-)
 from app.models.participant import SurveyResponse
+from app.models.tracking import (
+    CalibrationPoint,
+    CalibrationSession,
+    ClickRecord,
+    GazeRecord,
+)
 from app.schemas.tracking import (
-    CalibrationCompleteOut, CalibrationPointOut, CalibrationSessionOut,
-    ClickBatchOut, ClickBatchRequest, CreateCalibrationRequest,
-    GazeBatchOut, GazeBatchRequest, QualityInfo, RecordCalibrationPointRequest,
+    CalibrationCompleteOut,
+    CalibrationPointOut,
+    CalibrationSessionOut,
+    ClickBatchOut,
+    ClickBatchRequest,
+    CreateCalibrationRequest,
+    GazeBatchOut,
+    GazeBatchRequest,
+    QualityInfo,
+    RecordCalibrationPointRequest,
 )
 
 router = APIRouter(prefix="/tracking", tags=["Tracking"])
@@ -150,6 +160,15 @@ async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_d
 @router.post("/gaze", response_model=GazeBatchOut)
 async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(get_db)):
     """Record a batch of gaze data points. Frontend sends these every 5-10 seconds."""
+    if not body.data:
+        return GazeBatchOut(saved=0)
+
+    result = await db.execute(
+        select(SurveyResponse).where(SurveyResponse.id == body.response_id)
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Survey response not found")
+
     for g in body.data:
         db.add(GazeRecord(
             response_id=body.response_id, post_id=g.post_id,
@@ -167,6 +186,15 @@ async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(g
 @router.post("/clicks", response_model=ClickBatchOut)
 async def record_click_batch(body: ClickBatchRequest, db: AsyncSession = Depends(get_db)):
     """Record a batch of mouse click events."""
+    if not body.data:
+        return ClickBatchOut(saved=0)
+
+    result = await db.execute(
+        select(SurveyResponse).where(SurveyResponse.id == body.response_id)
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Survey response not found")
+
     for c in body.data:
         db.add(ClickRecord(
             response_id=body.response_id, post_id=c.post_id,
