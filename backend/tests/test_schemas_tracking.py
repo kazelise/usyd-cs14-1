@@ -77,3 +77,46 @@ class TestIrisSample:
     def test_missing_required_fields(self):
         with pytest.raises(ValidationError):
             IrisSample(timestamp_ms=1000, face_detected=True)
+
+
+from app.schemas.tracking import RecordCalibrationPointRequest
+
+
+class TestRecordCalibrationPointRequest:
+    """Tests for calibration point recording schema."""
+
+    def test_valid_request(self):
+        samples = [
+            {
+                "timestamp_ms": i * 100,
+                "left_iris_x": 0.45,
+                "left_iris_y": 0.52,
+                "right_iris_x": 0.55,
+                "right_iris_y": 0.48,
+                "face_detected": True,
+            }
+            for i in range(10)
+        ]
+        req = RecordCalibrationPointRequest(
+            point_index=0,
+            target_screen_x=100,
+            target_screen_y=100,
+            samples=samples,
+        )
+        assert req.point_index == 0
+        assert len(req.samples) == 10
+
+    def test_empty_samples_list(self):
+        req = RecordCalibrationPointRequest(
+            point_index=0,
+            target_screen_x=100,
+            target_screen_y=100,
+            samples=[],
+        )
+        assert len(req.samples) == 0
+
+    def test_missing_point_index(self):
+        with pytest.raises(ValidationError):
+            RecordCalibrationPointRequest(
+                target_screen_x=100, target_screen_y=100, samples=[]
+            )
