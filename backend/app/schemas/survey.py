@@ -87,12 +87,14 @@ class CommentOut(BaseModel):
 
 class CreatePostRequest(BaseModel):
     """Researcher provides a URL. Backend fetches OG metadata automatically."""
+
     original_url: str
     order: int
 
 
 class UpdatePostRequest(BaseModel):
     """Researcher overrides fetched metadata and sets fake engagement numbers."""
+
     display_title: str | None = None
     display_image_url: str | None = None
     display_likes: int | None = None

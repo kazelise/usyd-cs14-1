@@ -60,9 +60,7 @@ class ParticipantInteraction(Base):
     response_id: Mapped[int] = mapped_column(
         ForeignKey("survey_responses.id", ondelete="CASCADE"), nullable=False
     )
-    post_id: Mapped[int] = mapped_column(
-        ForeignKey("survey_posts.id"), nullable=False
-    )
+    post_id: Mapped[int] = mapped_column(ForeignKey("survey_posts.id"), nullable=False)
     action_type: Mapped[str] = mapped_column(String(20), nullable=False)  # like / comment / click
     comment_text: Mapped[str | None] = mapped_column(Text)  # only if action_type == "comment"
     timestamp: Mapped[datetime] = mapped_column(default=datetime.utcnow)

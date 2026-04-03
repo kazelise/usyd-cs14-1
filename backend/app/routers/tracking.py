@@ -37,12 +37,11 @@ router = APIRouter(prefix="/tracking", tags=["Tracking"])
 
 @router.post("/calibration/sessions", response_model=CalibrationSessionOut, status_code=201)
 async def create_calibration_session(
-    body: CreateCalibrationRequest, db: AsyncSession = Depends(get_db),
+    body: CreateCalibrationRequest,
+    db: AsyncSession = Depends(get_db),
 ):
     """Create a calibration session when participant begins webcam calibration."""
-    result = await db.execute(
-        select(SurveyResponse).where(SurveyResponse.id == body.response_id)
-    )
+    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == body.response_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Survey response not found")
 
@@ -63,20 +62,25 @@ async def create_calibration_session(
     await db.flush()
     await db.refresh(session)
     return CalibrationSessionOut(
-        session_id=session.id, response_id=session.response_id,
-        status=session.status, expected_points=session.expected_points,
+        session_id=session.id,
+        response_id=session.response_id,
+        status=session.status,
+        expected_points=session.expected_points,
         started_at=session.started_at,
     )
 
 
 @router.post("/calibration/sessions/{session_id}/points", response_model=CalibrationPointOut)
 async def record_calibration_point(
-    session_id: int, body: RecordCalibrationPointRequest, db: AsyncSession = Depends(get_db),
+    session_id: int,
+    body: RecordCalibrationPointRequest,
+    db: AsyncSession = Depends(get_db),
 ):
     """Record data for one calibration point."""
     result = await db.execute(
         select(CalibrationSession).where(
-            CalibrationSession.id == session_id, CalibrationSession.status == "in_progress",
+            CalibrationSession.id == session_id,
+            CalibrationSession.status == "in_progress",
         )
     )
     session = result.scalar_one_or_none()
@@ -85,8 +89,10 @@ async def record_calibration_point(
 
     valid = [s for s in body.samples if s.face_detected]
     point = CalibrationPoint(
-        session_id=session_id, point_index=body.point_index,
-        target_screen_x=body.target_screen_x, target_screen_y=body.target_screen_y,
+        session_id=session_id,
+        point_index=body.point_index,
+        target_screen_x=body.target_screen_x,
+        target_screen_y=body.target_screen_y,
         samples=[s.model_dump() for s in body.samples],
         samples_count=len(body.samples),
         median_left_iris_x=median([s.left_iris_x for s in valid]) if valid else None,
@@ -97,13 +103,17 @@ async def record_calibration_point(
     db.add(point)
     await db.flush()
 
-    count = (await db.execute(
-        select(func.count(CalibrationPoint.id)).where(CalibrationPoint.session_id == session_id)
-    )).scalar() or 0
+    count = (
+        await db.execute(
+            select(func.count(CalibrationPoint.id)).where(CalibrationPoint.session_id == session_id)
+        )
+    ).scalar() or 0
 
     return CalibrationPointOut(
-        session_id=session_id, point_index=body.point_index,
-        samples_recorded=len(body.samples), points_completed=count,
+        session_id=session_id,
+        point_index=body.point_index,
+        samples_recorded=len(body.samples),
+        points_completed=count,
         points_remaining=session.expected_points - count,
     )
 
@@ -112,7 +122,8 @@ async def record_calibration_point(
 async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_db)):
     """Complete calibration and compute quality metrics."""
     result = await db.execute(
-        select(CalibrationSession).options(selectinload(CalibrationSession.points))
+        select(CalibrationSession)
+        .options(selectinload(CalibrationSession.points))
         .where(CalibrationSession.id == session_id, CalibrationSession.status == "in_progress")
     )
     session = result.scalar_one_or_none()
@@ -144,10 +155,13 @@ async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_d
     await db.refresh(session)
 
     return CalibrationCompleteOut(
-        session_id=session.id, status="completed",
+        session_id=session.id,
+        status="completed",
         quality=QualityInfo(
-            total_points=total_points, valid_points=valid_points,
-            avg_samples_per_point=avg_samples, face_detection_rate=face_rate,
+            total_points=total_points,
+            valid_points=valid_points,
+            avg_samples_per_point=avg_samples,
+            face_detection_rate=face_rate,
             overall_quality=quality,
         ),
         completed_at=session.completed_at,
@@ -161,12 +175,19 @@ async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_d
 async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(get_db)):
     """Record a batch of gaze data points. Frontend sends these every 5-10 seconds."""
     for g in body.data:
-        db.add(GazeRecord(
-            response_id=body.response_id, post_id=g.post_id,
-            timestamp_ms=g.timestamp_ms, screen_x=g.screen_x, screen_y=g.screen_y,
-            left_iris_x=g.left_iris_x, left_iris_y=g.left_iris_y,
-            right_iris_x=g.right_iris_x, right_iris_y=g.right_iris_y,
-        ))
+        db.add(
+            GazeRecord(
+                response_id=body.response_id,
+                post_id=g.post_id,
+                timestamp_ms=g.timestamp_ms,
+                screen_x=g.screen_x,
+                screen_y=g.screen_y,
+                left_iris_x=g.left_iris_x,
+                left_iris_y=g.left_iris_y,
+                right_iris_x=g.right_iris_x,
+                right_iris_y=g.right_iris_y,
+            )
+        )
     await db.flush()
     return GazeBatchOut(saved=len(body.data))
 
@@ -178,10 +199,15 @@ async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(g
 async def record_click_batch(body: ClickBatchRequest, db: AsyncSession = Depends(get_db)):
     """Record a batch of mouse click events."""
     for c in body.data:
-        db.add(ClickRecord(
-            response_id=body.response_id, post_id=c.post_id,
-            timestamp_ms=c.timestamp_ms, screen_x=c.screen_x, screen_y=c.screen_y,
-            target_element=c.target_element,
-        ))
+        db.add(
+            ClickRecord(
+                response_id=body.response_id,
+                post_id=c.post_id,
+                timestamp_ms=c.timestamp_ms,
+                screen_x=c.screen_x,
+                screen_y=c.screen_y,
+                target_element=c.target_element,
+            )
+        )
     await db.flush()
     return ClickBatchOut(saved=len(body.data))

@@ -69,6 +69,7 @@ class CalibrationCompleteOut(BaseModel):
 
 class GazeDataPoint(BaseModel):
     """A single gaze data point from the frontend."""
+
     post_id: int | None = None
     timestamp_ms: int
     screen_x: float
@@ -81,6 +82,7 @@ class GazeDataPoint(BaseModel):
 
 class GazeBatchRequest(BaseModel):
     """Frontend sends gaze data in batches (e.g., every 5-10 seconds)."""
+
     response_id: int
     data: list[GazeDataPoint]
 

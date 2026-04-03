@@ -34,7 +34,9 @@ class Survey(Base):
 
     # ── A/B Testing Configuration ────────────────────
     num_groups: Mapped[int] = mapped_column(SmallInteger, default=1)  # 1 = no A/B testing
-    group_names: Mapped[dict | None] = mapped_column(JSON)  # e.g. {"1": "with_likes", "2": "no_likes"}
+    group_names: Mapped[dict | None] = mapped_column(
+        JSON
+    )  # e.g. {"1": "with_likes", "2": "no_likes"}
 
     # ── Gaze & Click Tracking ────────────────────────
     gaze_tracking_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -64,7 +66,9 @@ class SurveyPost(Base):
     __tablename__ = "survey_posts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    survey_id: Mapped[int] = mapped_column(ForeignKey("surveys.id", ondelete="CASCADE"), nullable=False)
+    survey_id: Mapped[int] = mapped_column(
+        ForeignKey("surveys.id", ondelete="CASCADE"), nullable=False
+    )
     order: Mapped[int] = mapped_column(nullable=False)
 
     # ── Original URL & Auto-Fetched Metadata ─────────
@@ -110,7 +114,9 @@ class PostComment(Base):
     __tablename__ = "post_comments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    post_id: Mapped[int] = mapped_column(ForeignKey("survey_posts.id", ondelete="CASCADE"), nullable=False)
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("survey_posts.id", ondelete="CASCADE"), nullable=False
+    )
     order: Mapped[int] = mapped_column(nullable=False)
     author_name: Mapped[str] = mapped_column(String(100), nullable=False)
     author_avatar_url: Mapped[str | None] = mapped_column(Text)

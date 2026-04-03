@@ -375,9 +375,7 @@ async def record_interaction(
     db: AsyncSession = Depends(get_db),
 ):
     """Record a participant interaction with a post (like, comment, or click to original)."""
-    result = await db.execute(
-        select(SurveyResponse).where(SurveyResponse.id == response_id)
-    )
+    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == response_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Response not found")
 
@@ -453,14 +451,14 @@ async def get_response_state(
     liked_post_ids = list(likes_result.scalars().all())
 
     comments_result = await db.execute(
-        select(ParticipantComment).where(ParticipantComment.response_id == response_id).order_by(ParticipantComment.created_at)
+        select(ParticipantComment)
+        .where(ParticipantComment.response_id == response_id)
+        .order_by(ParticipantComment.created_at)
     )
     comments = comments_result.scalars().all()
     comments_by_post: dict[int, list[ParticipantCommentOut]] = {}
     for c in comments:
-        comments_by_post.setdefault(c.post_id, []).append(
-            ParticipantCommentOut.model_validate(c)
-        )
+        comments_by_post.setdefault(c.post_id, []).append(ParticipantCommentOut.model_validate(c))
     return ResponseStateOut(liked_post_ids=liked_post_ids, comments_by_post=comments_by_post)
 
 
@@ -470,9 +468,7 @@ async def complete_response(
     db: AsyncSession = Depends(get_db),
 ):
     """Mark a survey response as completed."""
-    result = await db.execute(
-        select(SurveyResponse).where(SurveyResponse.id == response_id)
-    )
+    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == response_id))
     response = result.scalar_one_or_none()
     if not response:
         raise HTTPException(status_code=404, detail="Response not found")
@@ -492,7 +488,9 @@ class ParticipantCommentPatch(BaseModel):
     text: str
 
 
-@router.post("/responses/{response_id}/comments", response_model=ParticipantCommentOut, status_code=201)
+@router.post(
+    "/responses/{response_id}/comments", response_model=ParticipantCommentOut, status_code=201
+)
 async def create_participant_comment(
     response_id: int,
     body: ParticipantCommentIn,
@@ -519,7 +517,9 @@ async def create_participant_comment(
     return comment
 
 
-@router.patch("/responses/{response_id}/comments/{comment_id}", response_model=ParticipantCommentOut)
+@router.patch(
+    "/responses/{response_id}/comments/{comment_id}", response_model=ParticipantCommentOut
+)
 async def update_participant_comment(
     response_id: int,
     comment_id: int,
@@ -576,9 +576,7 @@ async def get_engagement_stats(
         raise HTTPException(status_code=404, detail="Survey not found")
 
     # collect post ids
-    posts_result = await db.execute(
-        select(SurveyPost.id).where(SurveyPost.survey_id == survey_id)
-    )
+    posts_result = await db.execute(select(SurveyPost.id).where(SurveyPost.survey_id == survey_id))
     post_ids = list(posts_result.scalars().all())
     if not post_ids:
         return SurveyEngagementStats(survey_id=survey_id, posts=[])

@@ -44,7 +44,8 @@ class CalibrationSession(Base):
 
     response: Mapped["SurveyResponse"] = relationship(back_populates="calibration_session")  # noqa: F821
     points: Mapped[list["CalibrationPoint"]] = relationship(
-        back_populates="session", cascade="all, delete-orphan",
+        back_populates="session",
+        cascade="all, delete-orphan",
         order_by="CalibrationPoint.point_index",
     )
 
@@ -53,9 +54,7 @@ class CalibrationPoint(Base):
     """Data for one calibration point (e.g., point 3 of 9)."""
 
     __tablename__ = "calibration_points"
-    __table_args__ = (
-        UniqueConstraint("session_id", "point_index", name="uq_session_point"),
-    )
+    __table_args__ = (UniqueConstraint("session_id", "point_index", name="uq_session_point"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     session_id: Mapped[int] = mapped_column(
@@ -120,10 +119,10 @@ class ClickRecord(Base):
     response_id: Mapped[int] = mapped_column(
         ForeignKey("survey_responses.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    post_id: Mapped[int | None] = mapped_column(
-        ForeignKey("survey_posts.id"), nullable=True
-    )
+    post_id: Mapped[int | None] = mapped_column(ForeignKey("survey_posts.id"), nullable=True)
     timestamp_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
     screen_x: Mapped[float] = mapped_column(Float, nullable=False)
     screen_y: Mapped[float] = mapped_column(Float, nullable=False)
-    target_element: Mapped[str | None] = mapped_column(String(50))  # e.g. "headline", "image", "like_button"
+    target_element: Mapped[str | None] = mapped_column(
+        String(50)
+    )  # e.g. "headline", "image", "like_button"
