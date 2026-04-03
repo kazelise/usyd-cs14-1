@@ -54,6 +54,16 @@ class SurveyListOut(BaseModel):
     total: int
 
 
+# ── Public (participant pre-start) ───────────────────
+
+
+class PublicSurveyOut(BaseModel):
+    title: str
+    description: str | None = None
+    status: str
+    model_config = {"from_attributes": True}
+
+
 # ── Post Comment (fake, added by researcher) ─────────
 
 
@@ -147,3 +157,39 @@ class InteractionOut(BaseModel):
     comment_text: str | None
     timestamp: datetime
     model_config = {"from_attributes": True}
+
+
+# ── Participant state & comments ─────────────────────
+
+
+class ParticipantCommentOut(BaseModel):
+    id: int
+    post_id: int
+    text: str
+    created_at: datetime
+    updated_at: datetime | None = None
+    model_config = {"from_attributes": True}
+
+
+class ResponseStateOut(BaseModel):
+    liked_post_ids: list[int]
+    comments_by_post: dict[int, list[ParticipantCommentOut]]
+
+
+# ── Researcher analytics ─────────────────────────────
+
+
+class PostEngagementStat(BaseModel):
+    post_id: int
+    likes: int
+    participant_comments: int
+    shares: int
+
+
+class SurveyEngagementStats(BaseModel):
+    survey_id: int
+    posts: list[PostEngagementStat]
+
+
+class SurveyParticipantCommentsOut(BaseModel):
+    comments_by_post: dict[int, list[ParticipantCommentOut]]

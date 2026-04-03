@@ -10,10 +10,11 @@ From the meeting:
 
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, Float, ForeignKey, SmallInteger, String, UniqueConstraint
+from sqlalchemy import BigInteger, ForeignKey, String, Float, SmallInteger, JSON, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
 
 # ── Calibration ──────────────────────────────────────
 

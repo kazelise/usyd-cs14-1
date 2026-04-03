@@ -4,60 +4,32 @@ from datetime import datetime
 from statistics import median
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models.participant import SurveyResponse
 from app.models.tracking import (
-    CalibrationPoint,
-    CalibrationSession,
-    ClickRecord,
-    GazeRecord,
+    CalibrationPoint, CalibrationSession, ClickRecord, GazeRecord,
 )
+from app.models.participant import SurveyResponse
 from app.schemas.tracking import (
-    CalibrationCompleteOut,
-    CalibrationPointOut,
-    CalibrationSessionOut,
-    ClickBatchOut,
-    ClickBatchRequest,
-    CreateCalibrationRequest,
-    GazeBatchOut,
-    GazeBatchRequest,
-    QualityInfo,
-    RecordCalibrationPointRequest,
+    CalibrationCompleteOut, CalibrationPointOut, CalibrationSessionOut,
+    ClickBatchOut, ClickBatchRequest, CreateCalibrationRequest,
+    GazeBatchOut, GazeBatchRequest, QualityInfo, RecordCalibrationPointRequest,
 )
 
-router = APIRouter(
-    prefix="/tracking",
-    tags=["Tracking (Backend C)"],
-)
+router = APIRouter(prefix="/tracking", tags=["Tracking"])
 
 
 # ── Calibration ───────────────────────────────────────
 
 
-@router.post(
-    "/calibration/sessions",
-    response_model=CalibrationSessionOut,
-    status_code=201,
-    summary="Create calibration session",
-    responses={
-        201: {"description": "Calibration session created successfully"},
-        404: {"description": "Survey response not found"},
-        409: {"description": "Calibration session already exists for this response"},
-    },
-)
+@router.post("/calibration/sessions", response_model=CalibrationSessionOut, status_code=201)
 async def create_calibration_session(
     body: CreateCalibrationRequest, db: AsyncSession = Depends(get_db),
 ):
-    """Create a webcam calibration session before the participant begins the survey.
-
-    The participant's browser captures screen and camera dimensions, then
-    presents a 9-point calibration grid. Each point is recorded separately
-    via the record-point endpoint.
-    """
+    """Create a calibration session when participant begins webcam calibration."""
     result = await db.execute(
         select(SurveyResponse).where(SurveyResponse.id == body.response_id)
     )
@@ -87,25 +59,11 @@ async def create_calibration_session(
     )
 
 
-@router.post(
-    "/calibration/sessions/{session_id}/points",
-    response_model=CalibrationPointOut,
-    summary="Record a calibration point",
-    responses={
-        200: {"description": "Calibration point recorded with progress info"},
-        404: {"description": "Active calibration session not found"},
-    },
-)
+@router.post("/calibration/sessions/{session_id}/points", response_model=CalibrationPointOut)
 async def record_calibration_point(
     session_id: int, body: RecordCalibrationPointRequest, db: AsyncSession = Depends(get_db),
 ):
-    """Record iris samples for one calibration point.
-
-    The frontend displays a dot at a known screen position, collects
-    MediaPipe Face Mesh iris coordinates while the participant looks at it,
-    then sends all samples here. The median iris position is computed
-    server-side for each point.
-    """
+    """Record data for one calibration point."""
     result = await db.execute(
         select(CalibrationSession).where(
             CalibrationSession.id == session_id, CalibrationSession.status == "in_progress",
@@ -140,24 +98,9 @@ async def record_calibration_point(
     )
 
 
-@router.post(
-    "/calibration/sessions/{session_id}/complete",
-    response_model=CalibrationCompleteOut,
-    summary="Complete calibration session",
-    responses={
-        200: {"description": "Calibration completed with quality assessment"},
-        404: {"description": "Active calibration session not found"},
-    },
-)
+@router.post("/calibration/sessions/{session_id}/complete", response_model=CalibrationCompleteOut)
 async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_db)):
-    """Finalize calibration and compute quality metrics.
-
-    Quality is assessed based on face detection rate and number of
-    valid points (>= 10 samples each):
-    - **good**: face rate >= 90%, valid points >= 78% of expected
-    - **acceptable**: face rate >= 70%, valid points >= 56% of expected
-    - **poor**: below acceptable thresholds
-    """
+    """Complete calibration and compute quality metrics."""
     result = await db.execute(
         select(CalibrationSession).options(selectinload(CalibrationSession.points))
         .where(CalibrationSession.id == session_id, CalibrationSession.status == "in_progress")
@@ -204,31 +147,9 @@ async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_d
 # ── Gaze Tracking ─────────────────────────────────────
 
 
-@router.post(
-    "/gaze",
-    response_model=GazeBatchOut,
-    summary="Record gaze data batch",
-    responses={
-        200: {"description": "Gaze data saved successfully"},
-    },
-)
+@router.post("/gaze", response_model=GazeBatchOut)
 async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(get_db)):
-    """Record a batch of gaze data points.
-
-    The frontend eye-tracking module (MediaPipe Face Mesh) estimates
-    where the participant is looking on screen and sends coordinates
-    every 5-10 seconds. Each data point includes screen XY position
-    and raw iris coordinates for both eyes.
-    """
-    if not body.data:
-        return GazeBatchOut(saved=0)
-
-    result = await db.execute(
-        select(SurveyResponse).where(SurveyResponse.id == body.response_id)
-    )
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Survey response not found")
-
+    """Record a batch of gaze data points. Frontend sends these every 5-10 seconds."""
     for g in body.data:
         db.add(GazeRecord(
             response_id=body.response_id, post_id=g.post_id,
@@ -243,31 +164,9 @@ async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(g
 # ── Click Tracking ────────────────────────────────────
 
 
-@router.post(
-    "/clicks",
-    response_model=ClickBatchOut,
-    summary="Record click data batch",
-    responses={
-        200: {"description": "Click data saved successfully"},
-    },
-)
+@router.post("/clicks", response_model=ClickBatchOut)
 async def record_click_batch(body: ClickBatchRequest, db: AsyncSession = Depends(get_db)):
-    """Record a batch of mouse click events.
-
-    The frontend captures every click during survey participation,
-    buffering them and flushing every 10 seconds. Each event includes
-    screen coordinates and the type of element clicked (headline,
-    image, like_button, comment_button, share_count, or other).
-    """
-    if not body.data:
-        return ClickBatchOut(saved=0)
-
-    result = await db.execute(
-        select(SurveyResponse).where(SurveyResponse.id == body.response_id)
-    )
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Survey response not found")
-
+    """Record a batch of mouse click events."""
     for c in body.data:
         db.add(ClickRecord(
             response_id=body.response_id, post_id=c.post_id,

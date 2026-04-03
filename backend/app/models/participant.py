@@ -7,7 +7,7 @@ and their interactions (likes, comments) with posts.
 import secrets
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text, SmallInteger, JSON
+from sqlalchemy import ForeignKey, String, Text, SmallInteger, JSON, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -68,3 +68,50 @@ class ParticipantInteraction(Base):
     timestamp: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     response: Mapped["SurveyResponse"] = relationship(back_populates="interactions")
+
+
+class ParticipantLike(Base):
+    """Current like state per (response, post).
+
+    Keeps the latest like status to support toggle (like/unlike) in UI,
+    while `ParticipantInteraction` records the event stream for analytics.
+    """
+
+    __tablename__ = "participant_likes"
+    __table_args__ = (
+        UniqueConstraint("response_id", "post_id", name="uq_participant_like_response_post"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    response_id: Mapped[int] = mapped_column(
+        ForeignKey("survey_responses.id", ondelete="CASCADE"), nullable=False
+    )
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("survey_posts.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+    response: Mapped["SurveyResponse"] = relationship()
+
+
+class ParticipantComment(Base):
+    """A comment written by a participant during a survey session.
+
+    Separate from `PostComment` (researcher-authored fake comments).
+    """
+
+    __tablename__ = "participant_comments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    response_id: Mapped[int] = mapped_column(
+        ForeignKey("survey_responses.id", ondelete="CASCADE"), nullable=False
+    )
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("survey_posts.id", ondelete="CASCADE"), nullable=False
+    )
+    author_name: Mapped[str | None] = mapped_column(String(100))
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column()
+
+    response: Mapped["SurveyResponse"] = relationship()

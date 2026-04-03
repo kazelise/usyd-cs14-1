@@ -49,42 +49,27 @@ export const api = {
   // Participant
   startSurvey: (shareCode: string) =>
     request(`/surveys/${shareCode}/start`, { method: "POST" }),
+  getPublicSurvey: (shareCode: string) => request(`/surveys/public/${shareCode}`),
+  getResponseState: (responseId: number) => request(`/surveys/responses/${responseId}/state`),
+  toggleLike: (responseId: number, postId: number) =>
+    request(`/surveys/responses/${responseId}/likes/toggle`, { method: "POST", body: JSON.stringify({ post_id: postId }) }),
+  createParticipantComment: (
+    responseId: number,
+    data: { post_id: number; text: string; author_name?: string }
+  ) => request(`/surveys/responses/${responseId}/comments`, { method: "POST", body: JSON.stringify(data) }),
+  updateParticipantComment: (
+    responseId: number,
+    commentId: number,
+    text: string
+  ) => request(`/surveys/responses/${responseId}/comments/${commentId}`, { method: "PATCH", body: JSON.stringify({ text }) }),
+  deleteParticipantComment: (responseId: number, commentId: number) =>
+    request(`/surveys/responses/${responseId}/comments/${commentId}`, { method: "DELETE" }),
   recordInteraction: (responseId: number, data: { post_id: number; action_type: string; comment_text?: string }) =>
     request(`/surveys/responses/${responseId}/interact`, { method: "POST", body: JSON.stringify(data) }),
   completeSurvey: (responseId: number) =>
     request(`/surveys/responses/${responseId}/complete`, { method: "POST" }),
 
   // Tracking
-  createCalibrationSession: (data: {
-    response_id: number;
-    screen_width: number;
-    screen_height: number;
-    camera_width?: number | null;
-    camera_height?: number | null;
-  }) => request("/tracking/calibration/sessions", { method: "POST", body: JSON.stringify(data) }),
-  recordCalibrationPoint: (
-    sessionId: number,
-    data: {
-      point_index: number;
-      target_screen_x: number;
-      target_screen_y: number;
-      samples: Array<{
-        timestamp_ms: number;
-        left_iris_x: number;
-        left_iris_y: number;
-        right_iris_x: number;
-        right_iris_y: number;
-        face_detected: boolean;
-        head_rotation?: Record<string, number> | null;
-      }>;
-    },
-  ) =>
-    request(`/tracking/calibration/sessions/${sessionId}/points`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-  completeCalibration: (sessionId: number) =>
-    request(`/tracking/calibration/sessions/${sessionId}/complete`, { method: "POST" }),
   recordGaze: (data: { response_id: number; data: any[] }) =>
     request("/tracking/gaze", { method: "POST", body: JSON.stringify(data) }),
   recordClicks: (data: { response_id: number; data: any[] }) =>
