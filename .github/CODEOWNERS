@@ -1,0 +1,27 @@
+# Replace @placeholder with real GitHub IDs
+
+# Frontend A — Survey Editor
+/frontend/app/admin/           @frontend-a1 @frontend-a2
+
+# Frontend B — Participant Page
+/frontend/app/survey/          @frontend-b1 @frontend-b2
+
+# Backend A — Auth + Survey
+/backend/app/routers/auth.py   @backend-a1
+/backend/app/models/researcher.py @backend-a1
+
+# Backend B — Posts + OG Fetch
+/backend/app/routers/surveys.py   @backend-a1 @backend-b1
+/backend/app/models/survey.py     @backend-b1
+/backend/app/models/participant.py @backend-b1
+/backend/app/services/og_fetcher.py @backend-b1
+
+# Backend C — Tracking (Zed)
+/backend/app/routers/tracking.py   @zed @backend-c2
+/backend/app/models/tracking.py    @zed @backend-c2
+/backend/app/schemas/tracking.py   @zed @backend-c2
+
+# Shared — Tech Lead
+/docker-compose.yml             @tech-lead
+/backend/app/main.py            @tech-lead
+/.github/                       @tech-lead

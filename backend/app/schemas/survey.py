@@ -1,0 +1,195 @@
+"""Survey and post schemas. Owned by Backend A/B."""
+
+from datetime import datetime
+from pydantic import BaseModel
+
+
+# ── Survey ────────────────────────────────────────────
+
+
+class CreateSurveyRequest(BaseModel):
+    title: str
+    description: str | None = None
+    num_groups: int = 1
+    group_names: dict | None = None  # {"1": "with_likes", "2": "no_likes"}
+    gaze_tracking_enabled: bool = True
+    gaze_interval_ms: int = 1000
+    click_tracking_enabled: bool = True
+    calibration_enabled: bool = True
+    calibration_points: int = 9
+
+
+class UpdateSurveyRequest(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    num_groups: int | None = None
+    group_names: dict | None = None
+    gaze_tracking_enabled: bool | None = None
+    gaze_interval_ms: int | None = None
+    click_tracking_enabled: bool | None = None
+    calibration_enabled: bool | None = None
+    calibration_points: int | None = None
+
+
+class SurveyOut(BaseModel):
+    id: int
+    title: str
+    description: str | None
+    status: str
+    share_code: str
+    num_groups: int
+    group_names: dict | None
+    gaze_tracking_enabled: bool
+    gaze_interval_ms: int
+    click_tracking_enabled: bool
+    calibration_enabled: bool
+    calibration_points: int
+    created_at: datetime
+    updated_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class SurveyListOut(BaseModel):
+    items: list[SurveyOut]
+    total: int
+
+
+# ── Public (participant pre-start) ───────────────────
+
+
+class PublicSurveyOut(BaseModel):
+    title: str
+    description: str | None = None
+    status: str
+    model_config = {"from_attributes": True}
+
+
+# ── Post Comment (fake, added by researcher) ─────────
+
+
+class CommentIn(BaseModel):
+    author_name: str
+    author_avatar_url: str | None = None
+    text: str
+
+
+class CommentOut(BaseModel):
+    id: int
+    order: int
+    author_name: str
+    author_avatar_url: str | None
+    text: str
+    model_config = {"from_attributes": True}
+
+
+# ── Survey Post ───────────────────────────────────────
+
+
+class CreatePostRequest(BaseModel):
+    """Researcher provides a URL. Backend fetches OG metadata automatically."""
+    original_url: str
+    order: int
+
+
+class UpdatePostRequest(BaseModel):
+    """Researcher overrides fetched metadata and sets fake engagement numbers."""
+    display_title: str | None = None
+    display_image_url: str | None = None
+    display_likes: int | None = None
+    display_comments_count: int | None = None
+    display_shares: int | None = None
+    show_likes: bool | None = None
+    show_comments: bool | None = None
+    show_shares: bool | None = None
+    visible_to_groups: list[int] | None = None
+    group_overrides: dict | None = None
+    order: int | None = None
+
+
+class PostOut(BaseModel):
+    id: int
+    survey_id: int
+    order: int
+    original_url: str
+    fetched_title: str | None
+    fetched_image_url: str | None
+    fetched_description: str | None
+    fetched_source: str | None
+    display_title: str | None
+    display_image_url: str | None
+    display_likes: int
+    display_comments_count: int
+    display_shares: int
+    show_likes: bool
+    show_comments: bool
+    show_shares: bool
+    visible_to_groups: list | None
+    group_overrides: dict | None
+    comments: list[CommentOut] = []
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Participant-Side ──────────────────────────────────
+
+
+class StartSurveyResponse(BaseModel):
+    response_id: int
+    survey_id: int
+    assigned_group: int
+    calibration_required: bool
+    gaze_tracking_enabled: bool
+    gaze_interval_ms: int
+    click_tracking_enabled: bool
+    posts: list[PostOut]
+
+
+class InteractionRequest(BaseModel):
+    post_id: int
+    action_type: str  # like / comment / click
+    comment_text: str | None = None
+
+
+class InteractionOut(BaseModel):
+    id: int
+    post_id: int
+    action_type: str
+    comment_text: str | None
+    timestamp: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Participant state & comments ─────────────────────
+
+
+class ParticipantCommentOut(BaseModel):
+    id: int
+    post_id: int
+    text: str
+    created_at: datetime
+    updated_at: datetime | None = None
+    model_config = {"from_attributes": True}
+
+
+class ResponseStateOut(BaseModel):
+    liked_post_ids: list[int]
+    comments_by_post: dict[int, list[ParticipantCommentOut]]
+
+
+# ── Researcher analytics ─────────────────────────────
+
+
+class PostEngagementStat(BaseModel):
+    post_id: int
+    likes: int
+    participant_comments: int
+    shares: int
+
+
+class SurveyEngagementStats(BaseModel):
+    survey_id: int
+    posts: list[PostEngagementStat]
+
+
+class SurveyParticipantCommentsOut(BaseModel):
+    comments_by_post: dict[int, list[ParticipantCommentOut]]
