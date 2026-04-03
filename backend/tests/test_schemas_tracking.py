@@ -181,3 +181,62 @@ class TestGazeBatchOut:
     def test_saved_count(self):
         out = GazeBatchOut(saved=5)
         assert out.saved == 5
+
+
+from app.schemas.tracking import ClickDataPoint, ClickBatchRequest, ClickBatchOut
+
+
+class TestClickDataPoint:
+    """Tests for click data point schema."""
+
+    def test_valid_with_target(self):
+        point = ClickDataPoint(
+            post_id=1,
+            timestamp_ms=8000,
+            screen_x=500.0,
+            screen_y=300.0,
+            target_element="headline",
+        )
+        assert point.target_element == "headline"
+
+    def test_valid_without_target(self):
+        point = ClickDataPoint(
+            timestamp_ms=8000, screen_x=500.0, screen_y=300.0
+        )
+        assert point.target_element is None
+        assert point.post_id is None
+
+    def test_missing_timestamp(self):
+        with pytest.raises(ValidationError):
+            ClickDataPoint(screen_x=500.0, screen_y=300.0)
+
+
+class TestClickBatchRequest:
+    """Tests for click batch request schema."""
+
+    def test_valid_batch(self):
+        batch = ClickBatchRequest(
+            response_id=1,
+            data=[
+                {"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 200.0},
+                {
+                    "timestamp_ms": 2000,
+                    "screen_x": 300.0,
+                    "screen_y": 400.0,
+                    "target_element": "image",
+                },
+            ],
+        )
+        assert len(batch.data) == 2
+
+    def test_empty_batch(self):
+        batch = ClickBatchRequest(response_id=1, data=[])
+        assert len(batch.data) == 0
+
+
+class TestClickBatchOut:
+    """Tests for click batch response schema."""
+
+    def test_saved_count(self):
+        out = ClickBatchOut(saved=3)
+        assert out.saved == 3
