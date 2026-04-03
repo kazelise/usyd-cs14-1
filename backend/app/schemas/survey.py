@@ -1,8 +1,8 @@
 """Survey and post schemas. Owned by Backend A/B."""
 
 from datetime import datetime
-from pydantic import BaseModel
 
+from pydantic import BaseModel
 
 # ── Survey ────────────────────────────────────────────
 

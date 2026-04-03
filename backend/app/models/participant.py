@@ -7,7 +7,7 @@ and their interactions (likes, comments) with posts.
 import secrets
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text, SmallInteger, JSON, UniqueConstraint
+from sqlalchemy import ForeignKey, SmallInteger, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base

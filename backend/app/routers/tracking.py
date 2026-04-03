@@ -4,19 +4,29 @@ from datetime import datetime
 from statistics import median
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models.tracking import (
-    CalibrationPoint, CalibrationSession, ClickRecord, GazeRecord,
-)
 from app.models.participant import SurveyResponse
+from app.models.tracking import (
+    CalibrationPoint,
+    CalibrationSession,
+    ClickRecord,
+    GazeRecord,
+)
 from app.schemas.tracking import (
-    CalibrationCompleteOut, CalibrationPointOut, CalibrationSessionOut,
-    ClickBatchOut, ClickBatchRequest, CreateCalibrationRequest,
-    GazeBatchOut, GazeBatchRequest, QualityInfo, RecordCalibrationPointRequest,
+    CalibrationCompleteOut,
+    CalibrationPointOut,
+    CalibrationSessionOut,
+    ClickBatchOut,
+    ClickBatchRequest,
+    CreateCalibrationRequest,
+    GazeBatchOut,
+    GazeBatchRequest,
+    QualityInfo,
+    RecordCalibrationPointRequest,
 )
 
 router = APIRouter(prefix="/tracking", tags=["Tracking"])
