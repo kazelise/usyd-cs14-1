@@ -240,3 +240,77 @@ class TestClickBatchOut:
     def test_saved_count(self):
         out = ClickBatchOut(saved=3)
         assert out.saved == 3
+
+
+from datetime import datetime
+
+from app.schemas.tracking import (
+    CalibrationSessionOut,
+    CalibrationPointOut,
+    CalibrationCompleteOut,
+    QualityInfo,
+)
+
+
+class TestCalibrationSessionOut:
+    """Tests for calibration session response schema."""
+
+    def test_valid_output(self):
+        out = CalibrationSessionOut(
+            session_id=1,
+            response_id=1,
+            status="in_progress",
+            expected_points=9,
+            started_at=datetime(2026, 4, 1, 10, 0, 0),
+        )
+        assert out.status == "in_progress"
+        assert out.expected_points == 9
+
+
+class TestCalibrationPointOut:
+    """Tests for calibration point response schema."""
+
+    def test_valid_output(self):
+        out = CalibrationPointOut(
+            session_id=1,
+            point_index=3,
+            samples_recorded=12,
+            points_completed=4,
+            points_remaining=5,
+        )
+        assert out.points_completed == 4
+        assert out.points_remaining == 5
+
+    def test_all_points_done(self):
+        out = CalibrationPointOut(
+            session_id=1,
+            point_index=8,
+            samples_recorded=15,
+            points_completed=9,
+            points_remaining=0,
+        )
+        assert out.points_remaining == 0
+
+
+class TestQualityInfo:
+    """Tests for quality information schema."""
+
+    def test_good_quality(self):
+        info = QualityInfo(
+            total_points=9,
+            valid_points=9,
+            avg_samples_per_point=12.5,
+            face_detection_rate=0.95,
+            overall_quality="good",
+        )
+        assert info.overall_quality == "good"
+
+    def test_poor_quality(self):
+        info = QualityInfo(
+            total_points=9,
+            valid_points=3,
+            avg_samples_per_point=5.0,
+            face_detection_rate=0.4,
+            overall_quality="poor",
+        )
+        assert info.overall_quality == "poor"
