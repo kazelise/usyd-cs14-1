@@ -314,3 +314,41 @@ class TestQualityInfo:
             overall_quality="poor",
         )
         assert info.overall_quality == "poor"
+
+
+
+class TestCalibrationCompleteOut:
+    """Tests for calibration completion response schema."""
+
+    def test_valid_completion(self):
+        out = CalibrationCompleteOut(
+            session_id=1,
+            status="completed",
+            quality=QualityInfo(
+                total_points=9,
+                valid_points=8,
+                avg_samples_per_point=11.2,
+                face_detection_rate=0.92,
+                overall_quality="good",
+            ),
+            completed_at=datetime(2026, 4, 1, 10, 5, 0),
+        )
+        assert out.status == "completed"
+        assert out.quality.overall_quality == "good"
+        assert out.quality.valid_points == 8
+
+    def test_poor_completion(self):
+        out = CalibrationCompleteOut(
+            session_id=2,
+            status="completed",
+            quality=QualityInfo(
+                total_points=9,
+                valid_points=2,
+                avg_samples_per_point=4.0,
+                face_detection_rate=0.3,
+                overall_quality="poor",
+            ),
+            completed_at=datetime(2026, 4, 1, 10, 10, 0),
+        )
+        assert out.quality.overall_quality == "poor"
+        assert out.quality.face_detection_rate == 0.3
