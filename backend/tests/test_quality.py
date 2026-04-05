@@ -60,3 +60,42 @@ class TestComputeCalibrationQuality:
         ]
         result = compute_calibration_quality(points, expected_points=9)
         assert result["avg_samples_per_point"] == 12.0
+
+
+class TestQualityThresholdBoundaries:
+    """Tests for quality threshold edge cases."""
+
+    def test_face_rate_exactly_0_9(self):
+        # 90% face detection — right at the good threshold
+        points = [_make_point(10, 9) for _ in range(9)]
+        result = compute_calibration_quality(points, expected_points=9)
+        assert result["face_detection_rate"] == 0.9
+        assert result["overall_quality"] == "good"
+
+    def test_face_rate_just_below_0_9(self):
+        # ~89% face detection — should be acceptable, not good
+        points = [_make_point(9, 8) for _ in range(9)]
+        result = compute_calibration_quality(points, expected_points=9)
+        assert result["face_detection_rate"] < 0.9
+        assert result["overall_quality"] == "acceptable"
+
+    def test_face_rate_exactly_0_7(self):
+        points = [_make_point(10, 7) for _ in range(9)]
+        result = compute_calibration_quality(points, expected_points=9)
+        assert result["face_detection_rate"] == 0.7
+        assert result["overall_quality"] == "acceptable"
+
+    def test_face_rate_just_below_0_7(self):
+        # ~69% face detection — should be poor
+        points = [_make_point(13, 9) for _ in range(9)]
+        result = compute_calibration_quality(points, expected_points=9)
+        assert result["face_detection_rate"] < 0.7
+        assert result["overall_quality"] == "poor"
+
+    def test_single_point(self):
+        points = [_make_point(15, 15)]
+        result = compute_calibration_quality(points, expected_points=9)
+        assert result["total_points"] == 1
+        assert result["face_detection_rate"] == 1.0
+        # 1 valid point < 9 * 0.56 = 5.04, so poor despite high face rate
+        assert result["overall_quality"] == "poor"
