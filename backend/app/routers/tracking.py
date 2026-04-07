@@ -3,6 +3,8 @@
 from datetime import datetime
 from statistics import median
 
+from app.utils.quality import compute_calibration_quality
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -131,26 +133,15 @@ async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_d
         raise HTTPException(status_code=404, detail="Active calibration session not found")
 
     points = session.points
-    total_points = len(points)
-    valid_points = sum(1 for p in points if p.samples_count >= 10)
-    total_samples = sum(p.samples_count for p in points)
-    avg_samples = round(total_samples / total_points, 1) if total_points else 0.0
-
-    detected = sum(1 for p in points for s in p.samples if s.get("face_detected"))
-    total = sum(len(p.samples) for p in points)
-    face_rate = round(detected / total, 3) if total else 0.0
-
-    if face_rate >= 0.9 and valid_points >= session.expected_points * 0.78:
-        quality = "good"
-    elif face_rate >= 0.7 and valid_points >= session.expected_points * 0.56:
-        quality = "acceptable"
-    else:
-        quality = "poor"
+    point_dicts = [
+        {"samples_count": p.samples_count, "samples": p.samples} for p in points
+    ]
+    metrics = compute_calibration_quality(point_dicts, session.expected_points)
 
     session.status = "completed"
     session.completed_at = datetime.utcnow()
-    session.face_detection_rate = face_rate
-    session.quality = quality
+    session.face_detection_rate = metrics["face_detection_rate"]
+    session.quality = metrics["overall_quality"]
     await db.flush()
     await db.refresh(session)
 
@@ -158,11 +149,11 @@ async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_d
         session_id=session.id,
         status="completed",
         quality=QualityInfo(
-            total_points=total_points,
-            valid_points=valid_points,
-            avg_samples_per_point=avg_samples,
-            face_detection_rate=face_rate,
-            overall_quality=quality,
+            total_points=metrics["total_points"],
+            valid_points=metrics["valid_points"],
+            avg_samples_per_point=metrics["avg_samples_per_point"],
+            face_detection_rate=metrics["face_detection_rate"],
+            overall_quality=metrics["overall_quality"],
         ),
         completed_at=session.completed_at,
     )
