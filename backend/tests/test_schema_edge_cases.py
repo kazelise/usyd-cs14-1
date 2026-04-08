@@ -116,3 +116,66 @@ class TestIrisSampleEdgeCases:
             head_rotation={},
         )
         assert sample.head_rotation == {}
+
+
+from app.schemas.tracking import GazeBatchRequest, ClickBatchRequest
+
+
+class TestBatchRequestEdgeCases:
+    """Edge cases for batch request schemas."""
+
+    def test_gaze_batch_single_item(self):
+        batch = GazeBatchRequest(
+            response_id=1,
+            data=[{"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 200.0}],
+        )
+        assert len(batch.data) == 1
+
+    def test_gaze_batch_large(self):
+        data = [
+            {"timestamp_ms": i * 1000, "screen_x": float(i), "screen_y": float(i)}
+            for i in range(100)
+        ]
+        batch = GazeBatchRequest(response_id=1, data=data)
+        assert len(batch.data) == 100
+
+    def test_click_batch_single_item(self):
+        batch = ClickBatchRequest(
+            response_id=1,
+            data=[{"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 200.0}],
+        )
+        assert len(batch.data) == 1
+
+    def test_click_batch_all_with_targets(self):
+        data = [
+            {
+                "timestamp_ms": 1000,
+                "screen_x": 100.0,
+                "screen_y": 200.0,
+                "target_element": elem,
+            }
+            for elem in ["headline", "image", "like_button", "comment"]
+        ]
+        batch = ClickBatchRequest(response_id=1, data=data)
+        assert all(d.target_element is not None for d in batch.data)
+
+    def test_mixed_gaze_data_types(self):
+        """Test batch with mix of full and minimal gaze points."""
+        batch = GazeBatchRequest(
+            response_id=1,
+            data=[
+                {
+                    "post_id": 1,
+                    "timestamp_ms": 1000,
+                    "screen_x": 100.0,
+                    "screen_y": 200.0,
+                    "left_iris_x": 0.5,
+                    "left_iris_y": 0.5,
+                    "right_iris_x": 0.5,
+                    "right_iris_y": 0.5,
+                },
+                {"timestamp_ms": 2000, "screen_x": 300.0, "screen_y": 400.0},
+            ],
+        )
+        assert batch.data[0].left_iris_x == 0.5
+        assert batch.data[1].left_iris_x is None
