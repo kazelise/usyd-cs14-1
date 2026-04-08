@@ -1,0 +1,118 @@
+"""Edge case tests for tracking schema validation."""
+
+import pytest
+from pydantic import ValidationError
+
+from app.schemas.tracking import (
+    CreateCalibrationRequest,
+    GazeDataPoint,
+    ClickDataPoint,
+    IrisSample,
+)
+
+
+class TestCalibrationRequestEdgeCases:
+    """Edge cases for calibration request validation."""
+
+    def test_zero_screen_dimensions(self):
+        req = CreateCalibrationRequest(
+            response_id=1, screen_width=0, screen_height=0
+        )
+        assert req.screen_width == 0
+
+    def test_large_screen_dimensions(self):
+        req = CreateCalibrationRequest(
+            response_id=1, screen_width=7680, screen_height=4320
+        )
+        assert req.screen_width == 7680
+
+    def test_negative_response_id(self):
+        req = CreateCalibrationRequest(
+            response_id=-1, screen_width=1920, screen_height=1080
+        )
+        assert req.response_id == -1
+
+    def test_string_response_id_rejected(self):
+        with pytest.raises(ValidationError):
+            CreateCalibrationRequest(
+                response_id="abc", screen_width=1920, screen_height=1080
+            )
+
+
+class TestGazeDataPointEdgeCases:
+    """Edge cases for gaze data point validation."""
+
+    def test_zero_coordinates(self):
+        point = GazeDataPoint(
+            timestamp_ms=0, screen_x=0.0, screen_y=0.0
+        )
+        assert point.screen_x == 0.0
+
+    def test_negative_coordinates(self):
+        point = GazeDataPoint(
+            timestamp_ms=1000, screen_x=-100.0, screen_y=-50.0
+        )
+        assert point.screen_x == -100.0
+
+    def test_very_large_coordinates(self):
+        point = GazeDataPoint(
+            timestamp_ms=1000, screen_x=99999.0, screen_y=99999.0
+        )
+        assert point.screen_x == 99999.0
+
+
+class TestClickDataPointEdgeCases:
+    """Edge cases for click data point validation."""
+
+    def test_empty_target_element(self):
+        point = ClickDataPoint(
+            timestamp_ms=1000, screen_x=100.0, screen_y=100.0, target_element=""
+        )
+        assert point.target_element == ""
+
+    def test_long_target_element(self):
+        point = ClickDataPoint(
+            timestamp_ms=1000,
+            screen_x=100.0,
+            screen_y=100.0,
+            target_element="very_long_element_name_here",
+        )
+        assert len(point.target_element) > 0
+
+
+class TestIrisSampleEdgeCases:
+    """Edge cases for iris sample data."""
+
+    def test_extreme_iris_coordinates(self):
+        sample = IrisSample(
+            timestamp_ms=1000,
+            left_iris_x=1.0,
+            left_iris_y=1.0,
+            right_iris_x=0.0,
+            right_iris_y=0.0,
+            face_detected=True,
+        )
+        assert sample.left_iris_x == 1.0
+
+    def test_negative_iris_coordinates(self):
+        sample = IrisSample(
+            timestamp_ms=1000,
+            left_iris_x=-0.1,
+            left_iris_y=-0.1,
+            right_iris_x=-0.1,
+            right_iris_y=-0.1,
+            face_detected=False,
+        )
+        assert sample.left_iris_x == -0.1
+
+    def test_empty_head_rotation(self):
+        sample = IrisSample(
+            timestamp_ms=1000,
+            left_iris_x=0.5,
+            left_iris_y=0.5,
+            right_iris_x=0.5,
+            right_iris_y=0.5,
+            face_detected=True,
+            head_rotation={},
+        )
+        assert sample.head_rotation == {}
