@@ -1,4 +1,7 @@
-"""Tracking endpoints: calibration, gaze, clicks. Owned by Backend C."""
+"""Tracking endpoints: calibration, gaze, clicks. Owned by Backend C.
+
+Refactored for clarity and maintainability.
+"""
 
 from datetime import datetime
 from statistics import median
