@@ -2,17 +2,17 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # ── Calibration ───────────────────────────────────────
 
 
 class CreateCalibrationRequest(BaseModel):
-    response_id: int
-    screen_width: int
-    screen_height: int
-    camera_width: int | None = None
-    camera_height: int | None = None
+    response_id: int = Field(description="ID of the survey response this calibration belongs to")
+    screen_width: int = Field(description="Participant screen width in pixels")
+    screen_height: int = Field(description="Participant screen height in pixels")
+    camera_width: int | None = Field(default=None, description="Webcam resolution width")
+    camera_height: int | None = Field(default=None, description="Webcam resolution height")
 
 
 class CalibrationSessionOut(BaseModel):
