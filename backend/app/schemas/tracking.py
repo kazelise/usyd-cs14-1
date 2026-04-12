@@ -25,13 +25,13 @@ class CalibrationSessionOut(BaseModel):
 
 
 class IrisSample(BaseModel):
-    timestamp_ms: int
-    left_iris_x: float
-    left_iris_y: float
-    right_iris_x: float
-    right_iris_y: float
-    face_detected: bool
-    head_rotation: dict | None = None
+    timestamp_ms: int = Field(description="Client-side timestamp in milliseconds")
+    left_iris_x: float = Field(description="Left iris X coordinate (normalized)")
+    left_iris_y: float = Field(description="Left iris Y coordinate (normalized)")
+    right_iris_x: float = Field(description="Right iris X coordinate (normalized)")
+    right_iris_y: float = Field(description="Right iris Y coordinate (normalized)")
+    face_detected: bool = Field(description="Whether face was detected in this sample")
+    head_rotation: dict | None = Field(default=None, description="Head rotation angles if available")
 
 
 class RecordCalibrationPointRequest(BaseModel):
