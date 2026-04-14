@@ -94,3 +94,9 @@ Calibration quality is rated as:
   "saved": 1
 }
 ```
+
+
+## Related Documents
+
+- [Tracking Data Flow](tracking-data-flow.md) — end-to-end participant session flow
+- [Design Decisions](tracking-design-decisions.md) — rationale for key design choices
