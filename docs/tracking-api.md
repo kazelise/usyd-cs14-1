@@ -1,5 +1,7 @@
 # Tracking Module API Documentation
 
+> Last updated: 2026-04-16
+
 **Owner:** Backend C
 
 ## Overview
