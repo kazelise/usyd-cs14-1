@@ -32,3 +32,22 @@
 Gaze and click data arrive in batches to reduce HTTP overhead.
 Each batch is associated with a single `response_id`.
 Individual records within a batch may reference different `post_id` values.
+
+
+## Error Handling
+
+| Scenario | HTTP Status | Detail |
+|----------|-------------|--------|
+| Survey response not found | 404 | "Survey response not found" |
+| Calibration session already exists | 409 | "Calibration session already exists" |
+| Active calibration session not found | 404 | "Active calibration session not found" |
+| Empty gaze/click batch | 200 | Returns `{"saved": 0}` |
+
+## Testing
+
+Run the tracking module tests:
+
+```bash
+cd backend
+python -m pytest tests/ -v
+```
