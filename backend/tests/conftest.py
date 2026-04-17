@@ -1,4 +1,7 @@
-"""Shared fixtures for tracking module tests."""
+"""Shared fixtures for tracking module tests.
+
+Provides reusable test data for calibration, gaze, and click tracking.
+"""
 
 import pytest
 
