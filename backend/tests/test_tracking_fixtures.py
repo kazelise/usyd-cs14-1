@@ -1,11 +1,10 @@
 """Tests using conftest fixtures for gaze and click tracking."""
 
-import pytest
 from app.schemas.tracking import (
-    GazeDataPoint,
-    GazeBatchRequest,
-    ClickDataPoint,
     ClickBatchRequest,
+    ClickDataPoint,
+    GazeBatchRequest,
+    GazeDataPoint,
 )
 
 
