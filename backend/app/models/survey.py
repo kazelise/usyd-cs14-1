@@ -106,6 +106,7 @@ class SurveyPost(Base):
         back_populates="post", cascade="all, delete-orphan", order_by="Question.order"
     )
 
+
 class PostComment(Base):
     """A fake comment added by the researcher to a social media post.
 
