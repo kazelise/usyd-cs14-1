@@ -1,14 +1,11 @@
 """Tests for schema field type coercion and serialization."""
 
-import pytest
 from datetime import datetime
-from pydantic import ValidationError
 
 from app.schemas.tracking import (
-    CalibrationSessionOut,
     CalibrationCompleteOut,
-    QualityInfo,
     GazeDataPoint,
+    QualityInfo,
 )
 
 
@@ -35,9 +32,7 @@ class TestSchemaSerialization:
     """Test schema serialization to dict/JSON."""
 
     def test_gaze_point_to_dict(self):
-        point = GazeDataPoint(
-            post_id=1, timestamp_ms=5000, screen_x=960.0, screen_y=540.0
-        )
+        point = GazeDataPoint(post_id=1, timestamp_ms=5000, screen_x=960.0, screen_y=540.0)
         data = point.model_dump()
         assert data["post_id"] == 1
         assert data["screen_x"] == 960.0
