@@ -4,9 +4,11 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.tracking import (
-    CreateCalibrationRequest,
-    GazeDataPoint,
+    ClickBatchRequest,
     ClickDataPoint,
+    CreateCalibrationRequest,
+    GazeBatchRequest,
+    GazeDataPoint,
     IrisSample,
 )
 
@@ -15,49 +17,35 @@ class TestCalibrationRequestEdgeCases:
     """Edge cases for calibration request validation."""
 
     def test_zero_screen_dimensions(self):
-        req = CreateCalibrationRequest(
-            response_id=1, screen_width=0, screen_height=0
-        )
+        req = CreateCalibrationRequest(response_id=1, screen_width=0, screen_height=0)
         assert req.screen_width == 0
 
     def test_large_screen_dimensions(self):
-        req = CreateCalibrationRequest(
-            response_id=1, screen_width=7680, screen_height=4320
-        )
+        req = CreateCalibrationRequest(response_id=1, screen_width=7680, screen_height=4320)
         assert req.screen_width == 7680
 
     def test_negative_response_id(self):
-        req = CreateCalibrationRequest(
-            response_id=-1, screen_width=1920, screen_height=1080
-        )
+        req = CreateCalibrationRequest(response_id=-1, screen_width=1920, screen_height=1080)
         assert req.response_id == -1
 
     def test_string_response_id_rejected(self):
         with pytest.raises(ValidationError):
-            CreateCalibrationRequest(
-                response_id="abc", screen_width=1920, screen_height=1080
-            )
+            CreateCalibrationRequest(response_id="abc", screen_width=1920, screen_height=1080)
 
 
 class TestGazeDataPointEdgeCases:
     """Edge cases for gaze data point validation."""
 
     def test_zero_coordinates(self):
-        point = GazeDataPoint(
-            timestamp_ms=0, screen_x=0.0, screen_y=0.0
-        )
+        point = GazeDataPoint(timestamp_ms=0, screen_x=0.0, screen_y=0.0)
         assert point.screen_x == 0.0
 
     def test_negative_coordinates(self):
-        point = GazeDataPoint(
-            timestamp_ms=1000, screen_x=-100.0, screen_y=-50.0
-        )
+        point = GazeDataPoint(timestamp_ms=1000, screen_x=-100.0, screen_y=-50.0)
         assert point.screen_x == -100.0
 
     def test_very_large_coordinates(self):
-        point = GazeDataPoint(
-            timestamp_ms=1000, screen_x=99999.0, screen_y=99999.0
-        )
+        point = GazeDataPoint(timestamp_ms=1000, screen_x=99999.0, screen_y=99999.0)
         assert point.screen_x == 99999.0
 
 
@@ -65,9 +53,7 @@ class TestClickDataPointEdgeCases:
     """Edge cases for click data point validation."""
 
     def test_empty_target_element(self):
-        point = ClickDataPoint(
-            timestamp_ms=1000, screen_x=100.0, screen_y=100.0, target_element=""
-        )
+        point = ClickDataPoint(timestamp_ms=1000, screen_x=100.0, screen_y=100.0, target_element="")
         assert point.target_element == ""
 
     def test_long_target_element(self):
@@ -116,9 +102,6 @@ class TestIrisSampleEdgeCases:
             head_rotation={},
         )
         assert sample.head_rotation == {}
-
-
-from app.schemas.tracking import GazeBatchRequest, ClickBatchRequest
 
 
 class TestBatchRequestEdgeCases:
