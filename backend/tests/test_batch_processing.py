@@ -1,13 +1,8 @@
 """Tests for batch data processing validation."""
 
-import pytest
-from pydantic import ValidationError
-
 from app.schemas.tracking import (
-    GazeBatchRequest,
     ClickBatchRequest,
-    GazeDataPoint,
-    ClickDataPoint,
+    GazeBatchRequest,
 )
 
 
@@ -37,8 +32,7 @@ class TestGazeBatchProcessing:
 
     def test_batch_with_50_items(self):
         data = [
-            {"timestamp_ms": i * 100, "screen_x": float(i), "screen_y": float(i)}
-            for i in range(50)
+            {"timestamp_ms": i * 100, "screen_x": float(i), "screen_y": float(i)} for i in range(50)
         ]
         batch = GazeBatchRequest(response_id=1, data=data)
         assert len(batch.data) == 50
@@ -74,7 +68,12 @@ class TestClickBatchProcessing:
         batch = ClickBatchRequest(
             response_id=1,
             data=[
-                {"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 100.0, "target_element": "image"},
+                {
+                    "timestamp_ms": 1000,
+                    "screen_x": 100.0,
+                    "screen_y": 100.0,
+                    "target_element": "image",
+                },
                 {"timestamp_ms": 2000, "screen_x": 200.0, "screen_y": 200.0},
             ],
         )
