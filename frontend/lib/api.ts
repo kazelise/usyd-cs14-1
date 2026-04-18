@@ -32,8 +32,11 @@ export const api = {
   getSurvey: (id: number) => request(`/surveys/${id}`),
   updateSurvey: (id: number, data: any) =>
     request(`/surveys/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteSurvey: (id: number) => request(`/surveys/${id}`, { method: "DELETE" }),
   publishSurvey: (id: number) =>
     request(`/surveys/${id}/publish`, { method: "POST" }),
+  getSurveyAnalytics: (id: number) => request(`/surveys/${id}/analytics-summary`),
+  getSurveyParticipantComments: (id: number) => request(`/surveys/${id}/participant-comments`),
 
   // Posts
   listPosts: (surveyId: number) => request(`/surveys/${surveyId}/posts`),
