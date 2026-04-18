@@ -48,8 +48,12 @@ from app.schemas.survey import (
     SurveyParticipantCommentsOut,
     UpdatePostRequest,
     UpdateSurveyRequest,
+    CreateQuestionRequest,
+    UpdateQuestionRequest,
+    QuestionOut,
 )
 from app.services.og_fetcher import fetch_og_metadata
+from app.models.question import Question
 
 router = APIRouter(prefix="/surveys", tags=["Surveys"])
 
@@ -736,3 +740,85 @@ async def get_participant_comments(
     for pid in list(by_post.keys()):
         by_post[pid].sort(key=lambda x: x.created_at)
     return SurveyParticipantCommentsOut(comments_by_post=by_post)
+
+# ── Question Endpoints ────────────────────────────────────────────────────────
+
+@router.post(
+    "/surveys/{survey_id}/posts/{post_id}/questions",
+    response_model=QuestionOut,
+    status_code=201,
+)
+async def create_question(
+    survey_id: int,
+    post_id: int,
+    body: CreateQuestionRequest,
+    db: AsyncSession = Depends(get_db),
+    researcher: Researcher = Depends(get_current_researcher),
+):
+    post = await db.get(SurveyPost, post_id)
+    if not post or post.survey_id != survey_id:
+        raise HTTPException(404, "Post not found")
+    q = Question(post_id=post_id, **body.model_dump())
+    db.add(q)
+    await db.commit()
+    await db.refresh(q)
+    return q
+
+
+@router.get(
+    "/surveys/{survey_id}/posts/{post_id}/questions",
+    response_model=list[QuestionOut],
+)
+async def list_questions(
+    survey_id: int,
+    post_id: int,
+    db: AsyncSession = Depends(get_db),
+    researcher: Researcher = Depends(get_current_researcher),
+):
+    post = await db.get(SurveyPost, post_id)
+    if not post or post.survey_id != survey_id:
+        raise HTTPException(404, "Post not found")
+    result = await db.execute(
+        select(Question).where(Question.post_id == post_id).order_by(Question.order)
+    )
+    return result.scalars().all()
+
+
+@router.patch(
+    "/surveys/{survey_id}/posts/{post_id}/questions/{question_id}",
+    response_model=QuestionOut,
+)
+async def update_question(
+    survey_id: int,
+    post_id: int,
+    question_id: int,
+    body: UpdateQuestionRequest,
+    db: AsyncSession = Depends(get_db),
+    researcher: Researcher = Depends(get_current_researcher),
+):
+    q = await db.get(Question, question_id)
+    if not q or q.post_id != post_id:
+        raise HTTPException(404, "Question not found")
+    for k, v in body.model_dump(exclude_unset=True).items():
+        setattr(q, k, v)
+    await db.commit()
+    await db.refresh(q)
+    return q
+
+
+@router.delete(
+    "/surveys/{survey_id}/posts/{post_id}/questions/{question_id}",
+    status_code=204,
+)
+async def delete_question(
+    survey_id: int,
+    post_id: int,
+    question_id: int,
+    db: AsyncSession = Depends(get_db),
+    researcher: Researcher = Depends(get_current_researcher),
+):
+    q = await db.get(Question, question_id)
+    if not q or q.post_id != post_id:
+        raise HTTPException(404, "Question not found")
+    await db.delete(q)
+    await db.commit()
