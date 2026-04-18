@@ -31,7 +31,9 @@ class IrisSample(BaseModel):
     right_iris_x: float = Field(description="Right iris X coordinate (normalized)")
     right_iris_y: float = Field(description="Right iris Y coordinate (normalized)")
     face_detected: bool = Field(description="Whether face was detected in this sample")
-    head_rotation: dict | None = Field(default=None, description="Head rotation angles if available")
+    head_rotation: dict | None = Field(
+        default=None, description="Head rotation angles if available"
+    )
 
 
 class RecordCalibrationPointRequest(BaseModel):
