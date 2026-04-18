@@ -102,7 +102,9 @@ class SurveyPost(Base):
     comments: Mapped[list["PostComment"]] = relationship(
         back_populates="post", cascade="all, delete-orphan", order_by="PostComment.order"
     )
-
+    questions: Mapped[list["Question"]] = relationship(  # noqa: F821
+        back_populates="post", cascade="all, delete-orphan", order_by="Question.order"
+    )
 
 class PostComment(Base):
     """A fake comment added by the researcher to a social media post.
