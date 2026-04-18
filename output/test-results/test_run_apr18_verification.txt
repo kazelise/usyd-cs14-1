@@ -1,0 +1,141 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.0, pluggy-1.6.0 -- /Users/zhijie/.local/share/mise/installs/python/3.12.13/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/zhijie/Development/comp5703/cs14/backend
+configfile: pyproject.toml
+plugins: asyncio-0.24.0, anyio-4.13.0
+asyncio: mode=Mode.AUTO, default_loop_scope=None
+collecting ... collected 92 items
+
+backend/tests/test_batch_processing.py::TestGazeBatchProcessing::test_batch_preserves_order PASSED [  1%]
+backend/tests/test_batch_processing.py::TestGazeBatchProcessing::test_batch_with_mixed_post_ids PASSED [  2%]
+backend/tests/test_batch_processing.py::TestGazeBatchProcessing::test_batch_with_50_items PASSED [  3%]
+backend/tests/test_batch_processing.py::TestClickBatchProcessing::test_batch_preserves_order PASSED [  4%]
+backend/tests/test_batch_processing.py::TestClickBatchProcessing::test_batch_various_targets PASSED [  5%]
+backend/tests/test_batch_processing.py::TestClickBatchProcessing::test_batch_none_and_present_targets PASSED [  6%]
+backend/tests/test_calibration_workflow.py::TestCalibrationWorkflowSchemas::test_session_creation_to_output PASSED [  7%]
+backend/tests/test_calibration_workflow.py::TestCalibrationWorkflowSchemas::test_point_recording_flow PASSED [  8%]
+backend/tests/test_calibration_workflow.py::TestCalibrationWorkflowSchemas::test_completion_flow PASSED [  9%]
+backend/tests/test_calibration_workflow.py::TestCalibrationWorkflowSchemas::test_nine_point_sequence PASSED [ 10%]
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_empty_points PASSED [ 11%]
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_good_quality PASSED [ 13%]
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_acceptable_quality PASSED [ 14%]
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_poor_quality_low_face_rate PASSED [ 15%]
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_poor_quality_few_valid_points PASSED [ 16%]
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_avg_samples_calculation PASSED [ 17%]
+backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_exactly_0_9 PASSED [ 18%]
+backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_just_below_0_9 FAILED [ 19%]
+backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_exactly_0_7 PASSED [ 20%]
+backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_just_below_0_7 PASSED [ 21%]
+backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_single_point PASSED [ 22%]
+backend/tests/test_quality_advanced.py::TestQualityWithFixtures::test_good_quality_with_factory PASSED [ 23%]
+backend/tests/test_quality_advanced.py::TestQualityWithFixtures::test_acceptable_quality_with_factory PASSED [ 25%]
+backend/tests/test_quality_advanced.py::TestQualityWithFixtures::test_poor_quality_with_factory PASSED [ 26%]
+backend/tests/test_quality_advanced.py::TestQualityWithFixtures::test_fewer_points_than_expected PASSED [ 27%]
+backend/tests/test_quality_advanced.py::TestQualityWithFixtures::test_more_points_than_expected PASSED [ 28%]
+backend/tests/test_quality_advanced.py::TestQualityMixedScenarios::test_mixed_sample_counts FAILED [ 29%]
+backend/tests/test_quality_advanced.py::TestQualityMixedScenarios::test_intermittent_face_detection PASSED [ 30%]
+backend/tests/test_quality_advanced.py::TestQualityMixedScenarios::test_all_points_few_samples PASSED [ 31%]
+backend/tests/test_schema_edge_cases.py::TestCalibrationRequestEdgeCases::test_zero_screen_dimensions PASSED [ 32%]
+backend/tests/test_schema_edge_cases.py::TestCalibrationRequestEdgeCases::test_large_screen_dimensions PASSED [ 33%]
+backend/tests/test_schema_edge_cases.py::TestCalibrationRequestEdgeCases::test_negative_response_id PASSED [ 34%]
+backend/tests/test_schema_edge_cases.py::TestCalibrationRequestEdgeCases::test_string_response_id_rejected PASSED [ 35%]
+backend/tests/test_schema_edge_cases.py::TestGazeDataPointEdgeCases::test_zero_coordinates PASSED [ 36%]
+backend/tests/test_schema_edge_cases.py::TestGazeDataPointEdgeCases::test_negative_coordinates PASSED [ 38%]
+backend/tests/test_schema_edge_cases.py::TestGazeDataPointEdgeCases::test_very_large_coordinates PASSED [ 39%]
+backend/tests/test_schema_edge_cases.py::TestClickDataPointEdgeCases::test_empty_target_element PASSED [ 40%]
+backend/tests/test_schema_edge_cases.py::TestClickDataPointEdgeCases::test_long_target_element PASSED [ 41%]
+backend/tests/test_schema_edge_cases.py::TestIrisSampleEdgeCases::test_extreme_iris_coordinates PASSED [ 42%]
+backend/tests/test_schema_edge_cases.py::TestIrisSampleEdgeCases::test_negative_iris_coordinates PASSED [ 43%]
+backend/tests/test_schema_edge_cases.py::TestIrisSampleEdgeCases::test_empty_head_rotation PASSED [ 44%]
+backend/tests/test_schema_edge_cases.py::TestBatchRequestEdgeCases::test_gaze_batch_single_item PASSED [ 45%]
+backend/tests/test_schema_edge_cases.py::TestBatchRequestEdgeCases::test_gaze_batch_large PASSED [ 46%]
+backend/tests/test_schema_edge_cases.py::TestBatchRequestEdgeCases::test_click_batch_single_item PASSED [ 47%]
+backend/tests/test_schema_edge_cases.py::TestBatchRequestEdgeCases::test_click_batch_all_with_targets PASSED [ 48%]
+backend/tests/test_schema_edge_cases.py::TestBatchRequestEdgeCases::test_mixed_gaze_data_types PASSED [ 50%]
+backend/tests/test_schema_interop.py::TestSchemaInteroperability::test_calibration_request_fields_map_to_output PASSED [ 51%]
+backend/tests/test_schema_interop.py::TestSchemaInteroperability::test_gaze_batch_count_matches_output PASSED [ 52%]
+backend/tests/test_schema_interop.py::TestSchemaInteroperability::test_click_batch_count_matches_output PASSED [ 53%]
+backend/tests/test_schema_interop.py::TestSchemaInteroperability::test_empty_batch_produces_zero_saved PASSED [ 54%]
+backend/tests/test_schema_types.py::TestFieldTypeCoercion::test_gaze_int_to_float_coercion PASSED [ 55%]
+backend/tests/test_schema_types.py::TestFieldTypeCoercion::test_quality_info_float_fields PASSED [ 56%]
+backend/tests/test_schema_types.py::TestSchemaSerialization::test_gaze_point_to_dict PASSED [ 57%]
+backend/tests/test_schema_types.py::TestSchemaSerialization::test_quality_info_to_dict PASSED [ 58%]
+backend/tests/test_schema_types.py::TestSchemaSerialization::test_calibration_complete_nested_serialization PASSED [ 59%]
+backend/tests/test_schemas_tracking.py::TestCreateCalibrationRequest::test_valid_minimal PASSED [ 60%]
+backend/tests/test_schemas_tracking.py::TestCreateCalibrationRequest::test_valid_with_camera PASSED [ 61%]
+backend/tests/test_schemas_tracking.py::TestCreateCalibrationRequest::test_missing_response_id PASSED [ 63%]
+backend/tests/test_schemas_tracking.py::TestCreateCalibrationRequest::test_missing_screen_height PASSED [ 64%]
+backend/tests/test_schemas_tracking.py::TestIrisSample::test_valid_sample PASSED [ 65%]
+backend/tests/test_schemas_tracking.py::TestIrisSample::test_with_head_rotation PASSED [ 66%]
+backend/tests/test_schemas_tracking.py::TestIrisSample::test_face_not_detected PASSED [ 67%]
+backend/tests/test_schemas_tracking.py::TestIrisSample::test_missing_required_fields PASSED [ 68%]
+backend/tests/test_schemas_tracking.py::TestRecordCalibrationPointRequest::test_valid_request PASSED [ 69%]
+backend/tests/test_schemas_tracking.py::TestRecordCalibrationPointRequest::test_empty_samples_list PASSED [ 70%]
+backend/tests/test_schemas_tracking.py::TestRecordCalibrationPointRequest::test_missing_point_index PASSED [ 71%]
+backend/tests/test_schemas_tracking.py::TestGazeDataPoint::test_valid_full PASSED [ 72%]
+backend/tests/test_schemas_tracking.py::TestGazeDataPoint::test_valid_minimal PASSED [ 73%]
+backend/tests/test_schemas_tracking.py::TestGazeDataPoint::test_missing_screen_coords PASSED [ 75%]
+backend/tests/test_schemas_tracking.py::TestGazeBatchRequest::test_valid_batch PASSED [ 76%]
+backend/tests/test_schemas_tracking.py::TestGazeBatchRequest::test_empty_batch PASSED [ 77%]
+backend/tests/test_schemas_tracking.py::TestGazeBatchRequest::test_missing_response_id PASSED [ 78%]
+backend/tests/test_schemas_tracking.py::TestGazeBatchOut::test_saved_count PASSED [ 79%]
+backend/tests/test_schemas_tracking.py::TestClickDataPoint::test_valid_with_target PASSED [ 80%]
+backend/tests/test_schemas_tracking.py::TestClickDataPoint::test_valid_without_target PASSED [ 81%]
+backend/tests/test_schemas_tracking.py::TestClickDataPoint::test_missing_timestamp PASSED [ 82%]
+backend/tests/test_schemas_tracking.py::TestClickBatchRequest::test_valid_batch PASSED [ 83%]
+backend/tests/test_schemas_tracking.py::TestClickBatchRequest::test_empty_batch PASSED [ 84%]
+backend/tests/test_schemas_tracking.py::TestClickBatchOut::test_saved_count PASSED [ 85%]
+backend/tests/test_schemas_tracking.py::TestCalibrationSessionOut::test_valid_output PASSED [ 86%]
+backend/tests/test_schemas_tracking.py::TestCalibrationPointOut::test_valid_output PASSED [ 88%]
+backend/tests/test_schemas_tracking.py::TestCalibrationPointOut::test_all_points_done PASSED [ 89%]
+backend/tests/test_schemas_tracking.py::TestQualityInfo::test_good_quality PASSED [ 90%]
+backend/tests/test_schemas_tracking.py::TestQualityInfo::test_poor_quality PASSED [ 91%]
+backend/tests/test_schemas_tracking.py::TestCalibrationCompleteOut::test_valid_completion PASSED [ 92%]
+backend/tests/test_schemas_tracking.py::TestCalibrationCompleteOut::test_poor_completion PASSED [ 93%]
+backend/tests/test_tracking_fixtures.py::TestGazeWithFixtures::test_create_from_fixture PASSED [ 94%]
+backend/tests/test_tracking_fixtures.py::TestGazeWithFixtures::test_batch_from_fixture PASSED [ 95%]
+backend/tests/test_tracking_fixtures.py::TestGazeWithFixtures::test_fixture_iris_data_present PASSED [ 96%]
+backend/tests/test_tracking_fixtures.py::TestClickWithFixtures::test_create_from_fixture PASSED [ 97%]
+backend/tests/test_tracking_fixtures.py::TestClickWithFixtures::test_batch_from_fixture PASSED [ 98%]
+backend/tests/test_tracking_fixtures.py::TestClickWithFixtures::test_multiple_clicks_on_same_post PASSED [100%]
+
+=================================== FAILURES ===================================
+_________ TestQualityThresholdBoundaries.test_face_rate_just_below_0_9 _________
+backend/tests/test_quality.py:80: in test_face_rate_just_below_0_9
+    assert result["overall_quality"] == "acceptable"
+E   AssertionError: assert 'poor' == 'acceptable'
+E     
+E     - acceptable
+E     + poor
+______________ TestQualityMixedScenarios.test_mixed_sample_counts ______________
+backend/tests/test_quality_advanced.py:57: in test_mixed_sample_counts
+    assert result["overall_quality"] == "good"
+E   AssertionError: assert 'acceptable' == 'good'
+E     
+E     - good
+E     + acceptable
+=============================== warnings summary ===============================
+tests/test_calibration_workflow.py::TestCalibrationWorkflowSchemas::test_session_creation_to_output
+  /Users/zhijie/Development/comp5703/cs14/backend/tests/test_calibration_workflow.py:26: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    started_at=datetime.utcnow(),
+
+tests/test_calibration_workflow.py::TestCalibrationWorkflowSchemas::test_completion_flow
+  /Users/zhijie/Development/comp5703/cs14/backend/tests/test_calibration_workflow.py:60: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    completed_at=datetime.utcnow(),
+
+tests/test_schema_interop.py::TestSchemaInteroperability::test_calibration_request_fields_map_to_output
+  /Users/zhijie/Development/comp5703/cs14/backend/tests/test_schema_interop.py:28: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    started_at=datetime.utcnow(),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_just_below_0_9
+FAILED backend/tests/test_quality_advanced.py::TestQualityMixedScenarios::test_mixed_sample_counts
+=================== 2 failed, 90 passed, 3 warnings in 0.58s ===================
+
+--- stderr ---
+/Users/zhijie/.local/share/mise/installs/python/3.12.13/lib/python3.12/site-packages/pytest_asyncio/plugin.py:208: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
