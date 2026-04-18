@@ -6,8 +6,6 @@ Refactored for clarity and maintainability.
 from datetime import datetime
 from statistics import median
 
-from app.utils.quality import compute_calibration_quality
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +31,7 @@ from app.schemas.tracking import (
     QualityInfo,
     RecordCalibrationPointRequest,
 )
+from app.utils.quality import compute_calibration_quality
 
 router = APIRouter(prefix="/tracking", tags=["Tracking"])
 
@@ -136,9 +135,7 @@ async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_d
         raise HTTPException(status_code=404, detail="Active calibration session not found")
 
     points = session.points
-    point_dicts = [
-        {"samples_count": p.samples_count, "samples": p.samples} for p in points
-    ]
+    point_dicts = [{"samples_count": p.samples_count, "samples": p.samples} for p in points]
     metrics = compute_calibration_quality(point_dicts, session.expected_points)
 
     session.status = "completed"
