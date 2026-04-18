@@ -29,6 +29,7 @@ from app.models.participant import (
 )
 from app.models.researcher import Researcher
 from app.models.survey import PostComment, Survey, SurveyPost
+from app.models.tracking import CalibrationSession, ClickRecord
 from app.schemas.survey import (
     CommentIn,
     CommentOut,
@@ -43,14 +44,17 @@ from app.schemas.survey import (
     ResponseStateOut,
     StartSurveyResponse,
     SurveyEngagementStats,
+    SurveyAnalyticsOut,
     SurveyListOut,
     SurveyOut,
     SurveyParticipantCommentsOut,
+    PostAnalyticsRowOut,
     UpdatePostRequest,
     UpdateSurveyRequest,
     CreateQuestionRequest,
     UpdateQuestionRequest,
     QuestionOut,
+    GroupAnalyticsOut,
 )
 from app.services.og_fetcher import fetch_og_metadata
 from app.models.question import Question
@@ -131,6 +135,25 @@ async def update_survey(
     await db.flush()
     await db.refresh(survey)
     return survey
+
+
+@router.delete("/{survey_id}", status_code=204)
+async def delete_survey(
+    survey_id: int,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a draft survey owned by the current researcher."""
+    result = await db.execute(
+        select(Survey).where(Survey.id == survey_id, Survey.researcher_id == researcher.id)
+    )
+    survey = result.scalar_one_or_none()
+    if not survey:
+        raise HTTPException(status_code=404, detail="Survey not found")
+    if survey.status != "draft":
+        raise HTTPException(status_code=409, detail="Only draft surveys can be deleted")
+    await db.delete(survey)
+    await db.flush()
 
 
 @router.post("/{survey_id}/publish", response_model=SurveyOut)
@@ -740,6 +763,210 @@ async def get_participant_comments(
     for pid in list(by_post.keys()):
         by_post[pid].sort(key=lambda x: x.created_at)
     return SurveyParticipantCommentsOut(comments_by_post=by_post)
+
+
+@router.get("/{survey_id}/analytics-summary", response_model=SurveyAnalyticsOut)
+async def get_analytics_summary(
+    survey_id: int,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: AsyncSession = Depends(get_db),
+):
+    survey_result = await db.execute(
+        select(Survey).where(Survey.id == survey_id, Survey.researcher_id == researcher.id)
+    )
+    survey = survey_result.scalar_one_or_none()
+    if not survey:
+        raise HTTPException(status_code=404, detail="Survey not found")
+
+    responses_result = await db.execute(
+        select(SurveyResponse).where(SurveyResponse.survey_id == survey_id)
+    )
+    responses = responses_result.scalars().all()
+    total_responses = len(responses)
+    completed_responses = [r for r in responses if r.status == "completed" and r.completed_at]
+    completion_rate = (len(completed_responses) / total_responses * 100) if total_responses else 0
+
+    completion_minutes = [
+        max((r.completed_at - r.started_at).total_seconds() / 60, 0)
+        for r in completed_responses
+        if r.started_at and r.completed_at
+    ]
+    avg_completion_minutes = (
+        sum(completion_minutes) / len(completion_minutes) if completion_minutes else 0
+    )
+    fast_completions = sum(1 for minutes in completion_minutes if minutes < 2)
+
+    calibration_result = await db.execute(
+        select(CalibrationSession)
+        .join(SurveyResponse, CalibrationSession.response_id == SurveyResponse.id)
+        .where(SurveyResponse.survey_id == survey_id)
+    )
+    calibration_sessions = calibration_result.scalars().all()
+    successful_calibrations = [
+        session for session in calibration_sessions if session.status == "completed" and session.quality != "poor"
+    ]
+    calibration_success_rate = (
+        len(successful_calibrations) / len(calibration_sessions) * 100 if calibration_sessions else 0
+    )
+
+    click_rows_result = await db.execute(
+        select(ClickRecord.response_id, ClickRecord.post_id, func.count(ClickRecord.id))
+        .join(SurveyResponse, ClickRecord.response_id == SurveyResponse.id)
+        .where(SurveyResponse.survey_id == survey_id)
+        .group_by(ClickRecord.response_id, ClickRecord.post_id)
+    )
+    click_rows = click_rows_result.all()
+    response_click_totals: dict[int, int] = {}
+    post_clicks_map: dict[int, int] = {}
+    group_clicks_map: dict[int, int] = {}
+    response_to_group = {response.id: response.assigned_group for response in responses}
+    for response_id, post_id, count in click_rows:
+        response_click_totals[response_id] = response_click_totals.get(response_id, 0) + count
+        if post_id is not None:
+            post_clicks_map[post_id] = post_clicks_map.get(post_id, 0) + count
+        group_id = response_to_group.get(response_id, 1)
+        group_clicks_map[group_id] = group_clicks_map.get(group_id, 0) + count
+    total_clicks = sum(response_click_totals.values())
+
+    likes_result = await db.execute(
+        select(ParticipantLike.response_id, ParticipantLike.post_id)
+        .join(SurveyResponse, ParticipantLike.response_id == SurveyResponse.id)
+        .where(SurveyResponse.survey_id == survey_id)
+    )
+    like_rows = likes_result.all()
+    response_like_totals: dict[int, int] = {}
+    post_likes_map: dict[int, int] = {}
+    group_likes_map: dict[int, int] = {}
+    for response_id, post_id in like_rows:
+        response_like_totals[response_id] = response_like_totals.get(response_id, 0) + 1
+        post_likes_map[post_id] = post_likes_map.get(post_id, 0) + 1
+        group_id = response_to_group.get(response_id, 1)
+        group_likes_map[group_id] = group_likes_map.get(group_id, 0) + 1
+    total_likes = len(like_rows)
+
+    comments_result = await db.execute(
+        select(ParticipantComment)
+        .join(SurveyResponse, ParticipantComment.response_id == SurveyResponse.id)
+        .where(SurveyResponse.survey_id == survey_id)
+    )
+    participant_comments = comments_result.scalars().all()
+    response_comment_totals: dict[int, int] = {}
+    post_comment_map: dict[int, int] = {}
+    group_comment_map: dict[int, int] = {}
+    comment_texts_by_response: dict[int, list[str]] = {}
+    for comment in participant_comments:
+        response_comment_totals[comment.response_id] = response_comment_totals.get(comment.response_id, 0) + 1
+        post_comment_map[comment.post_id] = post_comment_map.get(comment.post_id, 0) + 1
+        group_id = response_to_group.get(comment.response_id, 1)
+        group_comment_map[group_id] = group_comment_map.get(group_id, 0) + 1
+        comment_texts_by_response.setdefault(comment.response_id, []).append((comment.text or "").strip().lower())
+    total_comments = len(participant_comments)
+
+    shares_result = await db.execute(
+        select(ParticipantInteraction.response_id, ParticipantInteraction.post_id)
+        .join(SurveyResponse, ParticipantInteraction.response_id == SurveyResponse.id)
+        .where(
+            SurveyResponse.survey_id == survey_id,
+            ParticipantInteraction.action_type == "share",
+        )
+    )
+    share_rows = shares_result.all()
+    response_share_totals: dict[int, int] = {}
+    post_shares_map: dict[int, int] = {}
+    group_shares_map: dict[int, int] = {}
+    for response_id, post_id in share_rows:
+        response_share_totals[response_id] = response_share_totals.get(response_id, 0) + 1
+        post_shares_map[post_id] = post_shares_map.get(post_id, 0) + 1
+        group_id = response_to_group.get(response_id, 1)
+        group_shares_map[group_id] = group_shares_map.get(group_id, 0) + 1
+    total_shares = len(share_rows)
+
+    low_interaction_responses = 0
+    duplicate_comment_sessions = 0
+    for response in responses:
+        response_id = response.id
+        interaction_total = (
+            response_click_totals.get(response_id, 0)
+            + response_like_totals.get(response_id, 0)
+            + response_comment_totals.get(response_id, 0)
+            + response_share_totals.get(response_id, 0)
+        )
+        if interaction_total == 0:
+            low_interaction_responses += 1
+        comment_texts = [text for text in comment_texts_by_response.get(response_id, []) if text]
+        if len(comment_texts) > len(set(comment_texts)):
+            duplicate_comment_sessions += 1
+
+    group_breakdown: list[GroupAnalyticsOut] = []
+    for group_id in range(1, survey.num_groups + 1):
+        group_responses = [response for response in responses if response.assigned_group == group_id]
+        group_completed = [response for response in group_responses if response.status == "completed"]
+        group_breakdown.append(
+            GroupAnalyticsOut(
+                group_id=group_id,
+                participants=len(group_responses),
+                completed=len(group_completed),
+                completion_rate=(len(group_completed) / len(group_responses) * 100) if group_responses else 0,
+                clicks=group_clicks_map.get(group_id, 0),
+                likes=group_likes_map.get(group_id, 0),
+                comments=group_comment_map.get(group_id, 0),
+                shares=group_shares_map.get(group_id, 0),
+            )
+        )
+
+    posts_result = await db.execute(
+        select(SurveyPost).where(SurveyPost.survey_id == survey_id).order_by(SurveyPost.order)
+    )
+    posts = posts_result.scalars().all()
+    post_rows = [
+        PostAnalyticsRowOut(
+            post_id=post.id,
+            title=post.display_title or post.fetched_title or "Untitled",
+            source=post.fetched_source,
+            visible_groups=post.visible_to_groups,
+            clicks=post_clicks_map.get(post.id, 0),
+            likes=post_likes_map.get(post.id, 0),
+            comments=post_comment_map.get(post.id, 0),
+            shares=post_shares_map.get(post.id, 0),
+            participant_comment_count=post_comment_map.get(post.id, 0),
+        )
+        for post in posts
+    ]
+
+    top_post = max(post_rows, key=lambda post: post.clicks, default=None)
+    top_group = max(group_breakdown, key=lambda group: group.clicks, default=None)
+    ai_summary_parts = []
+    if top_post and top_post.clicks > 0:
+        ai_summary_parts.append(
+            f'"{top_post.title}" is driving the strongest engagement with {top_post.clicks} recorded clicks.'
+        )
+    if top_group and top_group.participants > 0:
+        ai_summary_parts.append(
+            f"Group {top_group.group_id} is currently the most active cohort with {top_group.clicks} clicks and a {top_group.completion_rate:.0f}% completion rate."
+        )
+    if calibration_sessions:
+        ai_summary_parts.append(
+            f"Calibration quality is holding at {calibration_success_rate:.0f}% acceptable-or-better sessions."
+        )
+    ai_summary = " ".join(ai_summary_parts) or "Collect participant responses to unlock engagement and response-quality insights."
+
+    return SurveyAnalyticsOut(
+        survey_id=survey_id,
+        total_responses=total_responses,
+        completion_rate=completion_rate,
+        avg_completion_minutes=avg_completion_minutes,
+        calibration_success_rate=calibration_success_rate,
+        total_clicks=total_clicks,
+        total_likes=total_likes,
+        total_comments=total_comments,
+        total_shares=total_shares,
+        fast_completions=fast_completions,
+        low_interaction_responses=low_interaction_responses,
+        duplicate_comment_sessions=duplicate_comment_sessions,
+        group_breakdown=group_breakdown,
+        posts=post_rows,
+        ai_summary=ai_summary,
+    )
 
 # ── Question Endpoints ────────────────────────────────────────────────────────
 
