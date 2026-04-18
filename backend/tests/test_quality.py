@@ -1,7 +1,5 @@
 """Unit tests for calibration quality computation."""
 
-import pytest
-
 from app.utils.quality import compute_calibration_quality
 
 
@@ -9,13 +7,15 @@ def _make_point(samples_count, face_detected_count):
     """Helper to create a calibration point dict for testing."""
     samples = []
     for i in range(samples_count):
-        samples.append({
-            "face_detected": i < face_detected_count,
-            "left_iris_x": 0.5,
-            "left_iris_y": 0.5,
-            "right_iris_x": 0.5,
-            "right_iris_y": 0.5,
-        })
+        samples.append(
+            {
+                "face_detected": i < face_detected_count,
+                "left_iris_x": 0.5,
+                "left_iris_y": 0.5,
+                "right_iris_x": 0.5,
+                "right_iris_y": 0.5,
+            }
+        )
     return {"samples_count": samples_count, "samples": samples}
 
 
