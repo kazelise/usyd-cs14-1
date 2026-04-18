@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, engine
 from app.routers import auth, surveys, tracking
+from app.models import question  # noqa: F401
 
 
 @asynccontextmanager
