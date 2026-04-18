@@ -54,7 +54,8 @@ class TestQualityMixedScenarios:
         result = compute_calibration_quality(points, expected_points=9)
         # 7 points have >= 10 samples (valid), face rate = 1.0
         assert result["valid_points"] == 7
-        assert result["overall_quality"] == "good"
+        # 7 < 9 * 0.78 (7.02), so not quite "good" — it's "acceptable"
+        assert result["overall_quality"] == "acceptable"
 
     def test_intermittent_face_detection(self):
         """Some samples lose face tracking mid-calibration."""

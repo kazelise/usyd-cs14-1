@@ -73,8 +73,8 @@ class TestQualityThresholdBoundaries:
         assert result["overall_quality"] == "good"
 
     def test_face_rate_just_below_0_9(self):
-        # ~89% face detection — should be acceptable, not good
-        points = [_make_point(9, 8) for _ in range(9)]
+        # ~89% face detection with enough samples — should be acceptable
+        points = [_make_point(18, 16) for _ in range(9)]
         result = compute_calibration_quality(points, expected_points=9)
         assert result["face_detection_rate"] < 0.9
         assert result["overall_quality"] == "acceptable"

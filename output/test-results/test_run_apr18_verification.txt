@@ -1,3 +1,7 @@
+/Users/zhijie/.local/share/mise/installs/python/3.12.13/lib/python3.12/site-packages/pytest_asyncio/plugin.py:208: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
 ============================= test session starts ==============================
 platform darwin -- Python 3.12.13, pytest-8.3.0, pluggy-1.6.0 -- /Users/zhijie/.local/share/mise/installs/python/3.12.13/bin/python3
 cachedir: .pytest_cache
@@ -24,7 +28,7 @@ backend/tests/test_quality.py::TestComputeCalibrationQuality::test_poor_quality_
 backend/tests/test_quality.py::TestComputeCalibrationQuality::test_poor_quality_few_valid_points PASSED [ 16%]
 backend/tests/test_quality.py::TestComputeCalibrationQuality::test_avg_samples_calculation PASSED [ 17%]
 backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_exactly_0_9 PASSED [ 18%]
-backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_just_below_0_9 FAILED [ 19%]
+backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_just_below_0_9 PASSED [ 19%]
 backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_exactly_0_7 PASSED [ 20%]
 backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_just_below_0_7 PASSED [ 21%]
 backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_single_point PASSED [ 22%]
@@ -33,7 +37,7 @@ backend/tests/test_quality_advanced.py::TestQualityWithFixtures::test_acceptable
 backend/tests/test_quality_advanced.py::TestQualityWithFixtures::test_poor_quality_with_factory PASSED [ 26%]
 backend/tests/test_quality_advanced.py::TestQualityWithFixtures::test_fewer_points_than_expected PASSED [ 27%]
 backend/tests/test_quality_advanced.py::TestQualityWithFixtures::test_more_points_than_expected PASSED [ 28%]
-backend/tests/test_quality_advanced.py::TestQualityMixedScenarios::test_mixed_sample_counts FAILED [ 29%]
+backend/tests/test_quality_advanced.py::TestQualityMixedScenarios::test_mixed_sample_counts PASSED [ 29%]
 backend/tests/test_quality_advanced.py::TestQualityMixedScenarios::test_intermittent_face_detection PASSED [ 30%]
 backend/tests/test_quality_advanced.py::TestQualityMixedScenarios::test_all_points_few_samples PASSED [ 31%]
 backend/tests/test_schema_edge_cases.py::TestCalibrationRequestEdgeCases::test_zero_screen_dimensions PASSED [ 32%]
@@ -100,21 +104,6 @@ backend/tests/test_tracking_fixtures.py::TestClickWithFixtures::test_create_from
 backend/tests/test_tracking_fixtures.py::TestClickWithFixtures::test_batch_from_fixture PASSED [ 98%]
 backend/tests/test_tracking_fixtures.py::TestClickWithFixtures::test_multiple_clicks_on_same_post PASSED [100%]
 
-=================================== FAILURES ===================================
-_________ TestQualityThresholdBoundaries.test_face_rate_just_below_0_9 _________
-backend/tests/test_quality.py:80: in test_face_rate_just_below_0_9
-    assert result["overall_quality"] == "acceptable"
-E   AssertionError: assert 'poor' == 'acceptable'
-E     
-E     - acceptable
-E     + poor
-______________ TestQualityMixedScenarios.test_mixed_sample_counts ______________
-backend/tests/test_quality_advanced.py:57: in test_mixed_sample_counts
-    assert result["overall_quality"] == "good"
-E   AssertionError: assert 'acceptable' == 'good'
-E     
-E     - good
-E     + acceptable
 =============================== warnings summary ===============================
 tests/test_calibration_workflow.py::TestCalibrationWorkflowSchemas::test_session_creation_to_output
   /Users/zhijie/Development/comp5703/cs14/backend/tests/test_calibration_workflow.py:26: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
@@ -129,13 +118,4 @@ tests/test_schema_interop.py::TestSchemaInteroperability::test_calibration_reque
     started_at=datetime.utcnow(),
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-=========================== short test summary info ============================
-FAILED backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_just_below_0_9
-FAILED backend/tests/test_quality_advanced.py::TestQualityMixedScenarios::test_mixed_sample_counts
-=================== 2 failed, 90 passed, 3 warnings in 0.58s ===================
-
---- stderr ---
-/Users/zhijie/.local/share/mise/installs/python/3.12.13/lib/python3.12/site-packages/pytest_asyncio/plugin.py:208: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
-The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
-
-  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+======================== 92 passed, 3 warnings in 0.47s ========================
