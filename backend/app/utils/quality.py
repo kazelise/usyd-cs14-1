@@ -1,9 +1,7 @@
 """Calibration quality computation. Owned by Backend C."""
 
 
-def compute_calibration_quality(
-    points: list[dict], expected_points: int
-) -> dict:
+def compute_calibration_quality(points: list[dict], expected_points: int) -> dict:
     """Compute calibration quality metrics from recorded points.
 
     Args:
@@ -28,9 +26,7 @@ def compute_calibration_quality(
     total_samples = sum(p["samples_count"] for p in points)
     avg_samples = round(total_samples / total_points, 1)
 
-    detected = sum(
-        1 for p in points for s in p["samples"] if s.get("face_detected")
-    )
+    detected = sum(1 for p in points for s in p["samples"] if s.get("face_detected"))
     total = sum(len(p["samples"]) for p in points)
     face_rate = round(detected / total, 3) if total else 0.0
 
