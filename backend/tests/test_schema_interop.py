@@ -1,15 +1,14 @@
 """Tests for schema interoperability and data flow between models."""
 
-import pytest
 from datetime import datetime
 
 from app.schemas.tracking import (
-    CreateCalibrationRequest,
     CalibrationSessionOut,
-    GazeBatchRequest,
-    GazeBatchOut,
-    ClickBatchRequest,
     ClickBatchOut,
+    ClickBatchRequest,
+    CreateCalibrationRequest,
+    GazeBatchOut,
+    GazeBatchRequest,
 )
 
 
@@ -17,9 +16,7 @@ class TestSchemaInteroperability:
     """Verify data flows correctly between request and response schemas."""
 
     def test_calibration_request_fields_map_to_output(self):
-        req = CreateCalibrationRequest(
-            response_id=42, screen_width=1920, screen_height=1080
-        )
+        req = CreateCalibrationRequest(response_id=42, screen_width=1920, screen_height=1080)
         out = CalibrationSessionOut(
             session_id=1,
             response_id=req.response_id,
@@ -44,8 +41,7 @@ class TestSchemaInteroperability:
         batch = ClickBatchRequest(
             response_id=1,
             data=[
-                {"timestamp_ms": i * 500, "screen_x": 100.0, "screen_y": 200.0}
-                for i in range(3)
+                {"timestamp_ms": i * 500, "screen_x": 100.0, "screen_y": 200.0} for i in range(3)
             ],
         )
         out = ClickBatchOut(saved=len(batch.data))
