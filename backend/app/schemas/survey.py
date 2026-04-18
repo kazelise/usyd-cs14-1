@@ -223,3 +223,44 @@ class SurveyEngagementStats(BaseModel):
 
 class SurveyParticipantCommentsOut(BaseModel):
     comments_by_post: dict[int, list[ParticipantCommentOut]]
+
+
+class GroupAnalyticsOut(BaseModel):
+    group_id: int
+    participants: int
+    completed: int
+    completion_rate: float
+    clicks: int
+    likes: int
+    comments: int
+    shares: int
+
+
+class PostAnalyticsRowOut(BaseModel):
+    post_id: int
+    title: str
+    source: str | None = None
+    visible_groups: list[int] | None = None
+    clicks: int
+    likes: int
+    comments: int
+    shares: int
+    participant_comment_count: int
+
+
+class SurveyAnalyticsOut(BaseModel):
+    survey_id: int
+    total_responses: int
+    completion_rate: float
+    avg_completion_minutes: float
+    calibration_success_rate: float
+    total_clicks: int
+    total_likes: int
+    total_comments: int
+    total_shares: int
+    fast_completions: int
+    low_interaction_responses: int
+    duplicate_comment_sessions: int
+    group_breakdown: list[GroupAnalyticsOut]
+    posts: list[PostAnalyticsRowOut]
+    ai_summary: str
