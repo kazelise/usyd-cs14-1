@@ -27,6 +27,7 @@ from app.models.participant import (
     ParticipantLike,
     SurveyResponse,
 )
+from app.models.question import Question
 from app.models.researcher import Researcher
 from app.models.survey import PostComment, Survey, SurveyPost
 from app.models.tracking import CalibrationSession, ClickRecord
@@ -34,30 +35,29 @@ from app.schemas.survey import (
     CommentIn,
     CommentOut,
     CreatePostRequest,
+    CreateQuestionRequest,
     CreateSurveyRequest,
+    GroupAnalyticsOut,
     InteractionOut,
     InteractionRequest,
     ParticipantCommentOut,
+    PostAnalyticsRowOut,
     PostEngagementStat,
     PostOut,
     PublicSurveyOut,
+    QuestionOut,
     ResponseStateOut,
     StartSurveyResponse,
-    SurveyEngagementStats,
     SurveyAnalyticsOut,
+    SurveyEngagementStats,
     SurveyListOut,
     SurveyOut,
     SurveyParticipantCommentsOut,
-    PostAnalyticsRowOut,
     UpdatePostRequest,
-    UpdateSurveyRequest,
-    CreateQuestionRequest,
     UpdateQuestionRequest,
-    QuestionOut,
-    GroupAnalyticsOut,
+    UpdateSurveyRequest,
 )
 from app.services.og_fetcher import fetch_og_metadata
-from app.models.question import Question
 
 router = APIRouter(prefix="/surveys", tags=["Surveys"])
 
@@ -803,10 +803,14 @@ async def get_analytics_summary(
     )
     calibration_sessions = calibration_result.scalars().all()
     successful_calibrations = [
-        session for session in calibration_sessions if session.status == "completed" and session.quality != "poor"
+        session
+        for session in calibration_sessions
+        if session.status == "completed" and session.quality != "poor"
     ]
     calibration_success_rate = (
-        len(successful_calibrations) / len(calibration_sessions) * 100 if calibration_sessions else 0
+        len(successful_calibrations) / len(calibration_sessions) * 100
+        if calibration_sessions
+        else 0
     )
 
     click_rows_result = await db.execute(
@@ -855,11 +859,15 @@ async def get_analytics_summary(
     group_comment_map: dict[int, int] = {}
     comment_texts_by_response: dict[int, list[str]] = {}
     for comment in participant_comments:
-        response_comment_totals[comment.response_id] = response_comment_totals.get(comment.response_id, 0) + 1
+        response_comment_totals[comment.response_id] = (
+            response_comment_totals.get(comment.response_id, 0) + 1
+        )
         post_comment_map[comment.post_id] = post_comment_map.get(comment.post_id, 0) + 1
         group_id = response_to_group.get(comment.response_id, 1)
         group_comment_map[group_id] = group_comment_map.get(group_id, 0) + 1
-        comment_texts_by_response.setdefault(comment.response_id, []).append((comment.text or "").strip().lower())
+        comment_texts_by_response.setdefault(comment.response_id, []).append(
+            (comment.text or "").strip().lower()
+        )
     total_comments = len(participant_comments)
 
     shares_result = await db.execute(
@@ -899,14 +907,20 @@ async def get_analytics_summary(
 
     group_breakdown: list[GroupAnalyticsOut] = []
     for group_id in range(1, survey.num_groups + 1):
-        group_responses = [response for response in responses if response.assigned_group == group_id]
-        group_completed = [response for response in group_responses if response.status == "completed"]
+        group_responses = [
+            response for response in responses if response.assigned_group == group_id
+        ]
+        group_completed = [
+            response for response in group_responses if response.status == "completed"
+        ]
         group_breakdown.append(
             GroupAnalyticsOut(
                 group_id=group_id,
                 participants=len(group_responses),
                 completed=len(group_completed),
-                completion_rate=(len(group_completed) / len(group_responses) * 100) if group_responses else 0,
+                completion_rate=(len(group_completed) / len(group_responses) * 100)
+                if group_responses
+                else 0,
                 clicks=group_clicks_map.get(group_id, 0),
                 likes=group_likes_map.get(group_id, 0),
                 comments=group_comment_map.get(group_id, 0),
@@ -948,7 +962,10 @@ async def get_analytics_summary(
         ai_summary_parts.append(
             f"Calibration quality is holding at {calibration_success_rate:.0f}% acceptable-or-better sessions."
         )
-    ai_summary = " ".join(ai_summary_parts) or "Collect participant responses to unlock engagement and response-quality insights."
+    ai_summary = (
+        " ".join(ai_summary_parts)
+        or "Collect participant responses to unlock engagement and response-quality insights."
+    )
 
     return SurveyAnalyticsOut(
         survey_id=survey_id,
@@ -968,7 +985,9 @@ async def get_analytics_summary(
         ai_summary=ai_summary,
     )
 
+
 # ── Question Endpoints ────────────────────────────────────────────────────────
+
 
 @router.post(
     "/surveys/{survey_id}/posts/{post_id}/questions",
