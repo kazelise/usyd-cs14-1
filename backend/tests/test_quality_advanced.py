@@ -1,7 +1,5 @@
 """Advanced quality computation tests using fixtures."""
 
-import pytest
-
 from app.utils.quality import compute_calibration_quality
 
 
@@ -46,8 +44,13 @@ class TestQualityMixedScenarios:
         sample_counts = [15, 12, 8, 14, 11, 13, 9, 12, 10]
         for count in sample_counts:
             samples = [
-                {"face_detected": True, "left_iris_x": 0.5, "left_iris_y": 0.5,
-                 "right_iris_x": 0.5, "right_iris_y": 0.5}
+                {
+                    "face_detected": True,
+                    "left_iris_x": 0.5,
+                    "left_iris_y": 0.5,
+                    "right_iris_x": 0.5,
+                    "right_iris_y": 0.5,
+                }
                 for _ in range(count)
             ]
             points.append({"samples_count": count, "samples": samples})
@@ -64,11 +67,15 @@ class TestQualityMixedScenarios:
             samples = []
             for j in range(12):
                 # Face detection drops for every 4th sample
-                samples.append({
-                    "face_detected": j % 4 != 3,
-                    "left_iris_x": 0.5, "left_iris_y": 0.5,
-                    "right_iris_x": 0.5, "right_iris_y": 0.5,
-                })
+                samples.append(
+                    {
+                        "face_detected": j % 4 != 3,
+                        "left_iris_x": 0.5,
+                        "left_iris_y": 0.5,
+                        "right_iris_x": 0.5,
+                        "right_iris_y": 0.5,
+                    }
+                )
             points.append({"samples_count": 12, "samples": samples})
         result = compute_calibration_quality(points, expected_points=9)
         # 9 out of 12 samples per point detected = 75% face rate
@@ -78,11 +85,19 @@ class TestQualityMixedScenarios:
     def test_all_points_few_samples(self):
         """All points recorded but with too few samples each."""
         points = [
-            {"samples_count": 5, "samples": [
-                {"face_detected": True, "left_iris_x": 0.5, "left_iris_y": 0.5,
-                 "right_iris_x": 0.5, "right_iris_y": 0.5}
-                for _ in range(5)
-            ]}
+            {
+                "samples_count": 5,
+                "samples": [
+                    {
+                        "face_detected": True,
+                        "left_iris_x": 0.5,
+                        "left_iris_y": 0.5,
+                        "right_iris_x": 0.5,
+                        "right_iris_y": 0.5,
+                    }
+                    for _ in range(5)
+                ],
+            }
             for _ in range(9)
         ]
         result = compute_calibration_quality(points, expected_points=9)
