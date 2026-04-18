@@ -64,8 +64,36 @@ class PublicSurveyOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Post Comment (fake, added by researcher) ─────────
+# ── Question ─────────────────────────────────────────
 
+class CreateQuestionRequest(BaseModel):
+    """Create a question attached to a survey post."""
+
+    question_type: str  # free_text / likert / multiple_choice
+    text: str
+    order: int
+    config: dict | None = None  # e.g. {"min": 1, "max": 5} for likert
+
+
+class UpdateQuestionRequest(BaseModel):
+    question_type: str | None = None
+    text: str | None = None
+    order: int | None = None
+    config: dict | None = None
+
+
+class QuestionOut(BaseModel):
+    id: int
+    post_id: int
+    order: int
+    question_type: str
+    text: str
+    config: dict | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Post Comment (fake, added by researcher) ─────────
 
 class CommentIn(BaseModel):
     author_name: str
