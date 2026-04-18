@@ -66,6 +66,7 @@ class PublicSurveyOut(BaseModel):
 
 # ── Question ─────────────────────────────────────────
 
+
 class CreateQuestionRequest(BaseModel):
     """Create a question attached to a survey post."""
 
@@ -94,6 +95,7 @@ class QuestionOut(BaseModel):
 
 
 # ── Post Comment (fake, added by researcher) ─────────
+
 
 class CommentIn(BaseModel):
     author_name: str
