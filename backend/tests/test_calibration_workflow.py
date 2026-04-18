@@ -1,16 +1,16 @@
 """Tests for calibration workflow data consistency."""
 
-import pytest
-from app.schemas.tracking import (
-    CreateCalibrationRequest,
-    RecordCalibrationPointRequest,
-    IrisSample,
-    CalibrationSessionOut,
-    CalibrationPointOut,
-    CalibrationCompleteOut,
-    QualityInfo,
-)
 from datetime import datetime
+
+from app.schemas.tracking import (
+    CalibrationCompleteOut,
+    CalibrationPointOut,
+    CalibrationSessionOut,
+    CreateCalibrationRequest,
+    IrisSample,
+    QualityInfo,
+    RecordCalibrationPointRequest,
+)
 
 
 class TestCalibrationWorkflowSchemas:
@@ -65,9 +65,15 @@ class TestCalibrationWorkflowSchemas:
     def test_nine_point_sequence(self, sample_iris_data):
         """Simulate recording all 9 calibration points."""
         grid_positions = [
-            (0, 0), (960, 0), (1920, 0),
-            (0, 540), (960, 540), (1920, 540),
-            (0, 1080), (960, 1080), (1920, 1080),
+            (0, 0),
+            (960, 0),
+            (1920, 0),
+            (0, 540),
+            (960, 540),
+            (1920, 540),
+            (0, 1080),
+            (960, 1080),
+            (1920, 1080),
         ]
         for idx, (x, y) in enumerate(grid_positions):
             samples = [IrisSample(**sample_iris_data) for _ in range(12)]
