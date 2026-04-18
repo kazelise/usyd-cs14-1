@@ -1,18 +1,32 @@
 """Unit tests for tracking Pydantic schemas."""
 
+from datetime import datetime
+
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.tracking import CreateCalibrationRequest, IrisSample
+from app.schemas.tracking import (
+    CalibrationCompleteOut,
+    CalibrationPointOut,
+    CalibrationSessionOut,
+    ClickBatchOut,
+    ClickBatchRequest,
+    ClickDataPoint,
+    CreateCalibrationRequest,
+    GazeBatchOut,
+    GazeBatchRequest,
+    GazeDataPoint,
+    IrisSample,
+    QualityInfo,
+    RecordCalibrationPointRequest,
+)
 
 
 class TestCreateCalibrationRequest:
     """Tests for calibration session creation schema."""
 
     def test_valid_minimal(self):
-        req = CreateCalibrationRequest(
-            response_id=1, screen_width=1920, screen_height=1080
-        )
+        req = CreateCalibrationRequest(response_id=1, screen_width=1920, screen_height=1080)
         assert req.response_id == 1
         assert req.camera_width is None
 
@@ -79,9 +93,6 @@ class TestIrisSample:
             IrisSample(timestamp_ms=1000, face_detected=True)
 
 
-from app.schemas.tracking import RecordCalibrationPointRequest
-
-
 class TestRecordCalibrationPointRequest:
     """Tests for calibration point recording schema."""
 
@@ -117,12 +128,7 @@ class TestRecordCalibrationPointRequest:
 
     def test_missing_point_index(self):
         with pytest.raises(ValidationError):
-            RecordCalibrationPointRequest(
-                target_screen_x=100, target_screen_y=100, samples=[]
-            )
-
-
-from app.schemas.tracking import GazeDataPoint, GazeBatchRequest, GazeBatchOut
+            RecordCalibrationPointRequest(target_screen_x=100, target_screen_y=100, samples=[])
 
 
 class TestGazeDataPoint:
@@ -183,9 +189,6 @@ class TestGazeBatchOut:
         assert out.saved == 5
 
 
-from app.schemas.tracking import ClickDataPoint, ClickBatchRequest, ClickBatchOut
-
-
 class TestClickDataPoint:
     """Tests for click data point schema."""
 
@@ -200,9 +203,7 @@ class TestClickDataPoint:
         assert point.target_element == "headline"
 
     def test_valid_without_target(self):
-        point = ClickDataPoint(
-            timestamp_ms=8000, screen_x=500.0, screen_y=300.0
-        )
+        point = ClickDataPoint(timestamp_ms=8000, screen_x=500.0, screen_y=300.0)
         assert point.target_element is None
         assert point.post_id is None
 
@@ -240,16 +241,6 @@ class TestClickBatchOut:
     def test_saved_count(self):
         out = ClickBatchOut(saved=3)
         assert out.saved == 3
-
-
-from datetime import datetime
-
-from app.schemas.tracking import (
-    CalibrationSessionOut,
-    CalibrationPointOut,
-    CalibrationCompleteOut,
-    QualityInfo,
-)
 
 
 class TestCalibrationSessionOut:
@@ -314,7 +305,6 @@ class TestQualityInfo:
             overall_quality="poor",
         )
         assert info.overall_quality == "poor"
-
 
 
 class TestCalibrationCompleteOut:
