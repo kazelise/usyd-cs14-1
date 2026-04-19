@@ -263,6 +263,28 @@ export default function SurveyParticipantPage() {
               Browse each post as you normally would on social media. Your interaction signals are recorded for the
               study environment.
             </p>
+
+            {/* Tracking status indicators */}
+            <div className="mt-4 space-y-2">
+              {calibrationDone && session.gaze_tracking_enabled && (
+                <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                  Gaze tracking active
+                </div>
+              )}
+              {session.click_tracking_enabled && (
+                <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                  Click tracking active
+                </div>
+              )}
+              {calibrationDone && (
+                <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
+                  <CheckCircleIcon className="h-3 w-3" />
+                  Calibration completed
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="surface-panel-soft px-6 py-6">
