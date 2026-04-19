@@ -95,4 +95,11 @@ export const api = {
     request("/tracking/gaze", { method: "POST", body: JSON.stringify(data) }),
   recordClicks: (data: { response_id: number; data: any[] }) =>
     request("/tracking/clicks", { method: "POST", body: JSON.stringify(data) }),
+
+  // Question responses
+  submitQuestionResponse: (
+    responseId: number,
+    questionId: number,
+    data: { question_id: number; answer_text?: string; answer_value?: number; answer_choices?: any[] }
+  ) => request(`/surveys/responses/${responseId}/questions/${questionId}/answer`, { method: "POST", body: JSON.stringify(data) }),
 };

@@ -5,11 +5,22 @@ import { useParams, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, LinkIcon, SurveyIcon, UsersIcon } from "@/components/icons";
+import { CalibrationExperience } from "@/components/calibration-experience";
+import { useGazeTracker } from "./useGazeTracker";
 
 interface Comment {
   id: number;
   author_name: string;
   text: string;
+}
+
+interface Question {
+  id: number;
+  post_id: number;
+  order: number;
+  question_type: string; // free_text | likert | multiple_choice
+  text: string;
+  config: { min?: number; max?: number; min_label?: string; max_label?: string; options?: string[] } | null;
 }
 
 interface Post {
@@ -27,6 +38,7 @@ interface Post {
   show_comments: boolean;
   show_shares: boolean;
   comments: Comment[];
+  questions: Question[];
 }
 
 interface SurveySession {
@@ -59,12 +71,23 @@ export default function SurveyParticipantPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
+  const [calibrationDone, setCalibrationDone] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
   const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
   const [showCommentInput, setShowCommentInput] = useState<number | null>(null);
   const [participantComments, setParticipantComments] = useState<Record<number, ParticipantComment[]>>({});
+  // Question answers: { [questionId]: answer }
+  const [questionAnswers, setQuestionAnswers] = useState<Record<number, { text?: string; value?: number; choices?: string[] }>>({});
+  const [submittedQuestions, setSubmittedQuestions] = useState<Set<number>>(new Set());
 
   const clickBuffer = useRef<any[]>([]);
+
+  // Gaze tracking — runs continuously during survey after calibration
+  const { flush: flushGaze } = useGazeTracker({
+    responseId: session?.response_id ?? 0,
+    intervalMs: session?.gaze_interval_ms ?? 1000,
+    enabled: calibrationDone && !!session?.gaze_tracking_enabled,
+  });
 
   useEffect(() => {
     let clickListener: ((e: MouseEvent) => void) | null = null;
@@ -179,6 +202,7 @@ export default function SurveyParticipantPage() {
   async function handleComplete() {
     if (!session) return;
     await flushClicks(session.response_id);
+    await flushGaze();
     await api.completeSurvey(session.response_id);
     setCompleted(true);
   }
@@ -206,6 +230,16 @@ export default function SurveyParticipantPage() {
   }
 
   if (!session) return null;
+
+  // Show calibration if required and not yet completed
+  if (session.calibration_required && !calibrationDone) {
+    return (
+      <CalibrationExperience
+        responseId={session.response_id}
+        onComplete={(_result) => setCalibrationDone(true)}
+      />
+    );
+  }
 
   const totalPosts = session.posts.length;
   const interactedPosts = likedPosts.size + Object.keys(participantComments).filter((key) => (participantComments[Number(key)] || []).length > 0).length;
@@ -410,6 +444,111 @@ export default function SurveyParticipantPage() {
                           OK
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Post Questions */}
+                  {post.questions && post.questions.length > 0 && (
+                    <div className="border-t px-5 py-4 space-y-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Questions</p>
+                      {post.questions
+                        .sort((a, b) => a.order - b.order)
+                        .map((q) => {
+                          const answered = submittedQuestions.has(q.id);
+                          const answer = questionAnswers[q.id] || {};
+                          return (
+                            <div key={q.id} className={`rounded-xl border p-4 ${answered ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-slate-50"}`}>
+                              <p className="text-sm font-medium text-slate-800">{q.text}</p>
+
+                              {/* Free text */}
+                              {q.question_type === "free_text" && (
+                                <textarea
+                                  className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                                  rows={2}
+                                  placeholder="Type your answer..."
+                                  disabled={answered}
+                                  value={answer.text || ""}
+                                  onChange={(e) => setQuestionAnswers((prev) => ({ ...prev, [q.id]: { ...prev[q.id], text: e.target.value } }))}
+                                />
+                              )}
+
+                              {/* Likert scale */}
+                              {q.question_type === "likert" && q.config && (
+                                <div className="mt-3">
+                                  <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                                    <span>{q.config.min_label || "Strongly Disagree"}</span>
+                                    <span>{q.config.max_label || "Strongly Agree"}</span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    {Array.from({ length: (q.config.max || 5) - (q.config.min || 1) + 1 }, (_, i) => {
+                                      const val = (q.config!.min || 1) + i;
+                                      const selected = answer.value === val;
+                                      return (
+                                        <button
+                                          key={val}
+                                          disabled={answered}
+                                          onClick={() => setQuestionAnswers((prev) => ({ ...prev, [q.id]: { value: val } }))}
+                                          className={`flex-1 rounded-lg border py-2 text-sm font-medium transition ${
+                                            selected ? "border-blue-500 bg-blue-500 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                                          } ${answered ? "opacity-60" : ""}`}
+                                        >
+                                          {val}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Multiple choice */}
+                              {q.question_type === "multiple_choice" && q.config?.options && (
+                                <div className="mt-2 space-y-2">
+                                  {q.config.options.map((opt) => {
+                                    const selected = (answer.choices || []).includes(opt);
+                                    return (
+                                      <button
+                                        key={opt}
+                                        disabled={answered}
+                                        onClick={() => {
+                                          setQuestionAnswers((prev) => {
+                                            const current = prev[q.id]?.choices || [];
+                                            const next = selected ? current.filter((c) => c !== opt) : [...current, opt];
+                                            return { ...prev, [q.id]: { choices: next } };
+                                          });
+                                        }}
+                                        className={`block w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
+                                          selected ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                        } ${answered ? "opacity-60" : ""}`}
+                                      >
+                                        {opt}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {/* Submit button */}
+                              {!answered && (answer.text || answer.value || (answer.choices && answer.choices.length > 0)) && (
+                                <button
+                                  className="mt-2 rounded-lg bg-black px-4 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
+                                  onClick={async () => {
+                                    if (!session) return;
+                                    await api.submitQuestionResponse(session.response_id, q.id, {
+                                      question_id: q.id,
+                                      answer_text: answer.text,
+                                      answer_value: answer.value,
+                                      answer_choices: answer.choices,
+                                    });
+                                    setSubmittedQuestions((prev) => new Set([...prev, q.id]));
+                                  }}
+                                >
+                                  Submit Answer
+                                </button>
+                              )}
+                              {answered && <p className="mt-1 text-xs text-emerald-600">Answer submitted</p>}
+                            </div>
+                          );
+                        })}
                     </div>
                   )}
                 </div>
