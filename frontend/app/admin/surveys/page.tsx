@@ -106,8 +106,8 @@ function SurveysPageContent() {
           <p className="section-kicker">Drafts</p>
           <p className="metric-value">{metrics.drafts}</p>
         </div>
-        <div className="rounded-[18px] bg-black px-5 py-4 text-white shadow-[0_28px_60px_rgba(17,24,39,0.14)]">
-          <p className="section-kicker text-white/55">Group variants</p>
+        <div className="rounded-[18px] bg-[linear-gradient(135deg,#0f3146_0%,#1f5876_56%,#00a7a0_100%)] px-5 py-4 text-white shadow-[0_24px_48px_rgba(15,49,70,0.2)]">
+          <p className="section-kicker text-white/60">Group variants</p>
           <p className="metric-value-inverse">{metrics.groupVariants}</p>
         </div>
       </section>
@@ -118,7 +118,7 @@ function SurveysPageContent() {
             <Link
               key={survey.id}
               href={`/admin/surveys/${survey.id}`}
-              className="surface-panel flex h-full min-h-[238px] flex-col justify-between p-5 transition hover:-translate-y-1 hover:shadow-[0_35px_80px_rgba(17,24,39,0.08)]"
+              className="surface-panel flex h-full min-h-[238px] flex-col justify-between p-5 transition hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(14,37,63,0.10)]"
             >
               <div>
                 <span className={statusClasses(survey.status)}>{survey.status}</span>
@@ -149,9 +149,9 @@ function SurveysPageContent() {
 
           <Link
             href="/admin/surveys/new"
-            className="flex h-full min-h-[238px] flex-col items-center justify-center rounded-[20px] border border-dashed border-black/15 bg-white/45 p-5 text-center transition hover:bg-white hover:shadow-[0_28px_60px_rgba(17,24,39,0.05)]"
+            className="flex h-full min-h-[238px] flex-col items-center justify-center rounded-[20px] border border-dashed border-[#9ddfd8] bg-[#f7fffe] p-5 text-center transition hover:bg-white hover:shadow-[0_24px_48px_rgba(14,37,63,0.07)]"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-stone-100 text-slate-500">
+            <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#e8fbfa] text-[#00a7a0]">
               <PlusIcon className="h-5 w-5" />
             </div>
             <p className="mt-4 text-[17px] font-semibold tracking-[-0.04em] text-black">New Survey</p>
@@ -164,7 +164,7 @@ function SurveysPageContent() {
 
       {filteredSurveys.length === 0 && (
         <section className="surface-panel mt-4 px-8 py-12 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-stone-100 text-slate-500">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-[#e8fbfa] text-[#00a7a0]">
             <SurveyIcon className="h-7 w-7" />
           </div>
           <h2 className="mt-6 text-3xl font-semibold tracking-[-0.04em] text-black">
@@ -186,7 +186,7 @@ function SurveysPageContent() {
 
       <section className="surface-panel mt-4 flex flex-col gap-4 px-5 py-5 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-stone-100 text-slate-500">
+          <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[#e8fbfa] text-[#00a7a0]">
             <ChartIcon className="h-4 w-4" />
           </div>
           <div>

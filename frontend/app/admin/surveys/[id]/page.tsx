@@ -798,8 +798,10 @@ export default function SurveyEditPage() {
                 "Review display counts and comment content",
                 survey.num_groups > 1 ? "Confirm group visibility for each post" : "Single-group flow is ready",
               ].map((item) => (
-                <div key={item} className="flex gap-3">
-                  <CheckCircleIcon className="mt-0.5 h-4 w-4 text-black" />
+                <div key={item} className="grid grid-cols-[20px_minmax(0,1fr)] items-start gap-3">
+                  <div className="mt-[2px] flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                    <CheckCircleIcon className="h-3.5 w-3.5" />
+                  </div>
                   <p className="text-[14px] leading-7 text-slate-500">{item}</p>
                 </div>
               ))}
