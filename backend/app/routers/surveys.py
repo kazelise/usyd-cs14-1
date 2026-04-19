@@ -11,7 +11,7 @@ Core flow:
 """
 
 import random
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
@@ -143,7 +143,7 @@ async def update_survey(
     survey = await get_survey_or_404(survey_id, researcher.id, db)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(survey, field, value)
-    survey.updated_at = datetime.now(timezone.utc)
+    survey.updated_at = datetime.utcnow()
     await db.commit()
     return survey
 
@@ -366,7 +366,7 @@ async def start_survey(
         survey_id=survey.id,
         assigned_group=assigned_group,
         status="in_progress",
-        started_at=datetime.now(timezone.utc)
+        started_at=datetime.utcnow()
     )
     db.add(response)
     await db.flush()
@@ -391,6 +391,7 @@ async def start_survey(
         calibration_required=survey.calibration_enabled,
         gaze_tracking_enabled=survey.gaze_tracking_enabled,
         gaze_interval_ms=survey.gaze_interval_ms,
+        click_tracking_enabled=survey.click_tracking_enabled,
         posts=visible_posts,
     )
 
@@ -527,8 +528,8 @@ async def complete_response(
         raise HTTPException(status_code=404, detail="Response not found")
         
     # Enforcing server-side timestamps to prevent client-side manipulation 
-    now = datetime.now(timezone.utc)
-    duration = (now - response.started_at.replace(tzinfo=timezone.utc)).total_seconds()
+    now = datetime.utcnow()
+    duration = (now - response.started_at).total_seconds()
     
     # Implementation of automated speed filtering to protect research integrity
     # Responses under 30 seconds are flagged as potential low-effort samples
