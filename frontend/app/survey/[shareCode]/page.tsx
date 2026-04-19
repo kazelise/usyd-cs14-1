@@ -224,6 +224,9 @@ export default function SurveyParticipantPage() {
           </div>
           <h1 className="mt-6 text-4xl font-semibold tracking-[-0.05em] text-black">{t(locale, "thankYou")}</h1>
           <p className="mt-3 text-sm leading-7 text-slate-500">{t(locale, "recorded")}</p>
+          <p className="mt-2 text-xs text-slate-400">
+            Your interactions, click data, and calibration session have been recorded.
+          </p>
         </div>
       </div>
     );
