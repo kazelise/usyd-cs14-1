@@ -350,6 +350,8 @@ async def start_survey(
     survey = result.scalar_one_or_none()
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found or not published")
+    if survey.share_code_expires_at and survey.share_code_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=410, detail="Survey link has expired")
 
     # Random group assignment
     assigned_group = random.randint(1, survey.num_groups)
@@ -398,6 +400,8 @@ async def get_public_survey(
     survey = result.scalar_one_or_none()
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found or not published")
+    if survey.share_code_expires_at and survey.share_code_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=410, detail="Survey link has expired")
     return survey
 
 
