@@ -267,3 +267,22 @@ class SurveyAnalyticsOut(BaseModel):
     group_breakdown: list[GroupAnalyticsOut]
     posts: list[PostAnalyticsRowOut]
     ai_summary: str
+
+# ── Question Response ─────────────────────────────────
+
+class SubmitQuestionResponseRequest(BaseModel):
+    question_id: int
+    answer_text: str | None = None
+    answer_value: int | None = None
+    answer_choices: list | None = None
+
+
+class QuestionResponseOut(BaseModel):
+    id: int
+    response_id: int
+    question_id: int
+    answer_text: str | None
+    answer_value: int | None
+    answer_choices: list | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
