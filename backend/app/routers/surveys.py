@@ -354,9 +354,7 @@ async def start_survey(
     )
     survey = result.scalar_one_or_none()
     if not survey:
-        raise HTTPException(status_code=404, detail="Survey not found or not published")
-    if survey.share_code_expires_at and survey.share_code_expires_at < datetime.utcnow():
-        raise HTTPException(status_code=410, detail="Survey link has expired")
+        raise HTTPException(status_code=404, detail="Survey not found or inactive")
 
     # Random group assignment
     assigned_group = random.randint(1, survey.num_groups)
@@ -390,7 +388,6 @@ async def start_survey(
         calibration_required=survey.calibration_enabled,
         gaze_tracking_enabled=survey.gaze_tracking_enabled,
         gaze_interval_ms=survey.gaze_interval_ms,
-        click_tracking_enabled=survey.click_tracking_enabled,
         posts=visible_posts,
     )
 
@@ -416,6 +413,7 @@ async def get_public_survey(
 async def record_interaction(
     response_id: int,
     body: InteractionRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """Record a participant interaction with a post (like, comment, or click to original)."""
@@ -433,7 +431,7 @@ async def record_interaction(
         click_x=getattr(body, 'click_x', None),
         click_y=getattr(body, 'click_y', None)
     )
-    # Asynchronous persistence to prevent performance bottlenecks [cite: 10, 232]
+    # Asynchronous persistence to prevent performance bottlenecks
     background_tasks.add_task(save_to_db, db, interaction)
     
     return interaction
@@ -527,6 +525,7 @@ async def complete_response(
         
     # Enforcing server-side timestamps to prevent client-side manipulation 
     now = datetime.now(timezone.utc)
+    duration = (now - response.started_at.replace(tzinfo=timezone.utc)).total_seconds()
     
     # Implementation of automated speed filtering to protect research integrity
     # Responses under 30 seconds are flagged as potential low-effort samples
