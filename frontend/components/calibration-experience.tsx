@@ -578,6 +578,11 @@ export function CalibrationExperience({
                           {result.quality.valid_points} of {result.quality.total_points} points reached the required
                           sample threshold.
                         </div>
+                        {result.quality.overall_quality === "poor" && (
+                          <div className="mt-4 rounded-[16px] border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-200">
+                            Low quality detected. Please ensure your face is visible and well-lit, then retry.
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -644,12 +649,42 @@ export function CalibrationExperience({
                       </div>
                     )}
                     {step === "results" && result && (
-                      <button
-                        onClick={() => onComplete(result)}
-                        className="w-full rounded-[16px] bg-emerald-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200"
-                      >
-                        Continue to Survey
-                      </button>
+                      <div className="space-y-3">
+                        {result.quality.overall_quality === "poor" && (
+                          <button
+                            onClick={async () => {
+                              setResult(null);
+                              setSessionId(null);
+                              setPointsCompleted(0);
+                              setActivePointIndex(0);
+                              setCalibrating(false);
+                              setStep("detection");
+                              setDetectionStable(false);
+                              detectionHistoryRef.current = [];
+                              // Camera is already stopped, restart it
+                              if (streamRef.current) {
+                                if (videoRef.current) {
+                                  videoRef.current.srcObject = streamRef.current;
+                                  await videoRef.current.play();
+                                }
+                                setPermissionState("granted");
+                                startMediaPipeLoop();
+                              } else {
+                                await requestCameraAccess();
+                              }
+                            }}
+                            className="w-full rounded-[16px] bg-amber-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-200"
+                          >
+                            Retry Calibration
+                          </button>
+                        )}
+                        <button
+                          onClick={() => onComplete(result)}
+                          className="w-full rounded-[16px] bg-emerald-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200"
+                        >
+                          Continue to Survey
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
