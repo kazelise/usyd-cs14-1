@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { CheckCircleIcon, SurveyIcon } from "@/components/icons";
+import { CalibrationExperience } from "@/components/calibration-experience";
 
 const defaults = [
   "Gaze tracking is enabled for new surveys",
@@ -18,6 +19,7 @@ export default function NewSurveyPage() {
   const [numGroups, setNumGroups] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showCalibrationPreview, setShowCalibrationPreview] = useState(false);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -38,6 +40,24 @@ export default function NewSurveyPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Full-screen calibration preview
+  if (showCalibrationPreview) {
+    return (
+      <div className="fixed inset-0 z-50">
+        <CalibrationExperience
+          responseId={0}
+          onComplete={() => setShowCalibrationPreview(false)}
+        />
+        <button
+          onClick={() => setShowCalibrationPreview(false)}
+          className="fixed right-6 top-6 z-[60] rounded-full border border-white/20 bg-slate-900/80 px-4 py-2 text-sm text-white backdrop-blur hover:bg-slate-800"
+        >
+          ✕ Close Preview
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -132,6 +152,37 @@ export default function NewSurveyPage() {
             <p>1. Paste article URLs to generate post cards automatically.</p>
             <p>2. Adjust title overrides, likes, comments, and shares for each post.</p>
             <p>3. Configure which participant groups can view each post before publishing.</p>
+          </div>
+        </div>
+
+        <div className="surface-panel flex h-full flex-col px-5 py-5">
+          <p className="section-kicker">Webcam Tools</p>
+          <p className="mt-3 text-[13px] leading-6 text-slate-500">
+            Preview the calibration experience that participants will see before the survey feed.
+          </p>
+          <div className="mt-4 space-y-3">
+            <button
+              type="button"
+              onClick={() => setShowCalibrationPreview(true)}
+              className="flex w-full items-center gap-3 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:border-cyan-300 hover:bg-cyan-50"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-100 text-cyan-700">🎯</span>
+              <div>
+                <p>Preview Calibration</p>
+                <p className="text-[11px] font-normal text-slate-400">Test the 9-point iris tracking flow</p>
+              </div>
+            </button>
+            <a
+              href="/demo-tracking"
+              target="_blank"
+              className="flex w-full items-center gap-3 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">👁</span>
+              <div>
+                <p>Iris Tracking Demo</p>
+                <p className="text-[11px] font-normal text-slate-400">Real-time face mesh &amp; gaze visualization</p>
+              </div>
+            </a>
           </div>
         </div>
       </aside>
