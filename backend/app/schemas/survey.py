@@ -159,6 +159,7 @@ class PostOut(BaseModel):
     visible_to_groups: list | None
     group_overrides: dict | None
     comments: list[CommentOut] = []
+    questions: list[QuestionOut] = []
     created_at: datetime
     model_config = {"from_attributes": True}
 

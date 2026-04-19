@@ -349,7 +349,10 @@ async def start_survey(
     """
     result = await db.execute(
         select(Survey)
-        .options(selectinload(Survey.posts).selectinload(SurveyPost.comments))
+        .options(
+            selectinload(Survey.posts).selectinload(SurveyPost.comments),
+            selectinload(Survey.posts).selectinload(SurveyPost.questions),
+        )
         .where(Survey.share_code == share_code, Survey.status == "published")
     )
     survey = result.scalar_one_or_none()
