@@ -84,6 +84,8 @@ async def create_survey(
 @router.get("", response_model=SurveyListOut)
 async def list_surveys(
     status: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
     researcher: Researcher = Depends(get_current_researcher),
     db: AsyncSession = Depends(get_db),
 ):
@@ -91,11 +93,11 @@ async def list_surveys(
     query = select(Survey).where(Survey.researcher_id == researcher.id)
     if status:
         query = query.where(Survey.status == status)
-    result = await db.execute(query.order_by(Survey.created_at.desc()))
-    surveys = result.scalars().all()
     count_result = await db.execute(
         select(func.count(Survey.id)).where(Survey.researcher_id == researcher.id)
     )
+    result = await db.execute(query.order_by(Survey.created_at.desc()).limit(limit).offset(offset))
+    surveys = result.scalars().all()
     return SurveyListOut(items=surveys, total=count_result.scalar() or 0)
 
 
@@ -228,6 +230,8 @@ async def create_post(
 @router.get("/{survey_id}/posts", response_model=list[PostOut])
 async def list_posts(
     survey_id: int,
+    limit: int = 50,
+    offset: int = 0,
     researcher: Researcher = Depends(get_current_researcher),
     db: AsyncSession = Depends(get_db),
 ):
@@ -244,6 +248,8 @@ async def list_posts(
         .options(selectinload(SurveyPost.comments))
         .where(SurveyPost.survey_id == survey_id)
         .order_by(SurveyPost.order)
+        .limit(limit)
+        .offset(offset)
     )
     return result.scalars().all()
 
