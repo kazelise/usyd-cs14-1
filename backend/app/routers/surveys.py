@@ -13,7 +13,7 @@ Core flow:
 import random
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,8 +46,10 @@ from app.schemas.survey import (
     PostOut,
     PublicSurveyOut,
     QuestionOut,
+    QuestionResponseOut,
     ResponseStateOut,
     StartSurveyResponse,
+    SubmitQuestionResponseRequest,
     SurveyAnalyticsOut,
     SurveyEngagementStats,
     SurveyListOut,
@@ -56,14 +58,13 @@ from app.schemas.survey import (
     UpdatePostRequest,
     UpdateQuestionRequest,
     UpdateSurveyRequest,
-    SubmitQuestionResponseRequest,
-    QuestionResponseOut,
 )
 from app.services.og_fetcher import fetch_og_metadata
 
 router = APIRouter(prefix="/surveys", tags=["Surveys"])
 
 # ── Internal Helper Functions ──────────────────────────────────────────
+
 
 async def get_survey_or_404(survey_id: int, researcher_id: int, db: AsyncSession) -> Survey:
     """
@@ -76,6 +77,7 @@ async def get_survey_or_404(survey_id: int, researcher_id: int, db: AsyncSession
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found")
     return survey
+
 
 # ══════════════════════════════════════════════════════
 #  RESEARCHER ENDPOINTS (require auth)
@@ -366,7 +368,7 @@ async def start_survey(
         survey_id=survey.id,
         assigned_group=assigned_group,
         status="in_progress",
-        started_at=datetime.utcnow()
+        started_at=datetime.utcnow(),
     )
     db.add(response)
     await db.flush()
@@ -431,19 +433,21 @@ async def record_interaction(
         action_type=body.action_type,
         comment_text=body.comment_text if body.action_type == "comment" else None,
         # Capturing Qualtrics-grade behavioral metrics for analysis
-        dwell_time_ms=getattr(body, 'dwell_time_ms', None),
-        click_x=getattr(body, 'click_x', None),
-        click_y=getattr(body, 'click_y', None)
+        dwell_time_ms=getattr(body, "dwell_time_ms", None),
+        click_x=getattr(body, "click_x", None),
+        click_y=getattr(body, "click_y", None),
     )
     # Asynchronous persistence to prevent performance bottlenecks
     background_tasks.add_task(save_to_db, db, interaction)
-    
+
     return interaction
-    
+
+
 async def save_to_db(db: AsyncSession, item):
     """Background utility for non-blocking database persistence[cite: 79]."""
     db.add(item)
     await db.commit()
+
 
 class ToggleLikeRequest(BaseModel):
     post_id: int
@@ -526,11 +530,11 @@ async def complete_response(
     response = result.scalar_one_or_none()
     if not response:
         raise HTTPException(status_code=404, detail="Response not found")
-        
-    # Enforcing server-side timestamps to prevent client-side manipulation 
+
+    # Enforcing server-side timestamps to prevent client-side manipulation
     now = datetime.utcnow()
     duration = (now - response.started_at).total_seconds()
-    
+
     # Implementation of automated speed filtering to protect research integrity
     # Responses under 30 seconds are flagged as potential low-effort samples
     if duration < 30:
@@ -538,7 +542,7 @@ async def complete_response(
         response.is_speed_test_failed = True
     else:
         response.status = "completed"
-        
+
     response.completed_at = now
     await db.commit()
     return {"status": response.status, "duration_seconds": duration}
@@ -1107,8 +1111,10 @@ async def delete_question(
         raise HTTPException(404, "Question not found")
     await db.delete(q)
     await db.commit()
-    
+
+
 # ── Question Response Endpoints ───────────────────────────────────────────────
+
 
 @router.post(
     "/responses/{response_id}/questions/{question_id}/answer",
@@ -1122,6 +1128,7 @@ async def submit_question_response(
     db: AsyncSession = Depends(get_db),
 ):
     from app.models.question_response import QuestionResponse
+
     survey_response = await db.get(SurveyResponse, response_id)
     if not survey_response:
         raise HTTPException(404, "Response not found")
@@ -1150,8 +1157,10 @@ async def list_question_responses(
     db: AsyncSession = Depends(get_db),
     researcher: Researcher = Depends(get_current_researcher),
 ):
-    from app.models.question_response import QuestionResponse
     from sqlalchemy import select
+
+    from app.models.question_response import QuestionResponse
+
     result = await db.execute(
         select(QuestionResponse).where(QuestionResponse.response_id == response_id)
     )

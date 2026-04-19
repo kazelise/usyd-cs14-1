@@ -269,7 +269,9 @@ class SurveyAnalyticsOut(BaseModel):
     posts: list[PostAnalyticsRowOut]
     ai_summary: str
 
+
 # ── Question Response ─────────────────────────────────
+
 
 class SubmitQuestionResponseRequest(BaseModel):
     question_id: int
