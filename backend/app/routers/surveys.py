@@ -529,7 +529,7 @@ async def complete_response(
     now = datetime.now(timezone.utc)
     
     # Implementation of automated speed filtering to protect research integrity
-    # Responses under 30 seconds are flagged as potential low-effort samples [cite: 226]
+    # Responses under 30 seconds are flagged as potential low-effort samples
     if duration < 30:
         response.status = "flagged"
         response.is_speed_test_failed = True
