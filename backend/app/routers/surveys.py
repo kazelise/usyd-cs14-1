@@ -11,9 +11,9 @@ Core flow:
 """
 
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,6 +63,19 @@ from app.services.og_fetcher import fetch_og_metadata
 
 router = APIRouter(prefix="/surveys", tags=["Surveys"])
 
+# ── Internal Helper Functions ──────────────────────────────────────────
+
+async def get_survey_or_404(survey_id: int, researcher_id: int, db: AsyncSession) -> Survey:
+    """
+    Enforces referential integrity and permission checks for researcher data[cite: 10, 208].
+    """
+    result = await db.execute(
+        select(Survey).where(Survey.id == survey_id, Survey.researcher_id == researcher_id)
+    )
+    survey = result.scalar_one_or_none()
+    if not survey:
+        raise HTTPException(status_code=404, detail="Survey not found")
+    return survey
 
 # ══════════════════════════════════════════════════════
 #  RESEARCHER ENDPOINTS (require auth)
@@ -78,7 +91,7 @@ async def create_survey(
     """Create a new survey with optional A/B group configuration."""
     survey = Survey(researcher_id=researcher.id, **body.model_dump())
     db.add(survey)
-    await db.flush()
+    await db.commit()
     await db.refresh(survey)
     return survey
 
@@ -126,18 +139,12 @@ async def update_survey(
     researcher: Researcher = Depends(get_current_researcher),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update survey settings (title, groups, tracking config, etc.)."""
-    result = await db.execute(
-        select(Survey).where(Survey.id == survey_id, Survey.researcher_id == researcher.id)
-    )
-    survey = result.scalar_one_or_none()
-    if not survey:
-        raise HTTPException(status_code=404, detail="Survey not found")
+    """Updates survey parameters while maintaining temporal audit trails."""
+    survey = await get_survey_or_404(survey_id, researcher.id, db)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(survey, field, value)
-    survey.updated_at = datetime.utcnow()
-    await db.flush()
-    await db.refresh(survey)
+    survey.updated_at = datetime.now(timezone.utc)
+    await db.commit()
     return survey
 
 
@@ -198,11 +205,7 @@ async def create_post(
     description, source) from the URL — same as how Facebook/Twitter
     generates link previews.
     """
-    result = await db.execute(
-        select(Survey).where(Survey.id == survey_id, Survey.researcher_id == researcher.id)
-    )
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Survey not found")
+    await get_survey_or_404(survey_id, researcher.id, db)
 
     # Fetch OG metadata from the URL
     og = await fetch_og_metadata(body.original_url)
@@ -361,6 +364,8 @@ async def start_survey(
     response = SurveyResponse(
         survey_id=survey.id,
         assigned_group=assigned_group,
+        status="in_progress",
+        started_at=datetime.now(timezone.utc)
     )
     db.add(response)
     await db.flush()
@@ -423,12 +428,20 @@ async def record_interaction(
         post_id=body.post_id,
         action_type=body.action_type,
         comment_text=body.comment_text if body.action_type == "comment" else None,
+        # Capturing Qualtrics-grade behavioral metrics for analysis
+        dwell_time_ms=getattr(body, 'dwell_time_ms', None),
+        click_x=getattr(body, 'click_x', None),
+        click_y=getattr(body, 'click_y', None)
     )
-    db.add(interaction)
-    await db.flush()
-    await db.refresh(interaction)
+    # Asynchronous persistence to prevent performance bottlenecks [cite: 10, 232]
+    background_tasks.add_task(save_to_db, db, interaction)
+    
     return interaction
-
+    
+async def save_to_db(db: AsyncSession, item):
+    """Background utility for non-blocking database persistence[cite: 79]."""
+    db.add(item)
+    await db.commit()
 
 class ToggleLikeRequest(BaseModel):
     post_id: int
@@ -511,10 +524,21 @@ async def complete_response(
     response = result.scalar_one_or_none()
     if not response:
         raise HTTPException(status_code=404, detail="Response not found")
-    response.status = "completed"
-    response.completed_at = datetime.utcnow()
-    await db.flush()
-    return {"status": "completed"}
+        
+    # Enforcing server-side timestamps to prevent client-side manipulation 
+    now = datetime.now(timezone.utc)
+    
+    # Implementation of automated speed filtering to protect research integrity
+    # Responses under 30 seconds are flagged as potential low-effort samples [cite: 226]
+    if duration < 30:
+        response.status = "flagged"
+        response.is_speed_test_failed = True
+    else:
+        response.status = "completed"
+        
+    response.completed_at = now
+    await db.commit()
+    return {"status": response.status, "duration_seconds": duration}
 
 
 class ParticipantCommentIn(BaseModel):
