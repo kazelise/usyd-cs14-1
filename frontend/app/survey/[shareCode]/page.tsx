@@ -543,21 +543,21 @@ export default function SurveyParticipantPage() {
                             type="text"
                             value={commentInputs[post.id] || ""}
                             onChange={(e) => setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))}
-                            placeholder={t(locale, "writeComment")}
-                            className="field-input flex-1"
-                            onKeyDown={(e) => e.key === "Enter" && handleComment(post.id)}
-                          />
-                          <button onClick={() => handleComment(post.id)} className="primary-button min-w-[112px]">
-                            {t(locale, "saveResponse")}
-                          </button>
-                        </div>
+                          placeholder={t(locale, "writeComment")}
+                          className="field-input flex-1"
+                          onKeyDown={(e) => e.key === "Enter" && handleComment(post.id)}
+                        />
+                        <button onClick={() => handleComment(post.id)} className="primary-button min-w-[112px]">
+                          {t(locale, "saveResponse")}
+                        </button>
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {post.questions && post.questions.length > 0 && (
-                      <div className="space-y-4 border-t border-slate-200 bg-[#fbfdff] px-5 py-5">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00a7a0]">{t(locale, "questionBlock")}</p>
-                        {post.questions
+                  {post.questions && post.questions.length > 0 && (
+                    <div className="space-y-4 border-t border-slate-200 bg-[#fbfdff] px-5 py-5">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00a7a0]">{t(locale, "questionBlock")}</p>
+                      {post.questions
                           .sort((a, b) => a.order - b.order)
                           .map((q) => {
                             const answered = submittedQuestions.has(q.id);
