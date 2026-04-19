@@ -44,6 +44,7 @@ class SurveyOut(BaseModel):
     click_tracking_enabled: bool
     calibration_enabled: bool
     calibration_points: int
+    share_code_expires_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     model_config = {"from_attributes": True}
