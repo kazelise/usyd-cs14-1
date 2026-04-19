@@ -56,6 +56,8 @@ from app.schemas.survey import (
     UpdatePostRequest,
     UpdateQuestionRequest,
     UpdateSurveyRequest,
+    SubmitQuestionResponseRequest,
+    QuestionResponseOut,
 )
 from app.services.og_fetcher import fetch_og_metadata
 
@@ -1078,3 +1080,52 @@ async def delete_question(
         raise HTTPException(404, "Question not found")
     await db.delete(q)
     await db.commit()
+    
+# ── Question Response Endpoints ───────────────────────────────────────────────
+
+@router.post(
+    "/responses/{response_id}/questions/{question_id}/answer",
+    response_model=QuestionResponseOut,
+    status_code=201,
+)
+async def submit_question_response(
+    response_id: int,
+    question_id: int,
+    body: SubmitQuestionResponseRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.question_response import QuestionResponse
+    survey_response = await db.get(SurveyResponse, response_id)
+    if not survey_response:
+        raise HTTPException(404, "Response not found")
+    question = await db.get(Question, question_id)
+    if not question:
+        raise HTTPException(404, "Question not found")
+    answer = QuestionResponse(
+        response_id=response_id,
+        question_id=question_id,
+        answer_text=body.answer_text,
+        answer_value=body.answer_value,
+        answer_choices=body.answer_choices,
+    )
+    db.add(answer)
+    await db.commit()
+    await db.refresh(answer)
+    return answer
+
+
+@router.get(
+    "/responses/{response_id}/answers",
+    response_model=list[QuestionResponseOut],
+)
+async def list_question_responses(
+    response_id: int,
+    db: AsyncSession = Depends(get_db),
+    researcher: Researcher = Depends(get_current_researcher),
+):
+    from app.models.question_response import QuestionResponse
+    from sqlalchemy import select
+    result = await db.execute(
+        select(QuestionResponse).where(QuestionResponse.response_id == response_id)
+    )
+    return result.scalars().all()
