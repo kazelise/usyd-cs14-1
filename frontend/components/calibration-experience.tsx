@@ -29,9 +29,36 @@ type CameraSnapshot = {
   brightness: number;
 };
 
-type BrowserFaceDetector = {
-  detect: (input: CanvasImageSource) => Promise<Array<{ boundingBox?: DOMRectReadOnly }>>;
+type IrisReading = {
+  detected: boolean;
+  leftIrisX: number;
+  leftIrisY: number;
+  rightIrisX: number;
+  rightIrisY: number;
+  headYaw: number;
+  headPitch: number;
 };
+
+// MediaPipe Face Mesh landmark indices
+const LEFT_IRIS_CENTER = 468;
+const RIGHT_IRIS_CENTER = 473;
+const NOSE_TIP = 1;
+const FOREHEAD = 10;
+const CHIN = 152;
+const LEFT_CHEEK = 234;
+const RIGHT_CHEEK = 454;
+
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement("script");
+    s.src = src;
+    s.crossOrigin = "anonymous";
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(s);
+  });
+}
 
 const POINT_LAYOUT = [
   { x: 0.12, y: 0.14, label: "Top left" },
@@ -56,8 +83,15 @@ export function CalibrationExperience({
 }: CalibrationExperienceProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const detectorRef = useRef<BrowserFaceDetector | null>(null);
+  const faceMeshRef = useRef<any>(null);
   const detectionHistoryRef = useRef<boolean[]>([]);
+  // Latest iris reading from MediaPipe, updated every frame
+  const latestIrisRef = useRef<IrisReading>({
+    detected: false,
+    leftIrisX: 0, leftIrisY: 0,
+    rightIrisX: 0, rightIrisY: 0,
+    headYaw: 0, headPitch: 0,
+  });
   const [step, setStep] = useState<CalibrationStep>("permission");
   const [permissionState, setPermissionState] = useState<"idle" | "granted" | "denied">("idle");
   const [cameraError, setCameraError] = useState("");
@@ -78,14 +112,9 @@ export function CalibrationExperience({
   );
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "FaceDetector" in window) {
-      const FaceDetectorCtor = (
-        window as Window & { FaceDetector?: new (options?: { fastMode?: boolean }) => BrowserFaceDetector }
-      ).FaceDetector;
-      detectorRef.current = FaceDetectorCtor ? new FaceDetectorCtor({ fastMode: true }) : null;
-    }
     return () => {
       stopCamera();
+      faceMeshRef.current?.close();
     };
   }, []);
 
@@ -93,9 +122,10 @@ export function CalibrationExperience({
     if (permissionState !== "granted" || !videoRef.current) return;
 
     let cancelled = false;
+    let creatingSession = false;
     const intervalId = window.setInterval(async () => {
       if (cancelled) return;
-      const snapshot = await analyzeFrame();
+      const snapshot = analyzeFrame();
       if (cancelled) return;
 
       const nextHistory = [...detectionHistoryRef.current, snapshot.faceDetected].slice(-8);
@@ -111,7 +141,8 @@ export function CalibrationExperience({
       setBrightnessScore(snapshot.brightness);
       setQualityScore(nextQuality);
 
-      if (!sessionId && videoRef.current && videoRef.current.videoWidth > 0) {
+      if (!sessionId && !creatingSession && videoRef.current && videoRef.current.videoWidth > 0) {
+        creatingSession = true;
         try {
           const session = await api.createCalibrationSession({
             response_id: responseId,
@@ -128,6 +159,7 @@ export function CalibrationExperience({
             setCameraError(error instanceof Error ? error.message : "Failed to start calibration session.");
           }
         }
+        creatingSession = false;
       }
     }, 700);
 
@@ -139,14 +171,60 @@ export function CalibrationExperience({
 
   async function requestCameraAccess() {
     setCameraError("");
-    setBusyMessage("Requesting camera permission");
+    setBusyMessage("Loading MediaPipe Face Mesh...");
     try {
+      // Load MediaPipe scripts
+      await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js");
+      await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js");
+
+      const w = window as any;
+      const faceMesh = new w.FaceMesh({
+        locateFile: (file: string) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+      });
+      faceMesh.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true, // enables iris landmarks 468-477
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+      faceMesh.onResults((results: any) => {
+        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+          latestIrisRef.current = { ...latestIrisRef.current, detected: false };
+          return;
+        }
+        const lm = results.multiFaceLandmarks[0];
+        const leftIris = lm[LEFT_IRIS_CENTER];
+        const rightIris = lm[RIGHT_IRIS_CENTER];
+        // Head rotation estimation from face landmarks
+        const nose = lm[NOSE_TIP];
+        const forehead = lm[FOREHEAD];
+        const chin = lm[CHIN];
+        const leftCheek = lm[LEFT_CHEEK];
+        const rightCheek = lm[RIGHT_CHEEK];
+        const yaw = (leftCheek.x - rightCheek.x) !== 0
+          ? ((nose.x - (leftCheek.x + rightCheek.x) / 2) / Math.abs(leftCheek.x - rightCheek.x)) * 45
+          : 0;
+        const pitch = (chin.y - forehead.y) !== 0
+          ? ((nose.y - (forehead.y + chin.y) / 2) / Math.abs(chin.y - forehead.y)) * 45
+          : 0;
+
+        latestIrisRef.current = {
+          detected: true,
+          leftIrisX: leftIris.x,
+          leftIrisY: leftIris.y,
+          rightIrisX: rightIris.x,
+          rightIrisY: rightIris.y,
+          headYaw: Number(yaw.toFixed(2)),
+          headPitch: Number(pitch.toFixed(2)),
+        };
+      });
+      await faceMesh.initialize();
+      faceMeshRef.current = faceMesh;
+
+      setBusyMessage("Requesting camera permission");
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: "user",
-        },
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
         audio: false,
       });
       streamRef.current = stream;
@@ -158,6 +236,9 @@ export function CalibrationExperience({
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
+
+      // Start sending frames to MediaPipe continuously
+      startMediaPipeLoop();
     } catch (error) {
       setPermissionState("denied");
       setBusyMessage("");
@@ -165,66 +246,71 @@ export function CalibrationExperience({
     }
   }
 
-  function stopCamera() {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
+  function startMediaPipeLoop() {
+    let sending = false;
+    const interval = window.setInterval(async () => {
+      if (sending || !videoRef.current || !faceMeshRef.current || videoRef.current.readyState < 2) return;
+      sending = true;
+      try {
+        await faceMeshRef.current.send({ image: videoRef.current });
+      } catch { /* skip frame */ }
+      sending = false;
+    }, 33); // ~30 fps for responsive tracking
+    // Store interval so we can clean up
+    const origStop = stopCamera;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    stopCamera = () => {
+      window.clearInterval(interval);
+      origStop();
+    };
   }
 
-  async function analyzeFrame(): Promise<CameraSnapshot> {
+  // eslint-disable-next-line prefer-const
+  let stopCamera = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  };
+
+  function analyzeFrame(): CameraSnapshot {
     const video = videoRef.current;
     if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
       return { faceDetected: false, brightness: 0 };
     }
 
+    // Brightness from canvas
     const canvas = document.createElement("canvas");
     canvas.width = 160;
     canvas.height = 120;
     const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) {
-      return { faceDetected: false, brightness: 0 };
-    }
-
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-
-    let brightnessAccumulator = 0;
-    for (let index = 0; index < pixels.length; index += 32) {
-      brightnessAccumulator += (pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3;
-    }
-    const sampleCount = pixels.length / 32;
-    const brightness = sampleCount ? Math.round(brightnessAccumulator / sampleCount) : 0;
-
-    let detected = false;
-    try {
-      if (detectorRef.current) {
-        const faces = await detectorRef.current.detect(canvas);
-        detected = faces.length > 0;
-      } else {
-        detected = brightness > 35;
+    let brightness = 0;
+    if (context) {
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let acc = 0;
+      for (let index = 0; index < pixels.length; index += 32) {
+        acc += (pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3;
       }
-    } catch {
-      detected = brightness > 35;
+      const sampleCount = pixels.length / 32;
+      brightness = sampleCount ? Math.round(acc / sampleCount) : 0;
     }
 
+    // Face detection from MediaPipe (latestIrisRef is updated by onResults callback)
+    const detected = latestIrisRef.current.detected;
     return { faceDetected: detected, brightness };
   }
 
-  function buildSample(pointIndex: number, pointX: number, pointY: number) {
-    const jitterX = (Math.random() - 0.5) * 0.035;
-    const jitterY = (Math.random() - 0.5) * 0.035;
-    const fallbackX = pointX / Math.max(window.innerWidth, 1);
-    const fallbackY = pointY / Math.max(window.innerHeight, 1);
-
+  function buildSample() {
+    const iris = latestIrisRef.current;
     return {
       timestamp_ms: Date.now(),
-      left_iris_x: Number((fallbackX + jitterX).toFixed(4)),
-      left_iris_y: Number((fallbackY + jitterY).toFixed(4)),
-      right_iris_x: Number((fallbackX + jitterX * 0.8).toFixed(4)),
-      right_iris_y: Number((fallbackY + jitterY * 0.8).toFixed(4)),
-      face_detected: faceDetected,
+      left_iris_x: Number(iris.leftIrisX.toFixed(4)),
+      left_iris_y: Number(iris.leftIrisY.toFixed(4)),
+      right_iris_x: Number(iris.rightIrisX.toFixed(4)),
+      right_iris_y: Number(iris.rightIrisY.toFixed(4)),
+      face_detected: iris.detected,
       head_rotation: {
-        yaw: Number(((pointIndex - 4) * 0.4).toFixed(2)),
-        pitch: Number(((0.5 - fallbackY) * 4).toFixed(2)),
+        yaw: iris.headYaw,
+        pitch: iris.headPitch,
         roll: 0,
       },
     };
@@ -241,15 +327,19 @@ export function CalibrationExperience({
         setActivePointIndex(index);
         const targetX = Math.round(window.innerWidth * point.x);
         const targetY = Math.round(window.innerHeight * point.y);
-        const samples = [];
 
+        // Dwell: let participant look at the dot
+        await sleep(1200);
+
+        // Record 12 samples
+        const samples = [];
         for (let sampleIndex = 0; sampleIndex < 12; sampleIndex += 1) {
           await sleep(120);
-          const snapshot = await analyzeFrame();
+          const snapshot = analyzeFrame();
           setFaceDetected(snapshot.faceDetected);
           setBrightnessScore(snapshot.brightness);
           setQualityScore((previous) => Math.max(previous, Math.round(snapshot.brightness * 0.35)));
-          samples.push(buildSample(index, targetX, targetY));
+          samples.push(buildSample());
         }
 
         await api.recordCalibrationPoint(sessionId, {
@@ -259,7 +349,7 @@ export function CalibrationExperience({
           samples,
         });
         setPointsCompleted(index + 1);
-        await sleep(180);
+        await sleep(200);
       }
 
       const completeResult = await api.completeCalibration(sessionId);
@@ -273,7 +363,6 @@ export function CalibrationExperience({
       setCalibrating(false);
       return;
     }
-
     setCalibrating(false);
   }
 
