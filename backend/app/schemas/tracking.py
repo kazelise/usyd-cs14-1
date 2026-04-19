@@ -1,18 +1,18 @@
 """Tracking schemas: calibration, gaze, clicks. Owned by Backend C."""
 
 from datetime import datetime
-from pydantic import BaseModel
 
+from pydantic import BaseModel, Field
 
 # ── Calibration ───────────────────────────────────────
 
 
 class CreateCalibrationRequest(BaseModel):
-    response_id: int
-    screen_width: int
-    screen_height: int
-    camera_width: int | None = None
-    camera_height: int | None = None
+    response_id: int = Field(description="ID of the survey response this calibration belongs to")
+    screen_width: int = Field(description="Participant screen width in pixels")
+    screen_height: int = Field(description="Participant screen height in pixels")
+    camera_width: int | None = Field(default=None, description="Webcam resolution width")
+    camera_height: int | None = Field(default=None, description="Webcam resolution height")
 
 
 class CalibrationSessionOut(BaseModel):
@@ -25,13 +25,15 @@ class CalibrationSessionOut(BaseModel):
 
 
 class IrisSample(BaseModel):
-    timestamp_ms: int
-    left_iris_x: float
-    left_iris_y: float
-    right_iris_x: float
-    right_iris_y: float
-    face_detected: bool
-    head_rotation: dict | None = None
+    timestamp_ms: int = Field(description="Client-side timestamp in milliseconds")
+    left_iris_x: float = Field(description="Left iris X coordinate (normalized)")
+    left_iris_y: float = Field(description="Left iris Y coordinate (normalized)")
+    right_iris_x: float = Field(description="Right iris X coordinate (normalized)")
+    right_iris_y: float = Field(description="Right iris Y coordinate (normalized)")
+    face_detected: bool = Field(description="Whether face was detected in this sample")
+    head_rotation: dict | None = Field(
+        default=None, description="Head rotation angles if available"
+    )
 
 
 class RecordCalibrationPointRequest(BaseModel):
@@ -69,6 +71,7 @@ class CalibrationCompleteOut(BaseModel):
 
 class GazeDataPoint(BaseModel):
     """A single gaze data point from the frontend."""
+
     post_id: int | None = None
     timestamp_ms: int
     screen_x: float
@@ -81,6 +84,7 @@ class GazeDataPoint(BaseModel):
 
 class GazeBatchRequest(BaseModel):
     """Frontend sends gaze data in batches (e.g., every 5-10 seconds)."""
+
     response_id: int
     data: list[GazeDataPoint]
 

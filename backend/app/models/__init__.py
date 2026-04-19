@@ -1,9 +1,14 @@
+from app.models.participant import (  # noqa: F401
+    ParticipantComment,
+    ParticipantInteraction,
+    ParticipantLike,
+    SurveyResponse,
+)
 from app.models.researcher import Researcher  # noqa: F401
-from app.models.survey import Survey, SurveyPost, PostComment  # noqa: F401
-from app.models.participant import SurveyResponse, ParticipantInteraction  # noqa: F401
+from app.models.survey import PostComment, Survey, SurveyPost  # noqa: F401
 from app.models.tracking import (  # noqa: F401
-    CalibrationSession,
     CalibrationPoint,
-    GazeRecord,
+    CalibrationSession,
     ClickRecord,
+    GazeRecord,
 )

@@ -1,8 +1,8 @@
 """Survey and post schemas. Owned by Backend A/B."""
 
 from datetime import datetime
-from pydantic import BaseModel
 
+from pydantic import BaseModel
 
 # ── Survey ────────────────────────────────────────────
 
@@ -44,6 +44,7 @@ class SurveyOut(BaseModel):
     click_tracking_enabled: bool
     calibration_enabled: bool
     calibration_points: int
+    share_code_expires_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     model_config = {"from_attributes": True}
@@ -52,6 +53,46 @@ class SurveyOut(BaseModel):
 class SurveyListOut(BaseModel):
     items: list[SurveyOut]
     total: int
+
+
+# ── Public (participant pre-start) ───────────────────
+
+
+class PublicSurveyOut(BaseModel):
+    title: str
+    description: str | None = None
+    status: str
+    model_config = {"from_attributes": True}
+
+
+# ── Question ─────────────────────────────────────────
+
+
+class CreateQuestionRequest(BaseModel):
+    """Create a question attached to a survey post."""
+
+    question_type: str  # free_text / likert / multiple_choice
+    text: str
+    order: int
+    config: dict | None = None  # e.g. {"min": 1, "max": 5} for likert
+
+
+class UpdateQuestionRequest(BaseModel):
+    question_type: str | None = None
+    text: str | None = None
+    order: int | None = None
+    config: dict | None = None
+
+
+class QuestionOut(BaseModel):
+    id: int
+    post_id: int
+    order: int
+    question_type: str
+    text: str
+    config: dict | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
 
 
 # ── Post Comment (fake, added by researcher) ─────────
@@ -77,12 +118,14 @@ class CommentOut(BaseModel):
 
 class CreatePostRequest(BaseModel):
     """Researcher provides a URL. Backend fetches OG metadata automatically."""
+
     original_url: str
     order: int
 
 
 class UpdatePostRequest(BaseModel):
     """Researcher overrides fetched metadata and sets fake engagement numbers."""
+
     display_title: str | None = None
     display_image_url: str | None = None
     display_likes: int | None = None
@@ -116,6 +159,7 @@ class PostOut(BaseModel):
     visible_to_groups: list | None
     group_overrides: dict | None
     comments: list[CommentOut] = []
+    questions: list[QuestionOut] = []
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -146,4 +190,100 @@ class InteractionOut(BaseModel):
     action_type: str
     comment_text: str | None
     timestamp: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Participant state & comments ─────────────────────
+
+
+class ParticipantCommentOut(BaseModel):
+    id: int
+    post_id: int
+    text: str
+    created_at: datetime
+    updated_at: datetime | None = None
+    model_config = {"from_attributes": True}
+
+
+class ResponseStateOut(BaseModel):
+    liked_post_ids: list[int]
+    comments_by_post: dict[int, list[ParticipantCommentOut]]
+
+
+# ── Researcher analytics ─────────────────────────────
+
+
+class PostEngagementStat(BaseModel):
+    post_id: int
+    likes: int
+    participant_comments: int
+    shares: int
+
+
+class SurveyEngagementStats(BaseModel):
+    survey_id: int
+    posts: list[PostEngagementStat]
+
+
+class SurveyParticipantCommentsOut(BaseModel):
+    comments_by_post: dict[int, list[ParticipantCommentOut]]
+
+
+class GroupAnalyticsOut(BaseModel):
+    group_id: int
+    participants: int
+    completed: int
+    completion_rate: float
+    clicks: int
+    likes: int
+    comments: int
+    shares: int
+
+
+class PostAnalyticsRowOut(BaseModel):
+    post_id: int
+    title: str
+    source: str | None = None
+    visible_groups: list[int] | None = None
+    clicks: int
+    likes: int
+    comments: int
+    shares: int
+    participant_comment_count: int
+
+
+class SurveyAnalyticsOut(BaseModel):
+    survey_id: int
+    total_responses: int
+    completion_rate: float
+    avg_completion_minutes: float
+    calibration_success_rate: float
+    total_clicks: int
+    total_likes: int
+    total_comments: int
+    total_shares: int
+    fast_completions: int
+    low_interaction_responses: int
+    duplicate_comment_sessions: int
+    group_breakdown: list[GroupAnalyticsOut]
+    posts: list[PostAnalyticsRowOut]
+    ai_summary: str
+
+# ── Question Response ─────────────────────────────────
+
+class SubmitQuestionResponseRequest(BaseModel):
+    question_id: int
+    answer_text: str | None = None
+    answer_value: int | None = None
+    answer_choices: list | None = None
+
+
+class QuestionResponseOut(BaseModel):
+    id: int
+    response_id: int
+    question_id: int
+    answer_text: str | None
+    answer_value: int | None
+    answer_choices: list | None
+    created_at: datetime
     model_config = {"from_attributes": True}

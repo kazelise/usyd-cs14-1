@@ -32,8 +32,11 @@ export const api = {
   getSurvey: (id: number) => request(`/surveys/${id}`),
   updateSurvey: (id: number, data: any) =>
     request(`/surveys/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteSurvey: (id: number) => request(`/surveys/${id}`, { method: "DELETE" }),
   publishSurvey: (id: number) =>
     request(`/surveys/${id}/publish`, { method: "POST" }),
+  getSurveyAnalytics: (id: number) => request(`/surveys/${id}/analytics-summary`),
+  getSurveyParticipantComments: (id: number) => request(`/surveys/${id}/participant-comments`),
 
   // Posts
   listPosts: (surveyId: number) => request(`/surveys/${surveyId}/posts`),
@@ -49,14 +52,54 @@ export const api = {
   // Participant
   startSurvey: (shareCode: string) =>
     request(`/surveys/${shareCode}/start`, { method: "POST" }),
+  getPublicSurvey: (shareCode: string) => request(`/surveys/public/${shareCode}`),
+  getResponseState: (responseId: number) => request(`/surveys/responses/${responseId}/state`),
+  toggleLike: (responseId: number, postId: number) =>
+    request(`/surveys/responses/${responseId}/likes/toggle`, { method: "POST", body: JSON.stringify({ post_id: postId }) }),
+  createParticipantComment: (
+    responseId: number,
+    data: { post_id: number; text: string; author_name?: string }
+  ) => request(`/surveys/responses/${responseId}/comments`, { method: "POST", body: JSON.stringify(data) }),
+  updateParticipantComment: (
+    responseId: number,
+    commentId: number,
+    text: string
+  ) => request(`/surveys/responses/${responseId}/comments/${commentId}`, { method: "PATCH", body: JSON.stringify({ text }) }),
+  deleteParticipantComment: (responseId: number, commentId: number) =>
+    request(`/surveys/responses/${responseId}/comments/${commentId}`, { method: "DELETE" }),
   recordInteraction: (responseId: number, data: { post_id: number; action_type: string; comment_text?: string }) =>
     request(`/surveys/responses/${responseId}/interact`, { method: "POST", body: JSON.stringify(data) }),
   completeSurvey: (responseId: number) =>
     request(`/surveys/responses/${responseId}/complete`, { method: "POST" }),
 
   // Tracking
+  createCalibrationSession: (data: {
+    response_id: number;
+    screen_width: number;
+    screen_height: number;
+    camera_width?: number;
+    camera_height?: number;
+  }) => request("/tracking/calibration/sessions", { method: "POST", body: JSON.stringify(data) }),
+  recordCalibrationPoint: (
+    sessionId: number,
+    data: {
+      point_index: number;
+      target_screen_x: number;
+      target_screen_y: number;
+      samples: any[];
+    }
+  ) => request(`/tracking/calibration/sessions/${sessionId}/points`, { method: "POST", body: JSON.stringify(data) }),
+  completeCalibration: (sessionId: number) =>
+    request(`/tracking/calibration/sessions/${sessionId}/complete`, { method: "POST" }),
   recordGaze: (data: { response_id: number; data: any[] }) =>
     request("/tracking/gaze", { method: "POST", body: JSON.stringify(data) }),
   recordClicks: (data: { response_id: number; data: any[] }) =>
     request("/tracking/clicks", { method: "POST", body: JSON.stringify(data) }),
+
+  // Question responses
+  submitQuestionResponse: (
+    responseId: number,
+    questionId: number,
+    data: { question_id: number; answer_text?: string; answer_value?: number; answer_choices?: any[] }
+  ) => request(`/surveys/responses/${responseId}/questions/${questionId}/answer`, { method: "POST", body: JSON.stringify(data) }),
 };

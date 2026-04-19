@@ -1,0 +1,69 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.0, pluggy-1.6.0 -- /Users/zhijie/.local/share/mise/installs/python/3.12.13/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/zhijie/Development/comp5703/cs14/backend
+configfile: pyproject.toml
+plugins: asyncio-0.24.0, anyio-4.13.0
+asyncio: mode=Mode.AUTO, default_loop_scope=None
+collecting ... collected 42 items
+
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_empty_points PASSED [  2%]
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_good_quality PASSED [  4%]
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_acceptable_quality PASSED [  7%]
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_poor_quality_low_face_rate PASSED [  9%]
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_poor_quality_few_valid_points PASSED [ 11%]
+backend/tests/test_quality.py::TestComputeCalibrationQuality::test_avg_samples_calculation PASSED [ 14%]
+backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_exactly_0_9 PASSED [ 16%]
+backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_just_below_0_9 FAILED [ 19%]
+backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_exactly_0_7 PASSED [ 21%]
+backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_just_below_0_7 PASSED [ 23%]
+backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_single_point PASSED [ 26%]
+backend/tests/test_schemas_tracking.py::TestCreateCalibrationRequest::test_valid_minimal PASSED [ 28%]
+backend/tests/test_schemas_tracking.py::TestCreateCalibrationRequest::test_valid_with_camera PASSED [ 30%]
+backend/tests/test_schemas_tracking.py::TestCreateCalibrationRequest::test_missing_response_id PASSED [ 33%]
+backend/tests/test_schemas_tracking.py::TestCreateCalibrationRequest::test_missing_screen_height PASSED [ 35%]
+backend/tests/test_schemas_tracking.py::TestIrisSample::test_valid_sample PASSED [ 38%]
+backend/tests/test_schemas_tracking.py::TestIrisSample::test_with_head_rotation PASSED [ 40%]
+backend/tests/test_schemas_tracking.py::TestIrisSample::test_face_not_detected PASSED [ 42%]
+backend/tests/test_schemas_tracking.py::TestIrisSample::test_missing_required_fields PASSED [ 45%]
+backend/tests/test_schemas_tracking.py::TestRecordCalibrationPointRequest::test_valid_request PASSED [ 47%]
+backend/tests/test_schemas_tracking.py::TestRecordCalibrationPointRequest::test_empty_samples_list PASSED [ 50%]
+backend/tests/test_schemas_tracking.py::TestRecordCalibrationPointRequest::test_missing_point_index PASSED [ 52%]
+backend/tests/test_schemas_tracking.py::TestGazeDataPoint::test_valid_full PASSED [ 54%]
+backend/tests/test_schemas_tracking.py::TestGazeDataPoint::test_valid_minimal PASSED [ 57%]
+backend/tests/test_schemas_tracking.py::TestGazeDataPoint::test_missing_screen_coords PASSED [ 59%]
+backend/tests/test_schemas_tracking.py::TestGazeBatchRequest::test_valid_batch PASSED [ 61%]
+backend/tests/test_schemas_tracking.py::TestGazeBatchRequest::test_empty_batch PASSED [ 64%]
+backend/tests/test_schemas_tracking.py::TestGazeBatchRequest::test_missing_response_id PASSED [ 66%]
+backend/tests/test_schemas_tracking.py::TestGazeBatchOut::test_saved_count PASSED [ 69%]
+backend/tests/test_schemas_tracking.py::TestClickDataPoint::test_valid_with_target PASSED [ 71%]
+backend/tests/test_schemas_tracking.py::TestClickDataPoint::test_valid_without_target PASSED [ 73%]
+backend/tests/test_schemas_tracking.py::TestClickDataPoint::test_missing_timestamp PASSED [ 76%]
+backend/tests/test_schemas_tracking.py::TestClickBatchRequest::test_valid_batch PASSED [ 78%]
+backend/tests/test_schemas_tracking.py::TestClickBatchRequest::test_empty_batch PASSED [ 80%]
+backend/tests/test_schemas_tracking.py::TestClickBatchOut::test_saved_count PASSED [ 83%]
+backend/tests/test_schemas_tracking.py::TestCalibrationSessionOut::test_valid_output PASSED [ 85%]
+backend/tests/test_schemas_tracking.py::TestCalibrationPointOut::test_valid_output PASSED [ 88%]
+backend/tests/test_schemas_tracking.py::TestCalibrationPointOut::test_all_points_done PASSED [ 90%]
+backend/tests/test_schemas_tracking.py::TestQualityInfo::test_good_quality PASSED [ 92%]
+backend/tests/test_schemas_tracking.py::TestQualityInfo::test_poor_quality PASSED [ 95%]
+backend/tests/test_schemas_tracking.py::TestCalibrationCompleteOut::test_valid_completion PASSED [ 97%]
+backend/tests/test_schemas_tracking.py::TestCalibrationCompleteOut::test_poor_completion PASSED [100%]
+
+=================================== FAILURES ===================================
+_________ TestQualityThresholdBoundaries.test_face_rate_just_below_0_9 _________
+backend/tests/test_quality.py:80: in test_face_rate_just_below_0_9
+    assert result["overall_quality"] == "acceptable"
+E   AssertionError: assert 'poor' == 'acceptable'
+E     
+E     - acceptable
+E     + poor
+=========================== short test summary info ============================
+FAILED backend/tests/test_quality.py::TestQualityThresholdBoundaries::test_face_rate_just_below_0_9
+========================= 1 failed, 41 passed in 1.10s =========================
+
+--- stderr ---
+/Users/zhijie/.local/share/mise/installs/python/3.12.13/lib/python3.12/site-packages/pytest_asyncio/plugin.py:208: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))

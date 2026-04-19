@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16-alpine
@@ -9,11 +7,11 @@ services:
       POSTGRES_PASSWORD: cs14_dev_password
       POSTGRES_DB: cs14_survey
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cs14"]
+      test: ["CMD-SHELL", "pg_isready -U cs14 -d cs14_survey"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -22,13 +20,13 @@ services:
     build: ./backend
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./backend:/app
     environment:
       DATABASE_URL: postgresql+asyncpg://cs14:cs14_dev_password@db:5432/cs14_survey
       SECRET_KEY: dev-secret-change-in-production
-      CORS_ORIGINS: http://localhost:3000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       DEBUG: "true"
     depends_on:
       db:
@@ -37,14 +35,17 @@ services:
   frontend:
     build: ./frontend
     restart: unless-stopped
+    command: sh -c "rm -rf .next && npm run dev"
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/.next
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
 
 volumes:
   pgdata:

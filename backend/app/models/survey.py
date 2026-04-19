@@ -12,7 +12,7 @@ Design notes (from client meeting):
 import secrets
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text, SmallInteger, JSON, Boolean
+from sqlalchemy import JSON, Boolean, ForeignKey, SmallInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -31,10 +31,13 @@ class Survey(Base):
     share_code: Mapped[str] = mapped_column(
         String(20), unique=True, default=lambda: secrets.token_urlsafe(12)
     )
+    share_code_expires_at: Mapped[datetime | None] = mapped_column(default=None)
 
     # ── A/B Testing Configuration ────────────────────
     num_groups: Mapped[int] = mapped_column(SmallInteger, default=1)  # 1 = no A/B testing
-    group_names: Mapped[dict | None] = mapped_column(JSON)  # e.g. {"1": "with_likes", "2": "no_likes"}
+    group_names: Mapped[dict | None] = mapped_column(
+        JSON
+    )  # e.g. {"1": "with_likes", "2": "no_likes"}
 
     # ── Gaze & Click Tracking ────────────────────────
     gaze_tracking_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -64,7 +67,9 @@ class SurveyPost(Base):
     __tablename__ = "survey_posts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    survey_id: Mapped[int] = mapped_column(ForeignKey("surveys.id", ondelete="CASCADE"), nullable=False)
+    survey_id: Mapped[int] = mapped_column(
+        ForeignKey("surveys.id", ondelete="CASCADE"), nullable=False
+    )
     order: Mapped[int] = mapped_column(nullable=False)
 
     # ── Original URL & Auto-Fetched Metadata ─────────
@@ -98,6 +103,9 @@ class SurveyPost(Base):
     comments: Mapped[list["PostComment"]] = relationship(
         back_populates="post", cascade="all, delete-orphan", order_by="PostComment.order"
     )
+    questions: Mapped[list["Question"]] = relationship(  # noqa: F821
+        back_populates="post", cascade="all, delete-orphan", order_by="Question.order"
+    )
 
 
 class PostComment(Base):
@@ -110,7 +118,9 @@ class PostComment(Base):
     __tablename__ = "post_comments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    post_id: Mapped[int] = mapped_column(ForeignKey("survey_posts.id", ondelete="CASCADE"), nullable=False)
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("survey_posts.id", ondelete="CASCADE"), nullable=False
+    )
     order: Mapped[int] = mapped_column(nullable=False)
     author_name: Mapped[str] = mapped_column(String(100), nullable=False)
     author_avatar_url: Mapped[str | None] = mapped_column(Text)
