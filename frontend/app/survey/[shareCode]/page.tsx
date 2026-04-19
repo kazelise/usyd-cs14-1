@@ -71,6 +71,7 @@ export default function SurveyParticipantPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [calibrationDone, setCalibrationDone] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
   const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
@@ -110,7 +111,7 @@ export default function SurveyParticipantPage() {
           flushInterval = setInterval(() => flushClicks(result.response_id), 10000);
         }
       } catch (err: any) {
-        setError(err.message || "Survey not found");
+        setError(err.message || t(initialLocale, "surveyNotFound"));
       } finally {
         setLoading(false);
       }
@@ -122,7 +123,7 @@ export default function SurveyParticipantPage() {
       if (clickListener) document.removeEventListener("click", clickListener);
       if (flushInterval) clearInterval(flushInterval);
     };
-  }, [shareCode]);
+  }, [initialLocale, shareCode]);
 
   function handleClick(e: MouseEvent) {
     const target = e.target as HTMLElement;
@@ -159,6 +160,7 @@ export default function SurveyParticipantPage() {
 
   async function handleLike(postId: number) {
     if (!session) return;
+    setActionError("");
 
     setLikedPosts((prev) => {
       const next = new Set(prev);
@@ -169,13 +171,14 @@ export default function SurveyParticipantPage() {
 
     try {
       await api.toggleLike(session.response_id, postId);
-    } catch {
+    } catch (err: any) {
       setLikedPosts((prev) => {
         const next = new Set(prev);
         if (next.has(postId)) next.delete(postId);
         else next.add(postId);
         return next;
       });
+      setActionError(err.message || t(locale, "networkRequestFailed"));
     }
   }
 
@@ -183,32 +186,47 @@ export default function SurveyParticipantPage() {
     if (!session) return;
     const text = commentInputs[postId];
     if (!text?.trim()) return;
+    setActionError("");
 
-    const created = await api.createParticipantComment(session.response_id, { post_id: postId, text });
-    setParticipantComments((prev) => ({
-      ...prev,
-      [postId]: [...(prev[postId] || []), created],
-    }));
-    setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
-    setShowCommentInput(null);
+    try {
+      const created = await api.createParticipantComment(session.response_id, { post_id: postId, text });
+      setParticipantComments((prev) => ({
+        ...prev,
+        [postId]: [...(prev[postId] || []), created],
+      }));
+      setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
+      setShowCommentInput(null);
+    } catch (err: any) {
+      setActionError(err.message || t(locale, "networkRequestFailed"));
+    }
   }
 
   async function handleClickPost(postId: number, url: string) {
     if (!session) return;
-    await api.recordInteraction(session.response_id, { post_id: postId, action_type: "click" });
+    setActionError("");
+    try {
+      await api.recordInteraction(session.response_id, { post_id: postId, action_type: "click" });
+    } catch (err: any) {
+      setActionError(err.message || t(locale, "networkRequestFailed"));
+    }
     window.open(url, "_blank");
   }
 
   async function handleComplete() {
     if (!session) return;
-    await flushClicks(session.response_id);
-    await flushGaze();
-    await api.completeSurvey(session.response_id);
-    setCompleted(true);
+    setActionError("");
+    try {
+      await flushClicks(session.response_id);
+      await flushGaze();
+      await api.completeSurvey(session.response_id);
+      setCompleted(true);
+    } catch (err: any) {
+      setActionError(err.message || t(locale, "networkRequestFailed"));
+    }
   }
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center text-sm uppercase tracking-[0.24em] text-slate-400">Loading feed</div>;
+    return <div className="flex min-h-screen items-center justify-center text-sm uppercase tracking-[0.24em] text-slate-400">{t(locale, "loadingSurvey")}</div>;
   }
 
   if (error) {
@@ -217,16 +235,14 @@ export default function SurveyParticipantPage() {
 
   if (completed) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6">
+      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#f7fafc_0%,#eef3f8_100%)] px-6">
         <div className="surface-panel max-w-xl px-8 py-10 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-black text-white">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-[#0f3146] text-white">
             <CheckCircleIcon className="h-7 w-7" />
           </div>
-          <h1 className="mt-6 text-4xl font-semibold tracking-[-0.05em] text-black">{t(locale, "thankYou")}</h1>
+          <h1 className="mt-6 text-4xl font-semibold tracking-[-0.05em] text-[#163047]">{t(locale, "thankYou")}</h1>
           <p className="mt-3 text-sm leading-7 text-slate-500">{t(locale, "recorded")}</p>
-          <p className="mt-2 text-xs text-slate-400">
-            Your interactions, click data, and calibration session have been recorded.
-          </p>
+          <p className="mt-2 text-xs text-slate-400">{t(locale, "completionDetails")}</p>
         </div>
       </div>
     );
@@ -245,55 +261,40 @@ export default function SurveyParticipantPage() {
   }
 
   const totalPosts = session.posts.length;
-  const interactedPosts = likedPosts.size + Object.keys(participantComments).filter((key) => (participantComments[Number(key)] || []).length > 0).length;
+  const interactedPosts =
+    likedPosts.size +
+    Object.keys(participantComments).filter((key) => (participantComments[Number(key)] || []).length > 0).length;
+  const progressValue = totalPosts === 0 ? 0 : Math.min(100, Math.round((interactedPosts / totalPosts) * 100));
   const researchNotes = [
-    session.click_tracking_enabled ? "Clicks are captured in the background." : null,
-    session.gaze_tracking_enabled ? "Gaze samples may be recorded during the session." : null,
-    session.calibration_required ? "Calibration is required for complete tracking accuracy." : null,
-  ].filter((item): item is string => Boolean(item));
+    session.click_tracking_enabled ? t(locale, "noteClicks") : null,
+    session.gaze_tracking_enabled ? t(locale, "noteGaze") : null,
+    session.calibration_required ? t(locale, "noteCalibration") : null,
+  ].filter(Boolean) as string[];
+  const interactionSummary =
+    locale === "zh"
+      ? `已对 ${Math.min(totalPosts, Math.max(0, interactedPosts))} / ${totalPosts} 条帖子产生交互`
+      : `${Math.min(totalPosts, Math.max(0, interactedPosts))} / ${totalPosts} posts interacted with`;
+  const recordedAcrossSummary =
+    locale === "zh"
+      ? `已记录交互标记，覆盖 ${totalPosts} 条帖子`
+      : `Interaction markers recorded across ${totalPosts} posts`;
 
   return (
-    <div className="mx-auto max-w-[1560px] px-4 py-6 lg:px-6 lg:py-8">
-      <div className="grid gap-6 xl:grid-cols-[250px_minmax(0,1fr)_280px]">
-        <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-          <div className="surface-panel-soft px-6 py-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-black text-white">
-              <SurveyIcon className="h-5 w-5" />
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(0,167,160,0.10),_transparent_24%),linear-gradient(180deg,#f7fafc_0%,#edf3f8_100%)]">
+      <div className="border-b border-slate-200 bg-white/85 backdrop-blur">
+        <div className="mx-auto flex max-w-[1560px] flex-col gap-4 px-4 py-4 lg:px-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00a7a0]">{t(locale, "surveySession")}</p>
+              <h1 className="mt-2 text-[28px] font-semibold tracking-[-0.05em] text-[#163047]">{t(locale, "participantResponseExperience")}</h1>
+              <p className="mt-1 text-[14px] leading-7 text-slate-500">{t(locale, "participantResponseCopy")}</p>
             </div>
-            <p className="section-kicker mt-6">Research Feed</p>
-            <h1 className="section-title mt-3 md:text-[24px]">Participant Feed</h1>
-            <p className="mt-4 text-[14px] leading-7 text-slate-500">
-              Browse each post as you normally would on social media. Your interaction signals are recorded for the
-              study environment.
-            </p>
 
-            {/* Tracking status indicators */}
-            <div className="mt-4 space-y-2">
-              {calibrationDone && session.gaze_tracking_enabled && (
-                <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-                  Gaze tracking active
-                </div>
-              )}
-              {session.click_tracking_enabled && (
-                <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-                  Click tracking active
-                </div>
-              )}
-              {calibrationDone && (
-                <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
-                  <CheckCircleIcon className="h-3 w-3" />
-                  Calibration completed
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="surface-panel-soft px-6 py-6">
-            <div className="flex items-center justify-between gap-4">
-              <p className="section-kicker">Language</p>
-              <div className="flex items-center gap-3 rounded-full border bg-stone-50 px-4 py-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-[13px] text-slate-600">
+                {t(locale, "assignedGroup")} {session.assigned_group}
+              </div>
+              <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-4 py-2">
                 <GlobeIcon className="h-4 w-4 text-slate-500" />
                 <select
                   className="bg-transparent text-sm text-slate-500 outline-none"
@@ -309,313 +310,395 @@ export default function SurveyParticipantPage() {
                 </select>
               </div>
             </div>
-            <div className="mt-5 space-y-4 text-[14px] leading-7 text-slate-500">
-              <p>Assigned group: <span className="font-medium text-black">{session.assigned_group}</span></p>
-              <p>Click tracking: <span className="font-medium text-black">{session.click_tracking_enabled ? "On" : "Off"}</span></p>
-              <p>Gaze tracking: <span className="font-medium text-black">{session.gaze_tracking_enabled ? "On" : "Off"}</span></p>
-            </div>
           </div>
-        </aside>
 
-        <main className="space-y-6">
-          <div className="surface-panel-soft flex flex-col gap-3 px-6 py-5 md:flex-row md:items-center md:justify-between">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px] xl:items-center">
             <div>
-              <p className="section-kicker">Study instructions</p>
-              <p className="mt-2 text-[14px] leading-7 text-slate-500">
-                Please view each post below and interact as you normally would on social media.
-              </p>
+              <div className="mb-2 flex items-center justify-between text-[12px] font-medium text-slate-500">
+                <span>{t(locale, "surveyProgress")}</span>
+                <span>{progressValue}%</span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#00a7a0_0%,#0f83a0_100%)] transition-all"
+                  style={{ width: `${progressValue}%` }}
+                />
+              </div>
             </div>
-            <div className="rounded-full bg-stone-100 px-4 py-2 text-[13px] text-slate-600">
-              {totalPosts} total posts
+            <div className="text-[13px] text-slate-500 xl:text-right">
+              {interactionSummary}
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="space-y-6">
-            {session.posts.map((post) => {
-              const title = post.display_title || post.fetched_title || "Untitled";
-              const imageUrl = post.display_image_url || post.fetched_image_url;
-              const source = post.fetched_source || new URL(post.original_url).hostname;
-              const isLiked = likedPosts.has(post.id);
-              const commentCount = post.display_comments_count + post.comments.length + (participantComments[post.id]?.length || 0);
+      <div className="mx-auto max-w-[1560px] px-4 py-6 lg:px-6 lg:py-8">
+        <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
+          <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+            <div className="surface-panel-soft px-6 py-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#0f3146] text-white">
+                <SurveyIcon className="h-5 w-5" />
+              </div>
+              <p className="section-kicker mt-6 text-[#00a7a0]">{t(locale, "surveyContext")}</p>
+              <h2 className="section-title mt-3 md:text-[24px]">{t(locale, "participantFeed")}</h2>
+              <p className="mt-4 text-[14px] leading-7 text-slate-500">{t(locale, "participantFeedCopy")}</p>
 
-              return (
-                <div key={post.id} data-post-id={post.id} className="surface-panel overflow-hidden">
-                  <div className="flex items-center gap-3 px-6 pt-6">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-100 text-[13px] font-semibold text-slate-500">
-                      {source.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-semibold text-black">{source}</p>
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Sponsored article</p>
-                    </div>
+              <div className="mt-4 space-y-2">
+                {calibrationDone && session.gaze_tracking_enabled && (
+                  <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                    {t(locale, "gazeTrackingActive")}
                   </div>
+                )}
+                {session.click_tracking_enabled && (
+                  <div className="flex items-center gap-2 rounded-lg bg-cyan-50 px-3 py-2 text-xs text-cyan-700">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-500" />
+                    {t(locale, "clickTrackingActive")}
+                  </div>
+                )}
+                {calibrationDone && (
+                  <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
+                    <CheckCircleIcon className="h-3 w-3" />
+                    {t(locale, "calibrationCompleted")}
+                  </div>
+                )}
+              </div>
+            </div>
 
-                  <div className="mt-5 cursor-pointer" data-track="headline" onClick={() => handleClickPost(post.id, post.original_url)}>
-                    {imageUrl && (
-                      <div data-track="image">
-                        <img src={imageUrl} alt="" className="h-72 w-full object-cover" />
+            <div className="surface-panel-soft px-6 py-6">
+              <p className="section-kicker text-[#00a7a0]">{t(locale, "sessionSnapshot")}</p>
+              <div className="mt-5 space-y-4 text-[14px] leading-7 text-slate-500">
+                <p>{t(locale, "assignedGroup")}: <span className="font-medium text-[#163047]">{session.assigned_group}</span></p>
+                <p>{t(locale, "clickTracking")}: <span className="font-medium text-[#163047]">{session.click_tracking_enabled ? t(locale, "on") : t(locale, "off")}</span></p>
+                <p>{t(locale, "gazeTracking")}: <span className="font-medium text-[#163047]">{session.gaze_tracking_enabled ? t(locale, "on") : t(locale, "off")}</span></p>
+                <p>{t(locale, "calibration")}: <span className="font-medium text-[#163047]">{session.calibration_required ? t(locale, "required") : t(locale, "notRequired")}</span></p>
+              </div>
+            </div>
+          </aside>
+
+          <main className="space-y-6">
+            <div className="surface-panel-soft flex flex-col gap-3 px-6 py-5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="section-kicker text-[#00a7a0]">{t(locale, "studyInstructions")}</p>
+                <p className="mt-2 text-[14px] leading-7 text-slate-500">{t(locale, "studyInstructionsCopy")}</p>
+              </div>
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-[13px] text-slate-600">
+                {totalPosts} {t(locale, "totalPostsInSurvey")}
+              </div>
+            </div>
+
+            {actionError && (
+              <div className="rounded-[16px] border border-rose-200 bg-rose-50 px-5 py-4 text-[14px] text-rose-700">
+                {actionError}
+              </div>
+            )}
+
+            <div className="space-y-6">
+              {session.posts.map((post) => {
+                const title = post.display_title || post.fetched_title || "Untitled";
+                const imageUrl = post.display_image_url || post.fetched_image_url;
+                const source = post.fetched_source || new URL(post.original_url).hostname;
+                const isLiked = likedPosts.has(post.id);
+                const commentCount =
+                  post.display_comments_count + post.comments.length + (participantComments[post.id]?.length || 0);
+
+                return (
+                  <div key={post.id} data-post-id={post.id} className="surface-panel overflow-hidden border-slate-200">
+                    <div className="border-b border-slate-200 bg-[#fbfdff] px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[13px] font-semibold text-slate-500">
+                          {source.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-[13px] font-semibold text-[#163047]">{source}</p>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{t(locale, "stimulusPost")}</p>
+                        </div>
                       </div>
-                    )}
-                    <div className="border-y bg-stone-50 px-6 py-5">
-                      <p className="section-kicker">{source}</p>
-                      <h2 className="mt-3 text-[22px] font-semibold leading-tight tracking-[-0.05em] text-black md:text-[24px]">{title}</h2>
-                      <div className="mt-4 inline-flex items-center gap-2 text-[13px] text-slate-500">
-                        <LinkIcon className="h-4 w-4" />
-                        <span className="truncate">{post.original_url}</span>
+                    </div>
+
+                    <div className="cursor-pointer bg-white" data-track="headline" onClick={() => handleClickPost(post.id, post.original_url)}>
+                      {imageUrl && (
+                        <div data-track="image" className="border-b border-slate-200 bg-slate-100">
+                          <img src={imageUrl} alt="" className="h-72 w-full object-cover" />
+                        </div>
+                      )}
+                      <div className="px-6 py-6">
+                        <div className="inline-flex rounded-full bg-[#effcfb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#00847f]">
+                          {t(locale, "externalContent")}
+                        </div>
+                        <h2 className="mt-4 text-[24px] font-semibold leading-tight tracking-[-0.05em] text-[#163047] md:text-[28px]">{title}</h2>
+                        <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-500">
+                          <LinkIcon className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{post.original_url}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-6 px-6 py-4 text-[13px] text-slate-500">
-                    {post.show_likes && <span>{(post.display_likes + (isLiked ? 1 : 0)).toLocaleString()} likes</span>}
-                    {post.show_comments && <span>{commentCount} {t(locale, "comments")}</span>}
-                    {post.show_shares && <span>{post.display_shares} {t(locale, "shares")}</span>}
-                  </div>
+                    <div className="flex flex-wrap items-center gap-6 border-t border-slate-200 bg-[#fbfdff] px-6 py-4 text-[13px] text-slate-500">
+                      {post.show_likes && <span>{(post.display_likes + (isLiked ? 1 : 0)).toLocaleString()} {t(locale, "likesLabel")}</span>}
+                      {post.show_comments && <span>{commentCount} {t(locale, "comments")}</span>}
+                      {post.show_shares && <span>{post.display_shares} {t(locale, "shares")}</span>}
+                    </div>
 
-                  <div className="grid border-t text-[13px] md:grid-cols-3">
-                    <button
-                      data-track="like"
-                      onClick={() => handleLike(post.id)}
-                      className={`px-4 py-4 font-medium transition hover:bg-black/[0.03] ${
-                        isLiked ? "bg-black text-white hover:bg-neutral-800" : "text-slate-600"
-                      }`}
-                    >
-                      {isLiked ? t(locale, "liked") : t(locale, "like")}
-                    </button>
-                    <button
-                      data-track="comment"
-                      onClick={() => setShowCommentInput(showCommentInput === post.id ? null : post.id)}
-                      className="border-t px-4 py-4 font-medium text-slate-600 transition hover:bg-black/[0.03] md:border-l md:border-t-0"
-                    >
-                      {t(locale, "comment")}
-                    </button>
-                    <button
-                      data-track="share"
-                      onClick={() => {
-                        api.recordInteraction(session.response_id, { post_id: post.id, action_type: "share" });
-                      }}
-                      className="border-t px-4 py-4 font-medium text-slate-600 transition hover:bg-black/[0.03] md:border-l md:border-t-0"
-                    >
-                      Share
-                    </button>
-                  </div>
+                    <div className="grid border-t border-slate-200 text-[13px] md:grid-cols-3">
+                      <button
+                        data-track="like"
+                        onClick={() => handleLike(post.id)}
+                        className={`px-4 py-4 font-semibold transition ${
+                          isLiked ? "bg-[#0f3146] text-white hover:bg-[#183e59]" : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        {isLiked ? t(locale, "liked") : t(locale, "like")}
+                      </button>
+                      <button
+                        data-track="comment"
+                        onClick={() => setShowCommentInput(showCommentInput === post.id ? null : post.id)}
+                        className="border-t border-slate-200 px-4 py-4 font-semibold text-slate-600 transition hover:bg-slate-50 md:border-l md:border-t-0"
+                      >
+                        {t(locale, "comment")}
+                      </button>
+                      <button
+                        data-track="share"
+                        onClick={() => {
+                          setActionError("");
+                          void api
+                            .recordInteraction(session.response_id, { post_id: post.id, action_type: "share" })
+                            .catch((err: any) => setActionError(err.message || t(locale, "networkRequestFailed")));
+                        }}
+                        className="border-t border-slate-200 px-4 py-4 font-semibold text-slate-600 transition hover:bg-slate-50 md:border-l md:border-t-0"
+                      >
+                        {t(locale, "share")}
+                      </button>
+                    </div>
 
-                  {(post.comments.length > 0 || (participantComments[post.id]?.length || 0) > 0) && (
-                    <div className="border-t px-6 py-6">
-                      <div className="space-y-3">
-                        {post.comments.map((comment) => (
-                          <div key={`r-${comment.id}`} className="rounded-[18px] bg-stone-50 px-4 py-4">
-                            <p className="text-[13px] font-semibold text-black">{comment.author_name}</p>
-                            <p className="mt-1 text-[13px] leading-6 text-slate-600">{comment.text}</p>
-                          </div>
-                        ))}
+                    {(post.comments.length > 0 || (participantComments[post.id]?.length || 0) > 0) && (
+                      <div className="border-t border-slate-200 px-6 py-6">
+                        <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{t(locale, "commentThread")}</p>
+                        <div className="space-y-3">
+                          {post.comments.map((comment) => (
+                            <div key={`r-${comment.id}`} className="rounded-[18px] border border-slate-200 bg-[#f8fbfd] px-4 py-4">
+                              <p className="text-[13px] font-semibold text-[#163047]">{comment.author_name}</p>
+                              <p className="mt-1 text-[13px] leading-6 text-slate-600">{comment.text}</p>
+                            </div>
+                          ))}
 
-                        {(participantComments[post.id] || []).map((comment) => (
-                          <div key={`p-${comment.id}`} className="rounded-[18px] border bg-white px-4 py-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <p className="text-[13px] font-semibold text-black">Your comment</p>
-                                <input
-                                  className="mt-2 w-full border-0 bg-transparent p-0 text-[13px] leading-6 text-slate-600 outline-none"
-                                  value={comment.text}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    setParticipantComments((prev) => ({
-                                      ...prev,
-                                      [post.id]: (prev[post.id] || []).map((item) =>
-                                        item.id === comment.id ? { ...item, text: value } : item,
-                                      ),
-                                    }));
-                                  }}
-                                  onBlur={async (e) => {
-                                    const value = e.target.value;
-                                    if (value.trim()) {
-                                      await api.updateParticipantComment(session.response_id, comment.id, value);
+                          {(participantComments[post.id] || []).map((comment) => (
+                            <div key={`p-${comment.id}`} className="rounded-[18px] border border-[#bce7e4] bg-[#f4fffe] px-4 py-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#00847f]">{t(locale, "yourResponse")}</p>
+                                  <input
+                                    className="mt-2 w-full border-0 bg-transparent p-0 text-[13px] leading-6 text-slate-600 outline-none"
+                                    value={comment.text}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      setParticipantComments((prev) => ({
+                                        ...prev,
+                                        [post.id]: (prev[post.id] || []).map((item) =>
+                                          item.id === comment.id ? { ...item, text: value } : item,
+                                        ),
+                                      }));
+                                    }}
+                                    onBlur={async (e) => {
+                                      const value = e.target.value;
+                                      if (value.trim()) {
+                                        try {
+                                          setActionError("");
+                                          await api.updateParticipantComment(session.response_id, comment.id, value);
+                                        } catch (err: any) {
+                                          setActionError(err.message || t(locale, "networkRequestFailed"));
+                                        }
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                <button
+                                  className="rounded-full border border-[#bce7e4] px-3 py-1 text-[11px] font-medium text-[#00847f] transition hover:bg-[#e8fbfa]"
+                                  onClick={async () => {
+                                    try {
+                                      setActionError("");
+                                      await api.deleteParticipantComment(session.response_id, comment.id);
+                                      setParticipantComments((prev) => ({
+                                        ...prev,
+                                        [post.id]: (prev[post.id] || []).filter((item) => item.id !== comment.id),
+                                      }));
+                                    } catch (err: any) {
+                                      setActionError(err.message || t(locale, "networkRequestFailed"));
                                     }
                                   }}
-                                />
+                                >
+                                  {t(locale, "delete")}
+                                </button>
                               </div>
-                              <button
-                                className="rounded-full border px-3 py-1 text-[11px] font-medium text-slate-500 transition hover:bg-black/[0.03] hover:text-black"
-                                onClick={async () => {
-                                  await api.deleteParticipantComment(session.response_id, comment.id);
-                                  setParticipantComments((prev) => ({
-                                    ...prev,
-                                    [post.id]: (prev[post.id] || []).filter((item) => item.id !== comment.id),
-                                  }));
-                                }}
-                              >
-                                Delete
-                              </button>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {showCommentInput === post.id && (
-                    <div className="border-t bg-stone-50 px-6 py-5">
-                      <div className="flex flex-col gap-3 md:flex-row">
-                        <input
-                          type="text"
-                          value={commentInputs[post.id] || ""}
-                          onChange={(e) => setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))}
-                          placeholder={t(locale, "writeComment")}
-                          className="field-input flex-1"
-                          onKeyDown={(e) => e.key === "Enter" && handleComment(post.id)}
-                        />
-                        <button onClick={() => handleComment(post.id)} className="primary-button min-w-[96px]">
-                          OK
-                        </button>
+                    {showCommentInput === post.id && (
+                      <div className="border-t border-slate-200 bg-[#fbfdff] px-6 py-5">
+                        <div className="flex flex-col gap-3 md:flex-row">
+                          <input
+                            type="text"
+                            value={commentInputs[post.id] || ""}
+                            onChange={(e) => setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))}
+                            placeholder={t(locale, "writeComment")}
+                            className="field-input flex-1"
+                            onKeyDown={(e) => e.key === "Enter" && handleComment(post.id)}
+                          />
+                          <button onClick={() => handleComment(post.id)} className="primary-button min-w-[112px]">
+                            {t(locale, "saveResponse")}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Post Questions */}
-                  {post.questions && post.questions.length > 0 && (
-                    <div className="border-t px-5 py-4 space-y-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Questions</p>
-                      {post.questions
-                        .sort((a, b) => a.order - b.order)
-                        .map((q) => {
-                          const answered = submittedQuestions.has(q.id);
-                          const answer = questionAnswers[q.id] || {};
-                          return (
-                            <div key={q.id} className={`rounded-xl border p-4 ${answered ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-slate-50"}`}>
-                              <p className="text-sm font-medium text-slate-800">{q.text}</p>
+                    {post.questions && post.questions.length > 0 && (
+                      <div className="space-y-4 border-t border-slate-200 bg-[#fbfdff] px-5 py-5">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00a7a0]">{t(locale, "questionBlock")}</p>
+                        {post.questions
+                          .sort((a, b) => a.order - b.order)
+                          .map((q) => {
+                            const answered = submittedQuestions.has(q.id);
+                            const answer = questionAnswers[q.id] || {};
+                            return (
+                              <div key={q.id} className={`rounded-[18px] border p-4 ${answered ? "border-emerald-200 bg-emerald-50/60" : "border-slate-200 bg-white"}`}>
+                                <p className="text-sm font-semibold text-[#163047]">{q.text}</p>
 
-                              {/* Free text */}
-                              {q.question_type === "free_text" && (
-                                <textarea
-                                  className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
-                                  rows={2}
-                                  placeholder="Type your answer..."
-                                  disabled={answered}
-                                  value={answer.text || ""}
-                                  onChange={(e) => setQuestionAnswers((prev) => ({ ...prev, [q.id]: { ...prev[q.id], text: e.target.value } }))}
-                                />
-                              )}
+                                {q.question_type === "free_text" && (
+                                  <textarea
+                                    className="mt-3 w-full rounded-[14px] border border-slate-200 px-3 py-2 text-sm focus:border-[#00a7a0] focus:outline-none focus:ring-4 focus:ring-[#00a7a0]/10"
+                                    rows={2}
+                                    placeholder={t(locale, "typeYourAnswer")}
+                                    disabled={answered}
+                                    value={answer.text || ""}
+                                    onChange={(e) => setQuestionAnswers((prev) => ({ ...prev, [q.id]: { ...prev[q.id], text: e.target.value } }))}
+                                  />
+                                )}
 
-                              {/* Likert scale */}
-                              {q.question_type === "likert" && q.config && (
-                                <div className="mt-3">
-                                  <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                                    <span>{q.config.min_label || "Strongly Disagree"}</span>
-                                    <span>{q.config.max_label || "Strongly Agree"}</span>
+                                {q.question_type === "likert" && q.config && (
+                                  <div className="mt-3">
+                                    <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
+                                      <span>{q.config.min_label || "Strongly Disagree"}</span>
+                                      <span>{q.config.max_label || "Strongly Agree"}</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      {Array.from({ length: (q.config.max || 5) - (q.config.min || 1) + 1 }, (_, i) => {
+                                        const val = (q.config!.min || 1) + i;
+                                        const selected = answer.value === val;
+                                        return (
+                                          <button
+                                            key={val}
+                                            disabled={answered}
+                                            onClick={() => setQuestionAnswers((prev) => ({ ...prev, [q.id]: { value: val } }))}
+                                            className={`flex-1 rounded-[12px] border py-2 text-sm font-medium transition ${
+                                              selected ? "border-[#00a7a0] bg-[#00a7a0] text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                            } ${answered ? "opacity-60" : ""}`}
+                                          >
+                                            {val}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
-                                  <div className="flex gap-2">
-                                    {Array.from({ length: (q.config.max || 5) - (q.config.min || 1) + 1 }, (_, i) => {
-                                      const val = (q.config!.min || 1) + i;
-                                      const selected = answer.value === val;
+                                )}
+
+                                {q.question_type === "multiple_choice" && q.config?.options && (
+                                  <div className="mt-3 space-y-2">
+                                    {q.config.options.map((opt) => {
+                                      const selected = (answer.choices || []).includes(opt);
                                       return (
                                         <button
-                                          key={val}
+                                          key={opt}
                                           disabled={answered}
-                                          onClick={() => setQuestionAnswers((prev) => ({ ...prev, [q.id]: { value: val } }))}
-                                          className={`flex-1 rounded-lg border py-2 text-sm font-medium transition ${
-                                            selected ? "border-blue-500 bg-blue-500 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                                          onClick={() => {
+                                            setQuestionAnswers((prev) => {
+                                              const current = prev[q.id]?.choices || [];
+                                              const next = selected ? current.filter((c) => c !== opt) : [...current, opt];
+                                              return { ...prev, [q.id]: { choices: next } };
+                                            });
+                                          }}
+                                          className={`block w-full rounded-[12px] border px-3 py-2 text-left text-sm transition ${
+                                            selected ? "border-[#00a7a0] bg-[#effcfb] text-[#00847f]" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                                           } ${answered ? "opacity-60" : ""}`}
                                         >
-                                          {val}
+                                          {opt}
                                         </button>
                                       );
                                     })}
                                   </div>
-                                </div>
-                              )}
+                                )}
 
-                              {/* Multiple choice */}
-                              {q.question_type === "multiple_choice" && q.config?.options && (
-                                <div className="mt-2 space-y-2">
-                                  {q.config.options.map((opt) => {
-                                    const selected = (answer.choices || []).includes(opt);
-                                    return (
-                                      <button
-                                        key={opt}
-                                        disabled={answered}
-                                        onClick={() => {
-                                          setQuestionAnswers((prev) => {
-                                            const current = prev[q.id]?.choices || [];
-                                            const next = selected ? current.filter((c) => c !== opt) : [...current, opt];
-                                            return { ...prev, [q.id]: { choices: next } };
-                                          });
-                                        }}
-                                        className={`block w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
-                                          selected ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                                        } ${answered ? "opacity-60" : ""}`}
-                                      >
-                                        {opt}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-
-                              {/* Submit button */}
-                              {!answered && (answer.text || answer.value || (answer.choices && answer.choices.length > 0)) && (
-                                <button
-                                  className="mt-2 rounded-lg bg-black px-4 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
-                                  onClick={async () => {
-                                    if (!session) return;
-                                    await api.submitQuestionResponse(session.response_id, q.id, {
-                                      question_id: q.id,
-                                      answer_text: answer.text,
-                                      answer_value: answer.value,
-                                      answer_choices: answer.choices,
-                                    });
-                                    setSubmittedQuestions((prev) => new Set([...prev, q.id]));
-                                  }}
-                                >
-                                  Submit Answer
-                                </button>
-                              )}
-                              {answered && <p className="mt-1 text-xs text-emerald-600">Answer submitted</p>}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </main>
-
-        <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-          <div className="surface-panel-soft px-6 py-6">
-            <p className="section-kicker">Progress</p>
-            <p className="mt-3 text-[32px] font-semibold tracking-[-0.06em] text-black">
-              {Math.min(totalPosts, Math.max(1, interactedPosts))}
-            </p>
-            <p className="mt-2 text-[13px] leading-6 text-slate-500">Interaction markers recorded across {totalPosts} posts</p>
-          </div>
-
-          <div className="surface-panel-soft px-6 py-6">
-            <p className="section-kicker">Research notes</p>
-            <div className="mt-5 space-y-4">
-              {researchNotes.map((item) => (
-                <div key={item} className="flex gap-3">
-                  <CheckCircleIcon className="mt-0.5 h-4 w-4 text-black" />
-                  <p className="text-[14px] leading-7 text-slate-500">{item}</p>
-                </div>
-              ))}
+                                {!answered && (answer.text || answer.value || (answer.choices && answer.choices.length > 0)) && (
+                                  <button
+                                    className="primary-button mt-3 px-4 py-2 text-xs"
+                                    onClick={async () => {
+                                      if (!session) return;
+                                      try {
+                                        setActionError("");
+                                        await api.submitQuestionResponse(session.response_id, q.id, {
+                                          question_id: q.id,
+                                          answer_text: answer.text,
+                                          answer_value: answer.value,
+                                          answer_choices: answer.choices,
+                                        });
+                                        setSubmittedQuestions((prev) => new Set([...prev, q.id]));
+                                      } catch (err: any) {
+                                        setActionError(err.message || t(locale, "networkRequestFailed"));
+                                      }
+                                    }}
+                                  >
+                                    {t(locale, "submitAnswer")}
+                                  </button>
+                                )}
+                                {answered && <p className="mt-2 text-xs font-medium text-emerald-600">{t(locale, "answerSubmitted")}</p>}
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          </main>
 
-          <div className="surface-panel px-6 py-6">
-            <div className="flex items-start gap-3">
-              <UsersIcon className="mt-1 h-4 w-4 text-slate-500" />
-              <p className="text-[14px] leading-7 text-slate-500">
-                Stay in the feed until you have reviewed all posts. You can edit or remove your own comments before
-                completion.
+          <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+            <div className="surface-panel-soft px-6 py-6">
+              <p className="section-kicker text-[#00a7a0]">{t(locale, "progress")}</p>
+              <p className="mt-3 text-[32px] font-semibold tracking-[-0.06em] text-[#163047]">
+                {Math.min(totalPosts, Math.max(0, interactedPosts))}
               </p>
+              <p className="mt-2 text-[13px] leading-6 text-slate-500">{recordedAcrossSummary}</p>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-full rounded-full bg-[linear-gradient(90deg,#00a7a0_0%,#0f83a0_100%)]" style={{ width: `${progressValue}%` }} />
+              </div>
             </div>
-            <button onClick={handleComplete} className="primary-button mt-6 w-full py-3">
-              {t(locale, "complete")}
-            </button>
-          </div>
-        </aside>
+
+            <div className="surface-panel-soft px-6 py-6">
+              <p className="section-kicker text-[#00a7a0]">{t(locale, "researchNotes")}</p>
+              <div className="mt-5 space-y-4">
+                {researchNotes.map((item) => (
+                  <div key={item} className="flex gap-3">
+                    <CheckCircleIcon className="mt-0.5 h-4 w-4 text-[#00a7a0]" />
+                    <p className="text-[14px] leading-7 text-slate-500">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="surface-panel px-6 py-6">
+              <div className="flex items-start gap-3">
+                <UsersIcon className="mt-1 h-4 w-4 text-slate-500" />
+                <p className="text-[14px] leading-7 text-slate-500">{t(locale, "stayInSurvey")}</p>
+              </div>
+              <button onClick={handleComplete} className="primary-button mt-6 w-full py-3.5 text-[14px]">
+                {t(locale, "complete")}
+              </button>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );

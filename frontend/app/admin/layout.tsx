@@ -20,9 +20,11 @@ import {
 
 function navItemClass(active: boolean, collapsed: boolean) {
   return [
-    "group flex items-center rounded-[18px] text-[13px] font-medium transition",
+    "group flex items-center rounded-[14px] text-[13px] font-medium transition",
     collapsed ? "justify-center px-2.5 py-2.5" : "gap-3 px-3.5 py-2.5",
-    active ? "bg-white text-black shadow-sm" : "text-slate-500 hover:bg-white/70 hover:text-black",
+    active
+      ? "border border-[#9ddfd8] bg-[#effcfb] text-[#0f3146] shadow-sm"
+      : "border border-transparent text-slate-500 hover:border-slate-200 hover:bg-white hover:text-[#0f3146]",
   ].join(" ");
 }
 
@@ -75,60 +77,63 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="h-screen overflow-hidden">
-      <header className="border-b border-black/5 bg-[rgba(247,244,238,0.92)] backdrop-blur">
+      <header className="border-b border-slate-200 bg-[rgba(255,255,255,0.92)] backdrop-blur">
         <div className="mx-auto flex h-[68px] max-w-[1560px] items-center gap-7 px-4 md:px-5">
           <Link
             href="/admin/surveys"
-            className="shrink-0 text-[14px] font-semibold uppercase tracking-[-0.04em] text-black md:text-[15px]"
+            className="shrink-0 text-[14px] font-semibold uppercase tracking-[0.14em] text-[#0f3146] md:text-[15px]"
           >
             CS14 Survey Platform
           </Link>
           <nav className="hidden items-center gap-7 lg:flex">
             <Link
               href="/admin/surveys"
-              className={`border-b-2 pb-2.5 text-[14px] transition ${
+              className={`rounded-full px-3 py-2 text-[14px] transition ${
                 pathname.startsWith("/admin/surveys")
-                  ? "border-black font-medium text-black"
-                  : "border-transparent text-slate-500"
+                  ? "bg-[#effcfb] font-semibold text-[#0f3146]"
+                  : "text-slate-500 hover:bg-slate-50"
               }`}
             >
               Surveys
             </Link>
             <Link
               href="/admin/templates"
-              className={`border-b-2 pb-2.5 text-[14px] transition ${
+              className={`rounded-full px-3 py-2 text-[14px] transition ${
                 pathname.startsWith("/admin/templates")
-                  ? "border-black font-medium text-black"
-                  : "border-transparent text-slate-500"
+                  ? "bg-[#effcfb] font-semibold text-[#0f3146]"
+                  : "text-slate-500 hover:bg-slate-50"
               }`}
             >
               Templates
             </Link>
             <Link
               href="/admin/analytics"
-              className={`border-b-2 pb-2.5 text-[14px] transition ${
+              className={`rounded-full px-3 py-2 text-[14px] transition ${
                 pathname.startsWith("/admin/analytics")
-                  ? "border-black font-medium text-black"
-                  : "border-transparent text-slate-500"
+                  ? "bg-[#effcfb] font-semibold text-[#0f3146]"
+                  : "text-slate-500 hover:bg-slate-50"
               }`}
             >
               Analytics
             </Link>
           </nav>
+          <div className="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-medium text-slate-500 xl:block">
+            Experience Management Workspace
+          </div>
           <div className="ml-auto flex items-center gap-3">
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full border bg-white text-black transition hover:bg-black/[0.03]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-[#0f3146] transition hover:bg-slate-50"
             >
               <BellIcon className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full border bg-white text-black transition hover:bg-black/[0.03]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-[#0f3146] transition hover:bg-slate-50"
             >
               <HelpIcon className="h-4 w-4" />
             </button>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full border bg-gradient-to-br from-white to-stone-200 text-[13px] font-semibold text-slate-500">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-gradient-to-br from-white to-slate-100 text-[13px] font-semibold text-[#0f3146]">
               S
             </div>
           </div>
@@ -137,7 +142,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       <div className="mx-auto grid h-[calc(100vh-68px)] max-w-[1560px] grid-cols-[auto_minmax(0,1fr)]">
         <aside
-          className={`flex h-full flex-col border-r border-black/5 px-4 py-5 transition-[width] duration-200 ${
+          className={`flex h-full flex-col border-r border-slate-200 bg-[rgba(250,252,254,0.72)] px-4 py-5 transition-[width] duration-200 ${
             collapsed ? "w-[78px]" : "w-[212px]"
           }`}
         >
@@ -145,13 +150,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {!collapsed && (
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Workspace</p>
-                <p className="mt-1 text-sm font-medium text-black">Control panel</p>
+                <p className="mt-1 text-sm font-medium text-[#0f3146]">Control panel</p>
               </div>
             )}
             <button
               type="button"
               onClick={toggleSidebar}
-              className="flex h-9 w-9 items-center justify-center rounded-full border bg-white text-slate-500 transition hover:bg-black/[0.03] hover:text-black"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-[#0f3146]"
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
@@ -160,7 +165,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className={`surface-panel-soft mt-4 flex items-center ${collapsed ? "justify-center px-0 py-3.5" : "gap-3 px-3.5 py-3.5"}`}>
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-black text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#0f3146] text-white">
               <WorkspaceIcon className="h-4 w-4" />
             </div>
             {!collapsed && (
@@ -173,7 +178,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <Link
             href="/admin/surveys/new"
-            className={`primary-button mt-4 rounded-[20px] ${
+            className={`primary-button mt-4 ${
               collapsed ? "h-10 w-10 self-center p-0" : "w-[146px] self-center justify-center gap-2 px-0 py-2"
             }`}
             title="Create Survey"
