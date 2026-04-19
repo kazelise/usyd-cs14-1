@@ -18,6 +18,28 @@ export const dict = {
     recorded: "Your responses have been recorded.",
     comments: "comments",
     shares: "shares",
+    // Calibration
+    calibCameraAccess: "Camera Access",
+    calibFaceAlignment: "Face Alignment",
+    calibEyeTracking: "Eye Tracking",
+    calibSummary: "Calibration Summary",
+    calibAllowCamera: "Allow camera access to begin calibration.",
+    calibCenterFace: "Center your face in the frame and keep still.",
+    calibFollowDot: "Follow the active dot with your eyes only.",
+    calibFinished: "Calibration finished. Review the capture quality.",
+    calibRetry: "Retry Calibration",
+    calibContinue: "Continue to Survey",
+    calibFaceDetected: "Face detected",
+    calibSearching: "Searching for face",
+    // Tracking indicators
+    gazeTrackingActive: "Gaze tracking active",
+    clickTrackingActive: "Click tracking active",
+    calibrationCompleted: "Calibration completed",
+    // Questions
+    submitAnswer: "Submit Answer",
+    answerSubmitted: "Answer submitted",
+    questions: "Questions",
+    typeYourAnswer: "Type your answer...",
   },
   zh: {
     title: "实验参与",
@@ -36,6 +58,28 @@ export const dict = {
     recorded: "您的回答已记录。",
     comments: "条评论",
     shares: "次分享",
+    // Calibration
+    calibCameraAccess: "摄像头权限",
+    calibFaceAlignment: "面部对齐",
+    calibEyeTracking: "眼动追踪",
+    calibSummary: "校准结果",
+    calibAllowCamera: "请允许摄像头访问以开始校准。",
+    calibCenterFace: "请将面部置于画面中央并保持不动。",
+    calibFollowDot: "请仅用眼睛跟踪活跃的圆点。",
+    calibFinished: "校准完成。请查看采集质量。",
+    calibRetry: "重新校准",
+    calibContinue: "继续填写问卷",
+    calibFaceDetected: "已检测到人脸",
+    calibSearching: "正在搜索人脸",
+    // Tracking indicators
+    gazeTrackingActive: "眼动追踪进行中",
+    clickTrackingActive: "点击追踪进行中",
+    calibrationCompleted: "校准已完成",
+    // Questions
+    submitAnswer: "提交回答",
+    answerSubmitted: "回答已提交",
+    questions: "问题",
+    typeYourAnswer: "请输入你的回答...",
   },
 } as const;
 
