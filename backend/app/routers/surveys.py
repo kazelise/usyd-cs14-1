@@ -225,7 +225,7 @@ async def create_post(
     # Reload with comments relationship to avoid async lazy-load error
     result = await db.execute(
         select(SurveyPost)
-        .options(selectinload(SurveyPost.comments))
+        .options(selectinload(SurveyPost.comments), selectinload(SurveyPost.questions))
         .where(SurveyPost.id == post.id)
     )
     post = result.scalar_one()
@@ -250,7 +250,7 @@ async def list_posts(
 
     result = await db.execute(
         select(SurveyPost)
-        .options(selectinload(SurveyPost.comments))
+        .options(selectinload(SurveyPost.comments), selectinload(SurveyPost.questions))
         .where(SurveyPost.survey_id == survey_id)
         .order_by(SurveyPost.order)
         .limit(limit)
@@ -270,7 +270,7 @@ async def update_post(
     """Update post display settings: override title/image, set fake numbers, configure A/B visibility."""
     result = await db.execute(
         select(SurveyPost)
-        .options(selectinload(SurveyPost.comments))
+        .options(selectinload(SurveyPost.comments), selectinload(SurveyPost.questions))
         .where(SurveyPost.id == post_id, SurveyPost.survey_id == survey_id)
     )
     post = result.scalar_one_or_none()
