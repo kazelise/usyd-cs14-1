@@ -3,15 +3,16 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useLocale } from "@/components/locale-provider";
 import { t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, SurveyIcon } from "@/components/icons";
 
 export default function StartScreen() {
   const { shareCode } = useParams();
   const router = useRouter();
+  const { locale, setLocale } = useLocale();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [locale, setLocale] = useState<Locale>("en");
   const [meta, setMeta] = useState<{ title: string; description?: string } | null>(null);
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export default function StartScreen() {
         setLoading(false);
       }
     })();
-  }, [shareCode]);
+  }, [setLocale, shareCode]);
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-sm uppercase tracking-[0.24em] text-slate-400">{t(locale, "loadingStudy")}</div>;
@@ -63,7 +64,6 @@ export default function StartScreen() {
               onChange={(e) => {
                 const next = e.target.value as Locale;
                 setLocale(next);
-                localStorage.setItem("locale", next);
               }}
             >
               <option value="en">English</option>
