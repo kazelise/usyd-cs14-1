@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { useLocale } from "@/components/locale-provider";
 import { t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, LinkIcon, SurveyIcon, UsersIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
@@ -62,11 +63,11 @@ export default function SurveyParticipantPage() {
   const params = useParams();
   const shareCode = params.shareCode as string;
   const search = useSearchParams();
+  const { locale, setLocale } = useLocale();
   const initialLocale =
     (search.get("lang") as Locale) ||
     (typeof window !== "undefined" ? ((localStorage.getItem("locale") as Locale) || "en") : "en");
 
-  const [locale, setLocale] = useState<Locale>(initialLocale);
   const [session, setSession] = useState<SurveySession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -89,6 +90,12 @@ export default function SurveyParticipantPage() {
     intervalMs: session?.gaze_interval_ms ?? 1000,
     enabled: calibrationDone && !!session?.gaze_tracking_enabled,
   });
+
+  useEffect(() => {
+    if (initialLocale === "en" || initialLocale === "zh") {
+      setLocale(initialLocale);
+    }
+  }, [initialLocale, setLocale]);
 
   useEffect(() => {
     let clickListener: ((e: MouseEvent) => void) | null = null;
@@ -302,7 +309,6 @@ export default function SurveyParticipantPage() {
                   onChange={(e) => {
                     const next = e.target.value as Locale;
                     setLocale(next);
-                    localStorage.setItem("locale", next);
                   }}
                 >
                   <option value="en">English</option>
