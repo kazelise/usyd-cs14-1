@@ -195,6 +195,19 @@ class StartSurveyRequest(BaseModel):
     screen_width: int | None = None
     screen_height: int | None = None
     user_agent: str | None = None
+    participant_token: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+        description=(
+            "Optional anonymous token from a previous start_survey call. "
+            "When supplied and matched against an in-progress response for this "
+            "share_code, the existing response is reused (same response_id, "
+            "same assigned_group, same calibration session). Lets a participant "
+            "resume after closing the tab without losing progress or being "
+            "re-randomized."
+        ),
+    )
 
 
 class StartSurveyResponse(BaseModel):
