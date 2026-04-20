@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { useLocale } from "@/components/locale-provider";
 import { buildTemplateFromSurvey, persistTemplate } from "@/lib/template-library";
 import {
   ChartIcon,
@@ -72,6 +73,7 @@ function numberInputClass() {
 
 export default function SurveyEditPage() {
   const router = useRouter();
+  const { locale } = useLocale();
   const params = useParams();
   const searchParams = useSearchParams();
   const surveyId = Number(params.id);
@@ -110,6 +112,120 @@ export default function SurveyEditPage() {
   const [templateSaved, setTemplateSaved] = useState(false);
   const shouldDiscardDraftRef = useRef(initialUnsavedDraft);
   const discardRequestedRef = useRef(false);
+  const text =
+    locale === "zh"
+      ? {
+          deleteConfirm: "确定删除这条帖子吗？",
+          publishConfirm: "确定发布这份问卷吗？发布后参与者将可以访问。",
+          templateName: "模板名称",
+          templateSuffix: "模板",
+          loading: "正在加载问卷",
+          workspace: "问卷工作台",
+          subtitle: "在把实验分享给参与者之前，先配置帖子、分组可见性和互动基线数值。",
+          templateSaved: "模板已保存",
+          saveAsTemplate: "保存为模板",
+          linkCopied: "链接已复制",
+          copyParticipantLink: "复制参与者链接",
+          publishSurvey: "发布问卷",
+          saveDraft: "保存草稿",
+          postsConfigured: "已配置帖子",
+          groupVariants: "分组版本",
+          commentThreads: "评论线程",
+          visibleCards: "可见卡片",
+          addPost: "添加帖子",
+          addPostTitle: "粘贴新闻文章链接以创建帖子卡片",
+          fetching: "抓取中...",
+          articleMetadata: "系统会从文章 metadata 中抓取标题、来源和图片。卡片出现后，你可以继续覆盖每组的数值和评论。",
+          untitled: "未命名",
+          delete: "删除",
+          visibleToGroups: "对以下分组可见：",
+          likes: "点赞",
+          comments: "评论",
+          shares: "分享",
+          visibleComments: "可见评论",
+          participantResponse: "参与者回应",
+          noCommentContent: "该帖子显示了评论数量，但还没有配置任何评论内容。",
+          overrideTitle: "覆盖标题",
+          saveValues: "保存数值",
+          cancel: "取消",
+          editNumbers: "编辑数值",
+          addComment: "添加评论",
+          abGroups: "A/B 分组",
+          groupVisibility: "分组可见性",
+          saveGroups: "保存分组",
+          commenterName: "评论者姓名",
+          commentText: "评论内容",
+          add: "添加",
+          noPosts: "还没有帖子卡片",
+          noPostsCopy: "在上方添加第一条文章链接，为这份问卷创建参与者信息流卡片。",
+          studySummary: "研究摘要",
+          surveyStatus: "问卷状态",
+          participantLink: "参与者链接",
+          linkAfterPublish: "发布后可获得链接",
+          abGroupCount: "A/B 分组",
+          checklist: "发布检查清单",
+          checklistItems: ["至少添加一张帖子卡片", "检查显示数值和评论内容"],
+          checklistSingle: "单组流程已就绪",
+          checklistMulti: "确认每条帖子对各分组的可见性",
+          observation: "观察",
+          observationCopy: "参与者互动会叠加到你预先配置的基线数值之上，因此已发布的信息流会看起来更真实，同时仍保持实验可控。",
+        }
+      : {
+          deleteConfirm: "Delete this post?",
+          publishConfirm: "Publish this survey? Participants will be able to access it.",
+          templateName: "Template name",
+          templateSuffix: "Template",
+          loading: "Loading survey",
+          workspace: "Survey Workspace",
+          subtitle: "Configure the posts, group visibility, and engagement baselines before sharing the study with participants.",
+          templateSaved: "Template Saved",
+          saveAsTemplate: "Save as Template",
+          linkCopied: "Link copied",
+          copyParticipantLink: "Copy participant link",
+          publishSurvey: "Publish Survey",
+          saveDraft: "Save Draft",
+          postsConfigured: "Posts configured",
+          groupVariants: "Group variants",
+          commentThreads: "Comment threads",
+          visibleCards: "Visible cards",
+          addPost: "Add Post",
+          addPostTitle: "Paste a news article URL to create a post card",
+          fetching: "Fetching...",
+          articleMetadata: "The platform will fetch the headline, source, and image from the article metadata. You can override numbers and comments for each group after the card appears below.",
+          untitled: "Untitled",
+          delete: "Delete",
+          visibleToGroups: "Visible to groups:",
+          likes: "Likes",
+          comments: "Comments",
+          shares: "Shares",
+          visibleComments: "Visible comments",
+          participantResponse: "Participant response",
+          noCommentContent: "Comment count is visible, but no comment content has been configured for this post.",
+          overrideTitle: "Override title",
+          saveValues: "Save values",
+          cancel: "Cancel",
+          editNumbers: "Edit numbers",
+          addComment: "Add comment",
+          abGroups: "A/B groups",
+          groupVisibility: "Group visibility",
+          saveGroups: "Save groups",
+          commenterName: "Commenter name",
+          commentText: "Comment text",
+          add: "Add",
+          noPosts: "No post cards yet",
+          noPostsCopy: "Add the first article URL above to create a participant-facing feed card for this survey.",
+          studySummary: "Study summary",
+          surveyStatus: "Survey status",
+          participantLink: "Participant link",
+          linkAfterPublish: "Link available after publish",
+          abGroupCount: "A/B groups",
+          checklist: "Publishing checklist",
+          checklistItems: ["Add at least one post card", "Review display counts and comment content"],
+          checklistSingle: "Single-group flow is ready",
+          checklistMulti: "Confirm group visibility for each post",
+          observation: "Observation",
+          observationCopy: "Participant reactions accumulate on top of your configured baseline values, so the published feed feels active while still remaining experimentally controlled.",
+        };
 
   const loadData = useCallback(async () => {
     try {
@@ -207,7 +323,7 @@ export default function SurveyEditPage() {
   }
 
   async function deletePost(postId: number) {
-    if (!confirm("Delete this post?")) return;
+    if (!confirm(text.deleteConfirm)) return;
     await api.deletePost(surveyId, postId);
     await loadData();
   }
@@ -282,7 +398,7 @@ export default function SurveyEditPage() {
   }
 
   async function publishSurvey() {
-    if (!confirm("Publish this survey? Participants will be able to access it.")) return;
+    if (!confirm(text.publishConfirm)) return;
     await api.publishSurvey(surveyId);
     setIsUnsavedDraft(false);
     shouldDiscardDraftRef.current = false;
@@ -301,7 +417,7 @@ export default function SurveyEditPage() {
 
   function saveAsTemplate() {
     if (!survey) return;
-    const name = window.prompt("Template name", `${survey.title} Template`);
+    const name = window.prompt(text.templateName, `${survey.title} ${text.templateSuffix}`);
     if (!name?.trim()) return;
     const template = buildTemplateFromSurvey({
       name: name.trim(),
@@ -322,7 +438,7 @@ export default function SurveyEditPage() {
   }
 
   if (!survey) {
-    return <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">Loading survey</p>;
+    return <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{text.loading}</p>;
   }
 
   const shareUrl =
@@ -341,16 +457,16 @@ export default function SurveyEditPage() {
     <div className="space-y-8">
       <section className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="section-kicker">Survey Workspace</p>
+          <p className="section-kicker">{text.workspace}</p>
           <h1 className="page-title mt-3">{survey.title}</h1>
           <p className="page-subtitle mt-3 max-w-3xl">
-            Configure the posts, group visibility, and engagement baselines before sharing the study with participants.
+            {text.subtitle}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <button onClick={saveAsTemplate} className="secondary-button">
-            {templateSaved ? "Template Saved" : "Save as Template"}
+            {templateSaved ? text.templateSaved : text.saveAsTemplate}
           </button>
           {survey.status === "published" && shareUrl && (
             <button
@@ -359,18 +475,18 @@ export default function SurveyEditPage() {
             >
               <LinkIcon className="h-4 w-4 shrink-0" />
               <span className="text-center text-[13px] leading-4">
-                {copiedShare ? "Link copied" : "Copy participant link"}
+                {copiedShare ? text.linkCopied : text.copyParticipantLink}
               </span>
             </button>
           )}
           {survey.status === "draft" && (
             <button onClick={publishSurvey} disabled={posts.length === 0} className="primary-button">
-              Publish Survey
+              {text.publishSurvey}
             </button>
           )}
           {survey.status === "draft" ? (
             <button onClick={saveDraft} className="secondary-button">
-              Save Draft
+              {text.saveDraft}
             </button>
           ) : (
             <span className={statusClasses(survey.status)}>{survey.status}</span>
@@ -380,19 +496,19 @@ export default function SurveyEditPage() {
 
       <section className="grid gap-4 xl:grid-cols-4">
         <div className="metric-panel">
-          <p className="section-kicker">Posts configured</p>
+          <p className="section-kicker">{text.postsConfigured}</p>
           <p className="metric-value">{posts.length}</p>
         </div>
         <div className="metric-panel">
-          <p className="section-kicker">Group variants</p>
+          <p className="section-kicker">{text.groupVariants}</p>
           <p className="metric-value">{survey.num_groups}</p>
         </div>
         <div className="metric-panel">
-          <p className="section-kicker">Comment threads</p>
+          <p className="section-kicker">{text.commentThreads}</p>
           <p className="metric-value">{totalComments}</p>
         </div>
         <div className="rounded-[18px] bg-black px-5 py-4 text-white shadow-[0_28px_60px_rgba(17,24,39,0.14)]">
-          <p className="section-kicker text-white/55">Visible cards</p>
+          <p className="section-kicker text-white/55">{text.visibleCards}</p>
           <p className="metric-value-inverse">{publishedPosts}</p>
         </div>
       </section>
@@ -401,9 +517,9 @@ export default function SurveyEditPage() {
         <section className="surface-panel px-6 py-6 md:px-7 md:py-7">
           <div className="flex items-start justify-between gap-6">
             <div>
-              <p className="section-kicker">Add Post</p>
+              <p className="section-kicker">{text.addPost}</p>
               <h2 className="section-title mt-3 md:text-[24px]">
-                Paste a news article URL to generate a post card
+                {text.addPostTitle}
               </h2>
             </div>
             <div className="hidden h-12 w-12 items-center justify-center rounded-[16px] bg-stone-100 text-slate-500 md:flex">
@@ -422,14 +538,11 @@ export default function SurveyEditPage() {
                 required
               />
               <button type="submit" disabled={addingPost} className="primary-button min-w-[160px]">
-                {addingPost ? "Fetching..." : "Add Post"}
+                {addingPost ? text.fetching : text.addPost}
               </button>
             </div>
             {error && <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-            <p className="section-copy">
-              The platform will fetch the headline, source, and image automatically. You can override numbers and
-              comments for each group after the card appears below.
-            </p>
+            <p className="section-copy">{text.articleMetadata}</p>
           </form>
         </section>
       )}
@@ -441,7 +554,7 @@ export default function SurveyEditPage() {
             const totalLikes = (post.display_likes || 0) + (stat?.likes || 0);
             const totalCountComments = (post.display_comments_count || 0) + (stat?.participant_comments || 0);
             const totalShares = (post.display_shares || 0) + (stat?.shares || 0);
-            const title = post.display_title || post.fetched_title || "Untitled";
+            const title = post.display_title || post.fetched_title || text.untitled;
             const source = post.fetched_source || new URL(post.original_url).hostname;
             const imageUrl = post.display_image_url || post.fetched_image_url;
 
@@ -481,14 +594,14 @@ export default function SurveyEditPage() {
                           onClick={() => deletePost(post.id)}
                           className="rounded-full border px-4 py-2 text-[13px] font-medium text-slate-500 transition hover:bg-black/[0.03] hover:text-black"
                         >
-                          Delete
+                          {text.delete}
                         </button>
                       )}
                     </div>
 
                     {post.visible_to_groups && (
                       <p className="mt-4 text-[13px] leading-6 text-slate-500">
-                        Visible to groups: <span className="font-medium text-black">{post.visible_to_groups.join(", ")}</span>
+                        {text.visibleToGroups} <span className="font-medium text-black">{post.visible_to_groups.join(", ")}</span>
                       </p>
                     )}
                   </div>
@@ -497,7 +610,7 @@ export default function SurveyEditPage() {
                 <div className="grid gap-4 border-y bg-stone-50 px-5 py-4 md:grid-cols-3 md:px-6">
                   {post.show_likes && (
                     <div>
-                      <p className="section-kicker">Likes</p>
+                      <p className="section-kicker">{text.likes}</p>
                       <p className="mt-2 text-[26px] font-semibold tracking-[-0.04em] text-black">
                         {totalLikes.toLocaleString()}
                       </p>
@@ -505,13 +618,13 @@ export default function SurveyEditPage() {
                   )}
                   {post.show_comments && (
                     <div>
-                      <p className="section-kicker">Comments</p>
+                      <p className="section-kicker">{text.comments}</p>
                       <p className="mt-2 text-[26px] font-semibold tracking-[-0.04em] text-black">{totalCountComments}</p>
                     </div>
                   )}
                   {post.show_shares && (
                     <div>
-                      <p className="section-kicker">Shares</p>
+                      <p className="section-kicker">{text.shares}</p>
                       <p className="mt-2 text-[26px] font-semibold tracking-[-0.04em] text-black">{totalShares}</p>
                     </div>
                   )}
@@ -519,7 +632,7 @@ export default function SurveyEditPage() {
 
                 {(post.comments.length > 0 || (participantCommentsByPost[post.id]?.length || 0) > 0) && (
                   <div className="space-y-3 px-5 py-5 md:px-6">
-                    <p className="section-kicker">Visible comments</p>
+                    <p className="section-kicker">{text.visibleComments}</p>
 
                     {post.comments.map((comment) => (
                       <div key={`r-${comment.id}`} className="rounded-[18px] border bg-stone-50 px-4 py-4">
@@ -532,7 +645,7 @@ export default function SurveyEditPage() {
                       <div key={`p-${comment.id}`} className="rounded-[18px] border bg-white px-4 py-4">
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <p className="text-[13px] font-semibold text-black">Participant response</p>
+                            <p className="text-[13px] font-semibold text-black">{text.participantResponse}</p>
                             <p className="mt-1 text-[13px] leading-6 text-slate-600">{comment.text}</p>
                           </div>
                           <p className="text-xs text-slate-400">{new Date(comment.created_at).toLocaleString()}</p>
@@ -547,7 +660,7 @@ export default function SurveyEditPage() {
                   if (totalCountComments > 0 && !hasContent) {
                     return (
                       <div className="px-5 py-5 text-[13px] leading-6 text-slate-500 md:px-6">
-                        Comment count is visible, but no comment content has been configured for this post.
+                        {text.noCommentContent}
                       </div>
                     );
                   }
@@ -562,12 +675,12 @@ export default function SurveyEditPage() {
                           type="text"
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
-                          placeholder="Override title"
+                          placeholder={text.overrideTitle}
                           className="field-input"
                         />
                         <div className="flex flex-wrap gap-3">
                           <label className="space-y-2 text-sm text-slate-500">
-                            <span className="block">Likes</span>
+                            <span className="block">{text.likes}</span>
                             <input
                               type="number"
                               value={editLikes}
@@ -576,7 +689,7 @@ export default function SurveyEditPage() {
                             />
                           </label>
                           <label className="space-y-2 text-sm text-slate-500">
-                            <span className="block">Comments</span>
+                            <span className="block">{text.comments}</span>
                             <input
                               type="number"
                               value={editComments}
@@ -585,7 +698,7 @@ export default function SurveyEditPage() {
                             />
                           </label>
                           <label className="space-y-2 text-sm text-slate-500">
-                            <span className="block">Shares</span>
+                            <span className="block">{text.shares}</span>
                             <input
                               type="number"
                               value={editShares}
@@ -596,17 +709,17 @@ export default function SurveyEditPage() {
                         </div>
                         <div className="flex flex-wrap gap-3">
                           <button onClick={() => saveEdit(post.id)} className="primary-button">
-                            Save values
+                            {text.saveValues}
                           </button>
                           <button onClick={() => setEditingPost(null)} className="secondary-button">
-                            Cancel
+                            {text.cancel}
                           </button>
                         </div>
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-3">
                         <button onClick={() => startEdit(post)} className="secondary-button">
-                          Edit numbers
+                          {text.editNumbers}
                         </button>
                         <button
                           onClick={() => {
@@ -616,11 +729,11 @@ export default function SurveyEditPage() {
                           }}
                           className="secondary-button"
                         >
-                          Add comment
+                          {text.addComment}
                         </button>
                         {survey.num_groups > 1 && (
                           <button onClick={() => startEditGroups(post)} className="secondary-button">
-                            A/B groups
+                            {text.abGroups}
                           </button>
                         )}
                       </div>
@@ -630,7 +743,7 @@ export default function SurveyEditPage() {
 
                 {editingGroups === post.id && survey.num_groups > 1 && (
                   <div className="border-t bg-stone-50 px-5 py-5 md:px-6">
-                    <p className="section-kicker">Group visibility</p>
+                    <p className="section-kicker">{text.groupVisibility}</p>
                     <div className="mt-4 flex flex-wrap gap-3">
                       {Array.from({ length: survey.num_groups }, (_, index) => index + 1).map((group) => (
                         <label key={group} className="flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-[13px]">
@@ -658,7 +771,7 @@ export default function SurveyEditPage() {
                             <p className="text-[13px] font-semibold text-black">Group {group}</p>
                             <div className="mt-4 flex flex-wrap gap-3">
                               <label className="space-y-2 text-sm text-slate-500">
-                                <span className="block">Likes</span>
+                                <span className="block">{text.likes}</span>
                                 <input
                                   type="number"
                                   value={groupOverrides[String(group)]?.display_likes ?? 0}
@@ -675,7 +788,7 @@ export default function SurveyEditPage() {
                                 />
                               </label>
                               <label className="space-y-2 text-sm text-slate-500">
-                                <span className="block">Comments</span>
+                                <span className="block">{text.comments}</span>
                                 <input
                                   type="number"
                                   value={groupOverrides[String(group)]?.display_comments_count ?? 0}
@@ -692,7 +805,7 @@ export default function SurveyEditPage() {
                                 />
                               </label>
                               <label className="space-y-2 text-sm text-slate-500">
-                                <span className="block">Shares</span>
+                                <span className="block">{text.shares}</span>
                                 <input
                                   type="number"
                                   value={groupOverrides[String(group)]?.display_shares ?? 0}
@@ -715,10 +828,10 @@ export default function SurveyEditPage() {
 
                     <div className="mt-5 flex flex-wrap gap-3">
                       <button onClick={() => saveGroupSettings(post.id)} className="primary-button">
-                        Save groups
+                        {text.saveGroups}
                       </button>
                       <button onClick={() => setEditingGroups(null)} className="secondary-button">
-                        Cancel
+                        {text.cancel}
                       </button>
                     </div>
                   </div>
@@ -731,7 +844,7 @@ export default function SurveyEditPage() {
                         type="text"
                         value={commentAuthor}
                         onChange={(e) => setCommentAuthor(e.target.value)}
-                        placeholder="Commenter name"
+                        placeholder={text.commenterName}
                         className="field-input"
                         required
                       />
@@ -739,16 +852,16 @@ export default function SurveyEditPage() {
                         type="text"
                         value={commentText}
                         onChange={(e) => setCommentText(e.target.value)}
-                        placeholder="Comment text"
+                        placeholder={text.commentText}
                         className="field-input"
                         required
                       />
                       <div className="flex gap-3">
                         <button type="submit" className="primary-button">
-                          Add
+                          {text.add}
                         </button>
                         <button type="button" onClick={() => setCommentPostId(null)} className="secondary-button">
-                          Cancel
+                          {text.cancel}
                         </button>
                       </div>
                     </div>
@@ -763,9 +876,9 @@ export default function SurveyEditPage() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-stone-100 text-slate-500">
                 <PlusIcon className="h-8 w-8" />
               </div>
-              <h2 className="mt-6 text-[24px] font-semibold tracking-[-0.04em] text-black">No post cards yet</h2>
+              <h2 className="mt-6 text-[24px] font-semibold tracking-[-0.04em] text-black">{text.noPosts}</h2>
               <p className="mx-auto mt-3 max-w-xl text-[14px] leading-7 text-slate-500">
-                Add the first article URL above to generate a participant-facing feed card for this survey.
+                {text.noPostsCopy}
               </p>
             </div>
           )}
@@ -773,30 +886,29 @@ export default function SurveyEditPage() {
 
         <aside className="space-y-6">
           <div className="surface-panel px-6 py-6">
-            <p className="section-kicker">Study summary</p>
+            <p className="section-kicker">{text.studySummary}</p>
             <div className="mt-6 space-y-5">
               <div>
-                <p className="text-[13px] text-slate-500">Survey status</p>
+                <p className="text-[13px] text-slate-500">{text.surveyStatus}</p>
                 <p className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-black">{survey.status}</p>
               </div>
               <div>
-                <p className="text-[13px] text-slate-500">Participant link</p>
-                <p className="mt-1 break-all text-[13px] leading-6 text-black">{shareUrl || "Link available after publish"}</p>
+                <p className="text-[13px] text-slate-500">{text.participantLink}</p>
+                <p className="mt-1 break-all text-[13px] leading-6 text-black">{shareUrl || text.linkAfterPublish}</p>
               </div>
               <div>
-                <p className="text-[13px] text-slate-500">A/B groups</p>
+                <p className="text-[13px] text-slate-500">{text.abGroupCount}</p>
                 <p className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-black">{survey.num_groups}</p>
               </div>
             </div>
           </div>
 
           <div className="surface-panel-soft px-6 py-6">
-            <p className="section-kicker">Publishing checklist</p>
+            <p className="section-kicker">{text.checklist}</p>
             <div className="mt-5 space-y-4">
               {[
-                "Add at least one article-derived post card",
-                "Review display counts and comment content",
-                survey.num_groups > 1 ? "Confirm group visibility for each post" : "Single-group flow is ready",
+                ...text.checklistItems,
+                survey.num_groups > 1 ? text.checklistMulti : text.checklistSingle,
               ].map((item) => (
                 <div key={item} className="grid grid-cols-[20px_minmax(0,1fr)] items-start gap-3">
                   <div className="mt-[2px] flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-700">
@@ -809,15 +921,12 @@ export default function SurveyEditPage() {
           </div>
 
           <div className="surface-panel-soft px-6 py-6">
-            <p className="section-kicker">Observation</p>
+            <p className="section-kicker">{text.observation}</p>
             <div className="mt-4 flex items-start gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-stone-100 text-slate-500">
                 <ChartIcon className="h-4 w-4" />
               </div>
-              <p className="text-[14px] leading-7 text-slate-500">
-                Participant reactions accumulate on top of your configured baseline values, so the published feed feels
-                active while still remaining experimentally controlled.
-              </p>
+              <p className="text-[14px] leading-7 text-slate-500">{text.observationCopy}</p>
             </div>
           </div>
         </aside>
