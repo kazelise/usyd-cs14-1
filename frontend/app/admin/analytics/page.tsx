@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useLocale } from "@/components/locale-provider";
 import { ChartIcon, CheckCircleIcon, SearchIcon, UsersIcon } from "@/components/icons";
 
 type SurveyListItem = {
@@ -50,7 +51,7 @@ type AnalyticsSummary = {
   duplicate_comment_sessions: number;
   group_breakdown: GroupAnalytics[];
   posts: PostAnalytics[];
-  ai_summary: string;
+  summary: string;
 };
 
 type ParticipantComment = {
@@ -71,6 +72,7 @@ function formatMinutes(value: number) {
 
 export default function AnalyticsPage() {
   const router = useRouter();
+  const { locale } = useLocale();
   const [surveys, setSurveys] = useState<SurveyListItem[]>([]);
   const [selectedSurveyId, setSelectedSurveyId] = useState<number | null>(null);
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
@@ -79,6 +81,76 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState("");
+  const text =
+    locale === "zh"
+      ? {
+          failed: "加载分析失败",
+          failedSummary: "加载分析摘要失败",
+          loading: "正在加载分析",
+          noAnalytics: "还没有问卷分析数据",
+          noAnalyticsCopy: "请先创建并发布问卷。参与者开始互动后，这里会显示分析数据。",
+          createSurvey: "新建问卷",
+          title: "分析",
+          subtitle: "查看作答质量、互动行为和分组差异。",
+          export: "导出摘要",
+          loadingSummary: "正在加载问卷摘要",
+          totalResponses: "总作答数",
+          completionRate: "完成率",
+          avgCompletion: "平均完成时长",
+          calibrationOk: "校准通过",
+          groupComparison: "分组对比",
+          participants: "名参与者",
+          completed: "已完成",
+          clicks: "点击",
+          likes: "点赞",
+          comments: "评论",
+          shares: "分享",
+          summary: "摘要",
+          surveyOverview: "问卷概览",
+          topCohort: "最活跃组别",
+          noGroupData: "暂无分组数据",
+          topCohortCopy: "该条件下记录了 {clicks} 次点击和 {comments} 条评论。",
+          topCohortEmpty: "问卷发布后，这里会显示参与者数据。",
+          engagementTotals: "互动总量",
+          totalClicks: "总点击",
+          totalLikes: "总点赞",
+          totalComments: "总评论",
+          totalShares: "总分享",
+        }
+      : {
+          failed: "Failed to load analytics",
+          failedSummary: "Failed to load analytics summary",
+          loading: "Loading analytics",
+          noAnalytics: "No survey analytics yet",
+          noAnalyticsCopy: "Create and publish a survey first. Analytics will populate once participants begin interacting with the feed.",
+          createSurvey: "Create Survey",
+          title: "Analytics",
+          subtitle: "Review response quality, engagement behaviour, and group-level differences.",
+          export: "Export Summary",
+          loadingSummary: "Loading survey summary",
+          totalResponses: "Total responses",
+          completionRate: "Completion rate",
+          avgCompletion: "Avg completion",
+          calibrationOk: "Calibration ok",
+          groupComparison: "Group comparison",
+          participants: "participants",
+          completed: "completed",
+          clicks: "clicks",
+          likes: "Likes",
+          comments: "Comments",
+          shares: "Shares",
+          summary: "Summary",
+          surveyOverview: "Survey overview",
+          topCohort: "Top cohort",
+          noGroupData: "No group data",
+          topCohortCopy: "{clicks} clicks and {comments} comments recorded in this condition.",
+          topCohortEmpty: "Participant data will appear here once the survey is live.",
+          engagementTotals: "Engagement totals",
+          totalClicks: "Total clicks",
+          totalLikes: "Total likes",
+          totalComments: "Total comments",
+          totalShares: "Total shares",
+        };
 
   useEffect(() => {
     let active = true;
@@ -93,7 +165,7 @@ export default function AnalyticsPage() {
       })
       .catch((err: any) => {
         if (!active) return;
-        setError(err.message || "Failed to load analytics");
+        setError(err.message || text.failed);
         router.push("/auth");
       })
       .finally(() => {
@@ -102,7 +174,7 @@ export default function AnalyticsPage() {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [router, text.failed]);
 
   useEffect(() => {
     if (!selectedSurveyId) return;
@@ -117,7 +189,7 @@ export default function AnalyticsPage() {
       })
       .catch((err: any) => {
         if (!active) return;
-        setError(err.message || "Failed to load analytics summary");
+        setError(err.message || text.failedSummary);
       })
       .finally(() => {
         if (active) setLoadingSummary(false);
@@ -125,7 +197,7 @@ export default function AnalyticsPage() {
     return () => {
       active = false;
     };
-  }, [selectedSurveyId]);
+  }, [selectedSurveyId, text.failedSummary]);
 
   useEffect(() => {
     if (!selectedSurveyId) return;
@@ -176,7 +248,7 @@ export default function AnalyticsPage() {
   }
 
   if (loading) {
-    return <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">Loading analytics</p>;
+    return <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{text.loading}</p>;
   }
 
   if (!surveys.length) {
@@ -185,12 +257,12 @@ export default function AnalyticsPage() {
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[18px] bg-stone-100 text-slate-500">
           <ChartIcon className="h-5 w-5" />
         </div>
-        <h1 className="mt-5 text-[24px] font-semibold tracking-[-0.04em] text-black">No survey analytics yet</h1>
+        <h1 className="mt-5 text-[24px] font-semibold tracking-[-0.04em] text-black">{text.noAnalytics}</h1>
         <p className="mx-auto mt-2 max-w-xl text-[14px] leading-7 text-slate-500">
-          Create and publish a survey first. Analytics will populate once participants begin interacting with the feed.
+          {text.noAnalyticsCopy}
         </p>
         <button type="button" onClick={() => router.push("/admin/surveys/new")} className="primary-button mt-6">
-          Create Survey
+          {text.createSurvey}
         </button>
       </div>
     );
@@ -200,8 +272,8 @@ export default function AnalyticsPage() {
     <div className="flex min-h-[calc(100vh-118px)] flex-col">
       <section className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <h1 className="page-title">Analytics</h1>
-          <p className="page-subtitle">Review response quality, engagement behaviour, and group-level differences.</p>
+          <h1 className="page-title">{text.title}</h1>
+          <p className="page-subtitle">{text.subtitle}</p>
         </div>
 
         <div className="flex w-full flex-col gap-3 md:flex-row xl:w-auto">
@@ -220,7 +292,7 @@ export default function AnalyticsPage() {
             </select>
           </div>
           <button type="button" onClick={exportSummary} className="secondary-button min-w-[148px]" disabled={!summary}>
-            Export Summary
+            {text.export}
           </button>
         </div>
       </section>
@@ -228,31 +300,31 @@ export default function AnalyticsPage() {
       {error && <p className="mt-4 rounded-[16px] border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
       {loadingSummary || !summary ? (
-        <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">Loading survey summary</p>
+        <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{text.loadingSummary}</p>
       ) : (
         <>
           <section className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="metric-panel">
-              <p className="section-kicker">Total responses</p>
+              <p className="section-kicker">{text.totalResponses}</p>
               <p className="metric-value">{summary.total_responses}</p>
             </div>
             <div className="metric-panel">
-              <p className="section-kicker">Completion rate</p>
+              <p className="section-kicker">{text.completionRate}</p>
               <p className="metric-value">{formatPercent(summary.completion_rate)}</p>
             </div>
             <div className="metric-panel">
-              <p className="section-kicker">Avg completion</p>
+              <p className="section-kicker">{text.avgCompletion}</p>
               <p className="metric-value">{formatMinutes(summary.avg_completion_minutes)}</p>
             </div>
             <div className="rounded-[18px] bg-black px-5 py-4 text-white shadow-[0_28px_60px_rgba(17,24,39,0.14)]">
-              <p className="section-kicker text-white/55">Calibration ok</p>
+              <p className="section-kicker text-white/55">{text.calibrationOk}</p>
               <p className="metric-value-inverse">{formatPercent(summary.calibration_success_rate)}</p>
             </div>
           </section>
 
           <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
             <div className="surface-panel px-6 py-6">
-              <p className="section-kicker">Group comparison</p>
+              <p className="section-kicker">{text.groupComparison}</p>
               <div className="mt-5 space-y-4">
                 {summary.group_breakdown.map((group) => (
                   <div key={group.group_id} className="rounded-[18px] border bg-stone-50 px-4 py-4">
@@ -260,28 +332,28 @@ export default function AnalyticsPage() {
                       <div>
                         <p className="text-[16px] font-semibold tracking-[-0.03em] text-black">Group {group.group_id}</p>
                         <p className="mt-1 text-[13px] leading-6 text-slate-500">
-                          {group.participants} participants · {formatPercent(group.completion_rate)} completion
+                          {group.participants} {text.participants} · {formatPercent(group.completion_rate)} {text.completed}
                         </p>
                       </div>
                       <div className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        {group.clicks} clicks
+                        {group.clicks} {text.clicks}
                       </div>
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-4">
                       <div>
-                        <p className="section-kicker">Likes</p>
+                        <p className="section-kicker">{text.likes}</p>
                         <p className="mt-2 text-[22px] font-semibold tracking-[-0.04em] text-black">{group.likes}</p>
                       </div>
                       <div>
-                        <p className="section-kicker">Comments</p>
+                        <p className="section-kicker">{text.comments}</p>
                         <p className="mt-2 text-[22px] font-semibold tracking-[-0.04em] text-black">{group.comments}</p>
                       </div>
                       <div>
-                        <p className="section-kicker">Shares</p>
+                        <p className="section-kicker">{text.shares}</p>
                         <p className="mt-2 text-[22px] font-semibold tracking-[-0.04em] text-black">{group.shares}</p>
                       </div>
                       <div>
-                        <p className="section-kicker">Completed</p>
+                        <p className="section-kicker">{text.completed}</p>
                         <p className="mt-2 text-[22px] font-semibold tracking-[-0.04em] text-black">{group.completed}</p>
                       </div>
                     </div>
@@ -291,31 +363,31 @@ export default function AnalyticsPage() {
             </div>
 
             <div className="surface-panel px-6 py-6">
-              <p className="section-kicker">AI summary</p>
+              <p className="section-kicker">{text.summary}</p>
               <h2 className="mt-3 text-[22px] font-semibold tracking-[-0.04em] text-black">
-                {selectedSurvey?.title ?? "Survey overview"}
+                {selectedSurvey?.title ?? text.surveyOverview}
               </h2>
-              <p className="mt-3 text-[14px] leading-7 text-slate-500">{summary.ai_summary}</p>
+              <p className="mt-3 text-[14px] leading-7 text-slate-500">{summary.summary}</p>
 
               <div className="mt-6 grid gap-3 md:grid-cols-2">
                 <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
-                  <p className="section-kicker">Top cohort</p>
+                  <p className="section-kicker">{text.topCohort}</p>
                   <p className="mt-2 text-[18px] font-semibold tracking-[-0.03em] text-black">
-                    {topGroup ? `Group ${topGroup.group_id}` : "No group data"}
+                    {topGroup ? `Group ${topGroup.group_id}` : text.noGroupData}
                   </p>
                   <p className="mt-2 text-[13px] leading-6 text-slate-500">
                     {topGroup
-                      ? `${topGroup.clicks} clicks and ${topGroup.comments} comments recorded in this condition.`
-                      : "Participant data will appear here once the survey is live."}
+                      ? text.topCohortCopy.replace("{clicks}", String(topGroup.clicks)).replace("{comments}", String(topGroup.comments))
+                      : text.topCohortEmpty}
                   </p>
                 </div>
                 <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
-                  <p className="section-kicker">Engagement totals</p>
+                  <p className="section-kicker">{text.engagementTotals}</p>
                   <div className="mt-3 space-y-2 text-[13px] leading-6 text-slate-500">
-                    <p>Total clicks: <span className="font-medium text-black">{summary.total_clicks}</span></p>
-                    <p>Total likes: <span className="font-medium text-black">{summary.total_likes}</span></p>
-                    <p>Total comments: <span className="font-medium text-black">{summary.total_comments}</span></p>
-                    <p>Total shares: <span className="font-medium text-black">{summary.total_shares}</span></p>
+                    <p>{text.totalClicks}: <span className="font-medium text-black">{summary.total_clicks}</span></p>
+                    <p>{text.totalLikes}: <span className="font-medium text-black">{summary.total_likes}</span></p>
+                    <p>{text.totalComments}: <span className="font-medium text-black">{summary.total_comments}</span></p>
+                    <p>{text.totalShares}: <span className="font-medium text-black">{summary.total_shares}</span></p>
                   </div>
                 </div>
               </div>
