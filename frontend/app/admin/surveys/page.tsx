@@ -4,7 +4,8 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { ChartIcon, PlusIcon, SearchIcon, SurveyIcon, UsersIcon } from "@/components/icons";
+import { useLocale } from "@/components/locale-provider";
+import { PlusIcon, SearchIcon, SurveyIcon, UsersIcon } from "@/components/icons";
 
 interface Survey {
   id: number;
@@ -32,9 +33,52 @@ function formatDate(date: string) {
 function SurveysPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { locale } = useLocale();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const text =
+    locale === "zh"
+      ? {
+          loading: "正在加载问卷",
+          title: "我的问卷",
+          subtitle: "管理并追踪当前进行中的研究项目。",
+          searchPlaceholder: "搜索项目...",
+          total: "问卷总数",
+          published: "已发布",
+          drafts: "草稿",
+          variants: "分组版本",
+          configuredGroups: "个已配置分组",
+          singleGroup: "单组实验",
+          created: "创建于",
+          newSurvey: "新建问卷",
+          newSurveyCopy: "从空白草稿开始，配置帖子、指标和分组变化。",
+          noMatching: "没有匹配的问卷",
+          noSurveys: "还没有问卷",
+          adjustFilters: "调整搜索词或切换筛选条件以查看更多实验。",
+          emptyCopy: "创建你的第一份问卷，开始搭建面向参与者的帖子信息流并记录互动。",
+          createSurvey: "新建问卷",
+        }
+      : {
+          loading: "Loading surveys",
+          title: "My Surveys",
+          subtitle: "Manage and track your active research projects.",
+          searchPlaceholder: "Search projects...",
+          total: "Total surveys",
+          published: "Published",
+          drafts: "Drafts",
+          variants: "Group variants",
+          configuredGroups: "configured groups",
+          singleGroup: "Single-group study",
+          created: "Created",
+          newSurvey: "New Survey",
+          newSurveyCopy: "Start from a blank draft and configure posts, metrics, and group variations.",
+          noMatching: "No matching surveys",
+          noSurveys: "No surveys yet",
+          adjustFilters: "Adjust your search or switch filters to view more studies.",
+          emptyCopy: "Create your first survey to start building participant-facing post feeds and tracking engagement.",
+          createSurvey: "Create Survey",
+        };
 
   useEffect(() => {
     api.listSurveys()
@@ -71,15 +115,15 @@ function SurveysPageContent() {
   }, [surveys]);
 
   if (loading) {
-    return <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">Loading surveys</p>;
+    return <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{text.loading}</p>;
   }
 
   return (
     <div className="flex min-h-[calc(100vh-118px)] flex-col">
       <section className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <h1 className="page-title">My Surveys</h1>
-          <p className="page-subtitle">Manage and track your active research projects.</p>
+          <h1 className="page-title">{text.title}</h1>
+          <p className="page-subtitle">{text.subtitle}</p>
         </div>
 
         <div className="relative w-full max-w-[380px]">
@@ -87,7 +131,7 @@ function SurveysPageContent() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search projects..."
+            placeholder={text.searchPlaceholder}
             className="field-input rounded-[18px] bg-white py-2 pl-11 pr-4"
           />
         </div>
@@ -95,19 +139,19 @@ function SurveysPageContent() {
 
       <section className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="metric-panel">
-          <p className="section-kicker">Total surveys</p>
+          <p className="section-kicker">{text.total}</p>
           <p className="metric-value">{metrics.total}</p>
         </div>
         <div className="metric-panel">
-          <p className="section-kicker">Published</p>
+          <p className="section-kicker">{text.published}</p>
           <p className="metric-value">{metrics.published}</p>
         </div>
         <div className="metric-panel">
-          <p className="section-kicker">Drafts</p>
+          <p className="section-kicker">{text.drafts}</p>
           <p className="metric-value">{metrics.drafts}</p>
         </div>
         <div className="rounded-[18px] bg-[linear-gradient(135deg,#0f3146_0%,#1f5876_56%,#00a7a0_100%)] px-5 py-4 text-white shadow-[0_24px_48px_rgba(15,49,70,0.2)]">
-          <p className="section-kicker text-white/60">Group variants</p>
+          <p className="section-kicker text-white/60">{text.variants}</p>
           <p className="metric-value-inverse">{metrics.groupVariants}</p>
         </div>
       </section>
@@ -126,7 +170,7 @@ function SurveysPageContent() {
                   {survey.title}
                 </h2>
                 <p className="mt-2 text-[13px] leading-6 text-slate-500">
-                  {survey.num_groups > 1 ? `${survey.num_groups} configured groups` : "Single-group study"}
+                  {survey.num_groups > 1 ? `${survey.num_groups} ${text.configuredGroups}` : text.singleGroup}
                 </p>
               </div>
 
@@ -142,7 +186,7 @@ function SurveysPageContent() {
                     </div>
                   )}
                 </div>
-                <span>Created {formatDate(survey.created_at)}</span>
+                <span>{text.created} {formatDate(survey.created_at)}</span>
               </div>
             </Link>
           ))}
@@ -154,9 +198,9 @@ function SurveysPageContent() {
             <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#e8fbfa] text-[#00a7a0]">
               <PlusIcon className="h-5 w-5" />
             </div>
-            <p className="mt-4 text-[17px] font-semibold tracking-[-0.04em] text-black">New Survey</p>
+            <p className="mt-4 text-[17px] font-semibold tracking-[-0.04em] text-black">{text.newSurvey}</p>
             <p className="mt-2 max-w-[18rem] text-[13px] leading-6 text-slate-500">
-              Start from a blank draft and configure posts, metrics, and group variations.
+              {text.newSurveyCopy}
             </p>
           </Link>
         </div>
@@ -168,46 +212,30 @@ function SurveysPageContent() {
             <SurveyIcon className="h-7 w-7" />
           </div>
           <h2 className="mt-6 text-3xl font-semibold tracking-[-0.04em] text-black">
-            {search || filter ? "No matching surveys" : "No surveys yet"}
+            {search || filter ? text.noMatching : text.noSurveys}
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-slate-500">
             {search || filter
-              ? "Adjust your search or switch filters to view more studies."
-              : "Create your first survey to start building participant-facing post feeds and tracking engagement."}
+              ? text.adjustFilters
+              : text.emptyCopy}
           </p>
           {!search && !filter && (
             <Link href="/admin/surveys/new" className="primary-button mt-6 gap-2">
               <PlusIcon className="h-4 w-4" />
-              Create Survey
+              {text.createSurvey}
             </Link>
           )}
         </section>
       )}
-
-      <section className="surface-panel mt-4 flex flex-col gap-4 px-5 py-5 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[#e8fbfa] text-[#00a7a0]">
-            <ChartIcon className="h-4 w-4" />
-          </div>
-          <div>
-            <p className="section-title">AI Assistant Analysis</p>
-            <p className="mt-2 max-w-3xl text-[13px] leading-6 text-slate-500">
-              Your most active published study is trending above the workspace average. Use the survey detail view to
-              review comment activity, group visibility, and engagement totals before publishing the next draft.
-            </p>
-          </div>
-        </div>
-        <Link href="/admin/surveys" className="secondary-button min-w-[160px]">
-          View Trends
-        </Link>
-      </section>
     </div>
   );
 }
 
 export default function SurveysPage() {
+  const { locale } = useLocale();
+  const loading = locale === "zh" ? "正在加载问卷" : "Loading surveys";
   return (
-    <Suspense fallback={<p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">Loading surveys</p>}>
+    <Suspense fallback={<p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{loading}</p>}>
       <SurveysPageContent />
     </Suspense>
   );
