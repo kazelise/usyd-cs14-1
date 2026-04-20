@@ -35,12 +35,13 @@ services:
   frontend:
     build: ./frontend
     restart: unless-stopped
-    command: sh -c "rm -rf .next && npm run dev"
+    command: sh -c "mkdir -p .next && find .next -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true; npm run dev"
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - /app/.next
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
       WATCHPACK_POLLING: "true"
