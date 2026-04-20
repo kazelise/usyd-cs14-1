@@ -267,7 +267,7 @@ class SurveyAnalyticsOut(BaseModel):
     duplicate_comment_sessions: int
     group_breakdown: list[GroupAnalyticsOut]
     posts: list[PostAnalyticsRowOut]
-    ai_summary: str
+    summary: str
 
 
 # ── Question Response ─────────────────────────────────
