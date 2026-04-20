@@ -7,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import create_access_token, get_current_researcher, hash_password, verify_password
 from app.database import get_db
 from app.models.researcher import Researcher
-from app.schemas.auth import LoginRequest, RegisterRequest, ResearcherResponse, TokenResponse
+from app.schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
+    ResearcherResponse,
+    TokenResponse,
+    UpdateResearcherRequest,
+)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -43,4 +49,23 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=ResearcherResponse)
 async def get_me(researcher: Researcher = Depends(get_current_researcher)):
     """Return the currently authenticated researcher."""
+    return researcher
+
+
+@router.patch("/me", response_model=ResearcherResponse)
+async def update_me(
+    body: UpdateResearcherRequest,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update the currently authenticated researcher profile."""
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+    if len(name) > 100:
+        raise HTTPException(status_code=400, detail="Name is too long")
+
+    researcher.name = name
+    await db.flush()
+    await db.refresh(researcher)
     return researcher
