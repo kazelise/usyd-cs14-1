@@ -992,21 +992,21 @@ async def get_analytics_summary(
 
     top_post = max(post_rows, key=lambda post: post.clicks, default=None)
     top_group = max(group_breakdown, key=lambda group: group.clicks, default=None)
-    ai_summary_parts = []
+    summary_parts = []
     if top_post and top_post.clicks > 0:
-        ai_summary_parts.append(
+        summary_parts.append(
             f'"{top_post.title}" is driving the strongest engagement with {top_post.clicks} recorded clicks.'
         )
     if top_group and top_group.participants > 0:
-        ai_summary_parts.append(
+        summary_parts.append(
             f"Group {top_group.group_id} is currently the most active cohort with {top_group.clicks} clicks and a {top_group.completion_rate:.0f}% completion rate."
         )
     if calibration_sessions:
-        ai_summary_parts.append(
+        summary_parts.append(
             f"Calibration quality is holding at {calibration_success_rate:.0f}% acceptable-or-better sessions."
         )
-    ai_summary = (
-        " ".join(ai_summary_parts)
+    summary = (
+        " ".join(summary_parts)
         or "Collect participant responses to unlock engagement and response-quality insights."
     )
 
@@ -1025,7 +1025,7 @@ async def get_analytics_summary(
         duplicate_comment_sessions=duplicate_comment_sessions,
         group_breakdown=group_breakdown,
         posts=post_rows,
-        ai_summary=ai_summary,
+        summary=summary,
     )
 
 
