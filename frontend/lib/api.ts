@@ -29,6 +29,8 @@ export const api = {
   login: (data: { email: string; password: string }) =>
     request("/auth/login", { method: "POST", body: JSON.stringify(data) }),
   me: () => request("/auth/me"),
+  updateMe: (data: { name: string }) =>
+    request("/auth/me", { method: "PATCH", body: JSON.stringify(data) }),
 
   // Surveys
   listSurveys: () => request("/surveys"),
