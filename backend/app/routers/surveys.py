@@ -574,22 +574,40 @@ async def start_survey(
 
     language_code = normalize_optional_language(body.language) if body and body.language else None
 
-    # Random group assignment
-    assigned_group = random.randint(1, survey.num_groups)
+    # Resume path: when the client supplies a token from a prior start_survey
+    # call and it matches an in_progress response for THIS survey, reuse that
+    # response instead of creating a new one. Preserves assigned_group
+    # (randomization integrity) and keeps the existing calibration session,
+    # likes, and comments attached after a tab close.
+    response = None
+    if body and body.participant_token:
+        existing_q = await db.execute(
+            select(SurveyResponse).where(
+                SurveyResponse.participant_token == body.participant_token,
+                SurveyResponse.survey_id == survey.id,
+                SurveyResponse.status == "in_progress",
+            )
+        )
+        response = existing_q.scalar_one_or_none()
 
-    response = SurveyResponse(
-        survey_id=survey.id,
-        assigned_group=assigned_group,
-        language=language_code,
-        screen_width=body.screen_width if body else None,
-        screen_height=body.screen_height if body else None,
-        user_agent=body.user_agent if body else None,
-        status="in_progress",
-        started_at=datetime.utcnow(),
-    )
-    db.add(response)
-    await db.flush()
-    await db.refresh(response)
+    if response is None:
+        assigned_group = random.randint(1, survey.num_groups)
+        response = SurveyResponse(
+            survey_id=survey.id,
+            assigned_group=assigned_group,
+            language=language_code,
+            screen_width=body.screen_width if body else None,
+            screen_height=body.screen_height if body else None,
+            user_agent=body.user_agent if body else None,
+            status="in_progress",
+            started_at=datetime.utcnow(),
+        )
+        db.add(response)
+        await db.flush()
+        await db.refresh(response)
+    else:
+        assigned_group = response.assigned_group
+        language_code = response.language
 
     return StartSurveyResponse(
         response_id=response.id,
