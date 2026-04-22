@@ -217,6 +217,7 @@ class StartSurveyResponse(BaseModel):
     assigned_group: int
     calibration_required: bool
     calibration_points: int
+    calibration_completed: bool = False
     gaze_tracking_enabled: bool
     gaze_interval_ms: int
     click_tracking_enabled: bool
