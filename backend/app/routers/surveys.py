@@ -590,6 +590,7 @@ async def start_survey(
         )
         response = existing_q.scalar_one_or_none()
 
+    calibration_completed = False
     if response is None:
         assigned_group = random.randint(1, survey.num_groups)
         response = SurveyResponse(
@@ -608,6 +609,23 @@ async def start_survey(
     else:
         assigned_group = response.assigned_group
         language_code = response.language
+        # On resume, look at any prior CalibrationSession attached to this
+        # response. If it was completed, signal the frontend to skip the
+        # calibration UI. If it was abandoned mid-way (in_progress), drop it
+        # so the frontend can re-create cleanly without hitting the
+        # "session already exists" 409 from create_calibration_session.
+        existing_calib_q = await db.execute(
+            select(CalibrationSession).where(
+                CalibrationSession.response_id == response.id
+            )
+        )
+        existing_calib = existing_calib_q.scalar_one_or_none()
+        if existing_calib is not None:
+            if existing_calib.status == "completed":
+                calibration_completed = True
+            else:
+                await db.delete(existing_calib)
+                await db.flush()
 
     return StartSurveyResponse(
         response_id=response.id,
@@ -616,6 +634,7 @@ async def start_survey(
         assigned_group=assigned_group,
         calibration_required=survey.calibration_enabled,
         calibration_points=survey.calibration_points,
+        calibration_completed=calibration_completed,
         gaze_tracking_enabled=survey.gaze_tracking_enabled,
         gaze_interval_ms=survey.gaze_interval_ms,
         click_tracking_enabled=survey.click_tracking_enabled,
