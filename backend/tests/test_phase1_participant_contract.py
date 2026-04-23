@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from app.models.participant import SurveyResponse
 from app.models.survey import Survey, SurveyPost
+from app.models.tracking import CalibrationSession
 from app.routers import surveys
 from app.routers.surveys import start_survey
 from app.routers.tracking import (
@@ -225,3 +226,201 @@ async def test_tracking_endpoints_reject_wrong_participant_token(endpoint, body)
 
     assert exc_info.value.status_code == 404
     assert db.added == []
+
+
+class ResumeStartSurveyDB:
+    """Mock DB that returns a survey on the first execute, a configurable
+    response on the second (resume lookup by participant_token), and a
+    configurable calibration session on the third (only reached on resume hit).
+    """
+
+    def __init__(
+        self,
+        survey: Survey,
+        existing_response: SurveyResponse | None,
+        existing_calibration: CalibrationSession | None = None,
+    ):
+        self.survey = survey
+        self.existing_response = existing_response
+        self.existing_calibration = existing_calibration
+        self.execute_count = 0
+        self.added = []
+        self.deleted = []
+        self.flushed = False
+
+    async def execute(self, _statement):
+        self.execute_count += 1
+        if self.execute_count == 1:
+            return ScalarResult(self.survey)
+        if self.execute_count == 2:
+            return ScalarResult(self.existing_response)
+        return ScalarResult(self.existing_calibration)
+
+    def add(self, item):
+        self.added.append(item)
+
+    async def delete(self, item):
+        self.deleted.append(item)
+
+    async def flush(self):
+        self.flushed = True
+        for item in self.added:
+            if isinstance(item, SurveyResponse):
+                item.id = 999
+                item.participant_token = "fresh-token"
+
+    async def refresh(self, _item):
+        return None
+
+
+@pytest.mark.asyncio
+async def test_start_survey_resumes_existing_in_progress_response(monkeypatch):
+    """Token matches an in_progress response for this survey → reuse, don't create."""
+    monkeypatch.setattr(surveys.random, "randint", lambda _start, _end: 99)
+    existing = SurveyResponse(
+        id=42,
+        survey_id=10,
+        assigned_group=2,
+        participant_token="resume-token",
+        status="in_progress",
+        language="zh",
+        started_at=datetime.utcnow(),
+    )
+    db = ResumeStartSurveyDB(make_survey([make_post(1, order=1)]), existing)
+
+    response = await start_survey(
+        "share-code",
+        StartSurveyRequest(participant_token="resume-token"),
+        db,
+    )
+
+    assert response.response_id == 42
+    assert response.participant_token == "resume-token"
+    assert response.assigned_group == 2  # group preserved, NOT re-randomized
+    assert response.language == "zh"
+    assert response.calibration_completed is False  # no prior calibration
+    assert db.added == []  # no new SurveyResponse inserted
+    assert db.flushed is False
+    assert db.deleted == []
+
+
+@pytest.mark.asyncio
+async def test_start_survey_resume_signals_completed_calibration(monkeypatch):
+    """Token hits, prior CalibrationSession is completed → flag set, session kept."""
+    monkeypatch.setattr(surveys.random, "randint", lambda _start, _end: 99)
+    existing = SurveyResponse(
+        id=42,
+        survey_id=10,
+        assigned_group=2,
+        participant_token="resume-token",
+        status="in_progress",
+        language="en",
+        started_at=datetime.utcnow(),
+    )
+    completed_calib = CalibrationSession(
+        id=7,
+        response_id=42,
+        status="completed",
+        screen_width=1440,
+        screen_height=900,
+        expected_points=5,
+        started_at=datetime.utcnow(),
+    )
+    db = ResumeStartSurveyDB(
+        make_survey([make_post(1, order=1)]), existing, completed_calib
+    )
+
+    response = await start_survey(
+        "share-code",
+        StartSurveyRequest(participant_token="resume-token"),
+        db,
+    )
+
+    assert response.calibration_completed is True
+    assert db.deleted == []  # completed session preserved
+
+
+@pytest.mark.asyncio
+async def test_start_survey_resume_drops_in_progress_calibration(monkeypatch):
+    """Token hits, prior CalibrationSession is mid-way → drop it for a clean restart."""
+    monkeypatch.setattr(surveys.random, "randint", lambda _start, _end: 99)
+    existing = SurveyResponse(
+        id=42,
+        survey_id=10,
+        assigned_group=2,
+        participant_token="resume-token",
+        status="in_progress",
+        language="en",
+        started_at=datetime.utcnow(),
+    )
+    abandoned_calib = CalibrationSession(
+        id=8,
+        response_id=42,
+        status="in_progress",
+        screen_width=1440,
+        screen_height=900,
+        expected_points=5,
+        started_at=datetime.utcnow(),
+    )
+    db = ResumeStartSurveyDB(
+        make_survey([make_post(1, order=1)]), existing, abandoned_calib
+    )
+
+    response = await start_survey(
+        "share-code",
+        StartSurveyRequest(participant_token="resume-token"),
+        db,
+    )
+
+    assert response.calibration_completed is False
+    assert db.deleted == [abandoned_calib]
+    assert db.flushed is True  # delete was flushed
+
+
+@pytest.mark.asyncio
+async def test_start_survey_ignores_token_from_different_survey(monkeypatch):
+    """Token does not match any response under THIS survey_id → create new."""
+    monkeypatch.setattr(surveys.random, "randint", lambda _start, _end: 1)
+    db = ResumeStartSurveyDB(make_survey([make_post(1, order=1)]), None)
+
+    response = await start_survey(
+        "share-code",
+        StartSurveyRequest(participant_token="someone-elses-token"),
+        db,
+    )
+
+    assert response.response_id == 999  # created fresh via mock
+    assert response.participant_token == "fresh-token"
+    assert response.assigned_group == 1
+    assert len(db.added) == 1
+    assert isinstance(db.added[0], SurveyResponse)
+
+
+@pytest.mark.asyncio
+async def test_start_survey_ignores_completed_response_token(monkeypatch):
+    """Token matches a row but status != in_progress → create new (no resume)."""
+    monkeypatch.setattr(surveys.random, "randint", lambda _start, _end: 1)
+    # The router filters by status == "in_progress" in the WHERE clause, so a
+    # completed row will not match the SELECT and we get None back.
+    db = ResumeStartSurveyDB(make_survey([make_post(1, order=1)]), None)
+
+    response = await start_survey(
+        "share-code",
+        StartSurveyRequest(participant_token="stale-token"),
+        db,
+    )
+
+    assert response.response_id == 999
+    assert len(db.added) == 1
+
+
+@pytest.mark.asyncio
+async def test_start_survey_without_token_creates_new_response(monkeypatch):
+    """No token provided → skip resume lookup entirely, single execute call."""
+    monkeypatch.setattr(surveys.random, "randint", lambda _start, _end: 1)
+    db = ResumeStartSurveyDB(make_survey([make_post(1, order=1)]), None)
+
+    await start_survey("share-code", StartSurveyRequest(), db)
+
+    assert db.execute_count == 1  # only the survey lookup, no resume SELECT
+    assert len(db.added) == 1
