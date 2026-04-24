@@ -167,11 +167,20 @@ class PostOut(BaseModel):
 # ── Participant-Side ──────────────────────────────────
 
 
+class StartSurveyRequest(BaseModel):
+    language: str | None = None
+    screen_width: int | None = None
+    screen_height: int | None = None
+    user_agent: str | None = None
+
+
 class StartSurveyResponse(BaseModel):
     response_id: int
+    participant_token: str
     survey_id: int
     assigned_group: int
     calibration_required: bool
+    calibration_points: int
     gaze_tracking_enabled: bool
     gaze_interval_ms: int
     click_tracking_enabled: bool

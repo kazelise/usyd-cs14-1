@@ -48,6 +48,7 @@ from app.schemas.survey import (
     QuestionOut,
     QuestionResponseOut,
     ResponseStateOut,
+    StartSurveyRequest,
     StartSurveyResponse,
     SubmitQuestionResponseRequest,
     SurveyAnalyticsOut,
@@ -63,6 +64,17 @@ from app.services.og_fetcher import fetch_og_metadata
 
 router = APIRouter(prefix="/surveys", tags=["Surveys"])
 
+PARTICIPANT_POST_OVERRIDE_FIELDS = {
+    "display_title",
+    "display_image_url",
+    "display_likes",
+    "display_comments_count",
+    "display_shares",
+    "show_likes",
+    "show_comments",
+    "show_shares",
+}
+
 # ── Internal Helper Functions ──────────────────────────────────────────
 
 
@@ -77,6 +89,16 @@ async def get_survey_or_404(survey_id: int, researcher_id: int, db: AsyncSession
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found")
     return survey
+
+
+def build_participant_post(post: SurveyPost, assigned_group: int) -> PostOut:
+    """Build participant-visible post data without mutating the ORM model."""
+    post_out = PostOut.model_validate(post)
+    overrides = (post.group_overrides or {}).get(str(assigned_group), {})
+    for field, value in overrides.items():
+        if field in PARTICIPANT_POST_OVERRIDE_FIELDS:
+            setattr(post_out, field, value)
+    return post_out
 
 
 # ══════════════════════════════════════════════════════
@@ -342,6 +364,7 @@ async def add_comment(
 @router.post("/{share_code}/start", response_model=StartSurveyResponse)
 async def start_survey(
     share_code: str,
+    body: StartSurveyRequest | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Start a survey as a participant.
@@ -367,6 +390,10 @@ async def start_survey(
     response = SurveyResponse(
         survey_id=survey.id,
         assigned_group=assigned_group,
+        language=body.language if body else None,
+        screen_width=body.screen_width if body else None,
+        screen_height=body.screen_height if body else None,
+        user_agent=body.user_agent if body else None,
         status="in_progress",
         started_at=datetime.utcnow(),
     )
@@ -378,19 +405,15 @@ async def start_survey(
     visible_posts = []
     for post in survey.posts:
         if post.visible_to_groups is None or assigned_group in post.visible_to_groups:
-            # Apply per-group display overrides if configured
-            if post.group_overrides and str(assigned_group) in post.group_overrides:
-                overrides = post.group_overrides[str(assigned_group)]
-                for field, value in overrides.items():
-                    if hasattr(post, field):
-                        setattr(post, field, value)
-            visible_posts.append(post)
+            visible_posts.append(build_participant_post(post, assigned_group))
 
     return StartSurveyResponse(
         response_id=response.id,
+        participant_token=response.participant_token,
         survey_id=survey.id,
         assigned_group=assigned_group,
         calibration_required=survey.calibration_enabled,
+        calibration_points=survey.calibration_points,
         gaze_tracking_enabled=survey.gaze_tracking_enabled,
         gaze_interval_ms=survey.gaze_interval_ms,
         click_tracking_enabled=survey.click_tracking_enabled,

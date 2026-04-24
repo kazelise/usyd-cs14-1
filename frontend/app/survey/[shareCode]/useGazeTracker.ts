@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 
 interface GazeTrackerOptions {
   responseId: number;
+  participantToken: string;
   intervalMs: number;
   enabled: boolean;
   flushIntervalMs?: number;
@@ -45,6 +46,7 @@ function loadScript(src: string): Promise<void> {
  */
 export function useGazeTracker({
   responseId,
+  participantToken,
   intervalMs,
   enabled,
   flushIntervalMs = 5000,
@@ -92,14 +94,14 @@ export function useGazeTracker({
     const batch = [...bufferRef.current];
     bufferRef.current = [];
     try {
-      await api.recordGaze({ response_id: responseId, data: batch });
+      await api.recordGaze({ response_id: responseId, participant_token: participantToken, data: batch });
     } catch {
       bufferRef.current = [...batch, ...bufferRef.current];
     }
-  }, [responseId]);
+  }, [participantToken, responseId]);
 
   useEffect(() => {
-    if (!enabled || !responseId) return;
+    if (!enabled || !responseId || !participantToken) return;
 
     let cancelled = false;
     let cameraInstance: any = null;
@@ -235,7 +237,7 @@ export function useGazeTracker({
       faceMeshRef.current = null;
       if (videoRef.current) { videoRef.current.srcObject = null; videoRef.current = null; }
     };
-  }, [enabled, responseId, intervalMs, flushIntervalMs, flush, getVisiblePostId]);
+  }, [enabled, responseId, participantToken, intervalMs, flushIntervalMs, flush, getVisiblePostId]);
 
   return { flush };
 }

@@ -19,6 +19,7 @@ class TestGazeWithFixtures:
     def test_batch_from_fixture(self, sample_gaze_data):
         batch = GazeBatchRequest(
             response_id=1,
+            participant_token="participant-token",
             data=[sample_gaze_data, sample_gaze_data],
         )
         assert len(batch.data) == 2
@@ -40,6 +41,7 @@ class TestClickWithFixtures:
     def test_batch_from_fixture(self, sample_click_data):
         batch = ClickBatchRequest(
             response_id=1,
+            participant_token="participant-token",
             data=[sample_click_data],
         )
         assert len(batch.data) == 1
@@ -48,6 +50,7 @@ class TestClickWithFixtures:
     def test_multiple_clicks_on_same_post(self, sample_click_data):
         batch = ClickBatchRequest(
             response_id=1,
+            participant_token="participant-token",
             data=[sample_click_data for _ in range(5)],
         )
         assert len(batch.data) == 5

@@ -44,9 +44,11 @@ interface Post {
 
 interface SurveySession {
   response_id: number;
+  participant_token: string;
   survey_id: number;
   assigned_group: number;
   calibration_required: boolean;
+  calibration_points: number;
   gaze_tracking_enabled: boolean;
   gaze_interval_ms: number;
   click_tracking_enabled: boolean;
@@ -87,6 +89,7 @@ export default function SurveyParticipantPage() {
   // Gaze tracking — runs continuously during survey after calibration
   const { flush: flushGaze } = useGazeTracker({
     responseId: session?.response_id ?? 0,
+    participantToken: session?.participant_token ?? "",
     intervalMs: session?.gaze_interval_ms ?? 1000,
     enabled: calibrationDone && !!session?.gaze_tracking_enabled,
   });
@@ -103,7 +106,12 @@ export default function SurveyParticipantPage() {
 
     async function init() {
       try {
-        const result = await api.startSurvey(shareCode);
+        const result = await api.startSurvey(shareCode, {
+          language: initialLocale,
+          screen_width: window.innerWidth,
+          screen_height: window.innerHeight,
+          user_agent: navigator.userAgent,
+        });
         setSession(result);
 
         try {
@@ -115,7 +123,10 @@ export default function SurveyParticipantPage() {
         if (result.click_tracking_enabled) {
           clickListener = handleClick;
           document.addEventListener("click", clickListener);
-          flushInterval = setInterval(() => flushClicks(result.response_id), 10000);
+          flushInterval = setInterval(
+            () => flushClicks(result.response_id, result.participant_token),
+            10000,
+          );
         }
       } catch (err: any) {
         setError(err.message || t(initialLocale, "surveyNotFound"));
@@ -154,12 +165,12 @@ export default function SurveyParticipantPage() {
     });
   }
 
-  async function flushClicks(responseId: number) {
+  async function flushClicks(responseId: number, participantToken: string) {
     if (clickBuffer.current.length === 0) return;
     const batch = [...clickBuffer.current];
     clickBuffer.current = [];
     try {
-      await api.recordClicks({ response_id: responseId, data: batch });
+      await api.recordClicks({ response_id: responseId, participant_token: participantToken, data: batch });
     } catch {
       clickBuffer.current = [...batch, ...clickBuffer.current];
     }
@@ -223,7 +234,7 @@ export default function SurveyParticipantPage() {
     if (!session) return;
     setActionError("");
     try {
-      await flushClicks(session.response_id);
+      await flushClicks(session.response_id, session.participant_token);
       await flushGaze();
       await api.completeSurvey(session.response_id);
       setCompleted(true);
@@ -262,6 +273,8 @@ export default function SurveyParticipantPage() {
     return (
       <CalibrationExperience
         responseId={session.response_id}
+        participantToken={session.participant_token}
+        expectedPoints={session.calibration_points}
         onComplete={(_result) => setCalibrationDone(true)}
       />
     );
