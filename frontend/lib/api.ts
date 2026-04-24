@@ -113,6 +113,7 @@ export const api = {
       screen_width?: number;
       screen_height?: number;
       user_agent?: string;
+      participant_token?: string;
     },
   ) => request(`/surveys/${shareCode}/start`, { method: "POST", body: JSON.stringify(data || {}) }),
   getPublicSurvey: (shareCode: string, language?: string) =>
