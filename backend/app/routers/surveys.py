@@ -58,6 +58,7 @@ from app.schemas.survey import (
     SurveyListOut,
     SurveyOut,
     SurveyParticipantCommentsOut,
+    SurveyPreviewResponse,
     UpdatePostRequest,
     UpdateQuestionRequest,
     UpdateSurveyRequest,
@@ -71,6 +72,7 @@ from app.services.og_fetcher import fetch_og_metadata
 from app.services.translation_service import (
     apply_translations_to_post,
     apply_translations_to_public_survey,
+    apply_translations_to_question,
     build_translation_export_payload,
     import_translation_payload,
     load_owned_survey_for_translations,
@@ -83,6 +85,9 @@ router = APIRouter(prefix="/surveys", tags=["Surveys"])
 PARTICIPANT_POST_OVERRIDE_FIELDS = {
     "display_title",
     "display_image_url",
+    "display_description",
+    "source_label",
+    "more_info_label",
     "display_likes",
     "display_comments_count",
     "display_shares",
@@ -110,11 +115,39 @@ async def get_survey_or_404(survey_id: int, researcher_id: int, db: AsyncSession
 def build_participant_post(post: SurveyPost, assigned_group: int) -> PostOut:
     """Build participant-visible post data without mutating the ORM model."""
     post_out = PostOut.model_validate(post)
+    post_out.display_description = post_out.display_description or post_out.fetched_description
+    post_out.source_label = post_out.source_label or post_out.fetched_source
+    post_out.more_info_label = post_out.more_info_label or "More Information"
     overrides = (post.group_overrides or {}).get(str(assigned_group), {})
     for field, value in overrides.items():
         if field in PARTICIPANT_POST_OVERRIDE_FIELDS:
             setattr(post_out, field, value)
     return post_out
+
+
+def build_participant_posts(
+    survey: Survey, assigned_group: int, language_code: str | None
+) -> list[PostOut]:
+    """Build participant-visible post blocks for a group without creating analytics data."""
+    visible_posts = []
+    for post in survey.posts:
+        if post.visible_to_groups is None or assigned_group in post.visible_to_groups:
+            post_out = build_participant_post(post, assigned_group)
+            visible_posts.append(apply_translations_to_post(post_out, post, language_code))
+    return visible_posts
+
+
+def build_participant_questions(survey: Survey, language_code: str | None) -> list[QuestionOut]:
+    """Build survey-level questions that are not attached to a post block."""
+    questions = [
+        question
+        for question in getattr(survey, "questions", []) or []
+        if getattr(question, "post_id", None) is None
+    ]
+    return [
+        apply_translations_to_question(QuestionOut.model_validate(question), question, language_code)
+        for question in sorted(questions, key=lambda item: item.order)
+    ]
 
 
 # ══════════════════════════════════════════════════════
@@ -320,6 +353,49 @@ async def import_survey_translations(
     )
 
 
+@router.get("/{survey_id}/preview", response_model=SurveyPreviewResponse)
+async def preview_survey(
+    survey_id: int,
+    assigned_group: int = Query(1, ge=1),
+    language: str | None = None,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Preview participant-visible blocks without creating a participant response."""
+    result = await db.execute(
+        select(Survey)
+        .options(
+            selectinload(Survey.translations),
+            selectinload(Survey.questions).selectinload(Question.translations),
+            selectinload(Survey.posts).selectinload(SurveyPost.translations),
+            selectinload(Survey.posts).selectinload(SurveyPost.comments),
+            selectinload(Survey.posts)
+            .selectinload(SurveyPost.questions)
+            .selectinload(Question.translations),
+        )
+        .where(Survey.id == survey_id, Survey.researcher_id == researcher.id)
+    )
+    survey = result.scalar_one_or_none()
+    if not survey:
+        raise HTTPException(status_code=404, detail="Survey not found")
+    if assigned_group > survey.num_groups:
+        raise HTTPException(status_code=400, detail="assigned_group exceeds survey group count")
+
+    language_code = normalize_optional_language(language)
+    return SurveyPreviewResponse(
+        survey_id=survey.id,
+        assigned_group=assigned_group,
+        calibration_required=survey.calibration_enabled,
+        calibration_points=survey.calibration_points,
+        gaze_tracking_enabled=survey.gaze_tracking_enabled,
+        gaze_interval_ms=survey.gaze_interval_ms,
+        click_tracking_enabled=survey.click_tracking_enabled,
+        language=language_code,
+        posts=build_participant_posts(survey, assigned_group, language_code),
+        questions=build_participant_questions(survey, language_code),
+    )
+
+
 # ── Post CRUD ─────────────────────────────────────────
 
 
@@ -483,6 +559,7 @@ async def start_survey(
         select(Survey)
         .options(
             selectinload(Survey.translations),
+            selectinload(Survey.questions).selectinload(Question.translations),
             selectinload(Survey.posts).selectinload(SurveyPost.translations),
             selectinload(Survey.posts).selectinload(SurveyPost.comments),
             selectinload(Survey.posts)
@@ -514,13 +591,6 @@ async def start_survey(
     await db.flush()
     await db.refresh(response)
 
-    # Filter posts by group visibility and apply group overrides
-    visible_posts = []
-    for post in survey.posts:
-        if post.visible_to_groups is None or assigned_group in post.visible_to_groups:
-            post_out = build_participant_post(post, assigned_group)
-            visible_posts.append(apply_translations_to_post(post_out, post, language_code))
-
     return StartSurveyResponse(
         response_id=response.id,
         participant_token=response.participant_token,
@@ -532,7 +602,8 @@ async def start_survey(
         gaze_interval_ms=survey.gaze_interval_ms,
         click_tracking_enabled=survey.click_tracking_enabled,
         language=response.language,
-        posts=visible_posts,
+        posts=build_participant_posts(survey, assigned_group, language_code),
+        questions=build_participant_questions(survey, language_code),
     )
 
 
@@ -1173,10 +1244,12 @@ async def get_analytics_summary(
 # ── Question Endpoints ────────────────────────────────────────────────────────
 
 
+@router.post("/{survey_id}/posts/{post_id}/questions", response_model=QuestionOut, status_code=201)
 @router.post(
     "/surveys/{survey_id}/posts/{post_id}/questions",
     response_model=QuestionOut,
     status_code=201,
+    include_in_schema=False,
 )
 async def create_question(
     survey_id: int,
@@ -1185,19 +1258,22 @@ async def create_question(
     db: AsyncSession = Depends(get_db),
     researcher: Researcher = Depends(get_current_researcher),
 ):
+    await get_survey_or_404(survey_id, researcher.id, db)
     post = await db.get(SurveyPost, post_id)
     if not post or post.survey_id != survey_id:
         raise HTTPException(404, "Post not found")
-    q = Question(post_id=post_id, **body.model_dump())
+    q = Question(survey_id=survey_id, post_id=post_id, **body.model_dump())
     db.add(q)
     await db.commit()
     await db.refresh(q)
     return q
 
 
+@router.get("/{survey_id}/posts/{post_id}/questions", response_model=list[QuestionOut])
 @router.get(
     "/surveys/{survey_id}/posts/{post_id}/questions",
     response_model=list[QuestionOut],
+    include_in_schema=False,
 )
 async def list_questions(
     survey_id: int,
@@ -1205,6 +1281,7 @@ async def list_questions(
     db: AsyncSession = Depends(get_db),
     researcher: Researcher = Depends(get_current_researcher),
 ):
+    await get_survey_or_404(survey_id, researcher.id, db)
     post = await db.get(SurveyPost, post_id)
     if not post or post.survey_id != survey_id:
         raise HTTPException(404, "Post not found")
@@ -1214,9 +1291,11 @@ async def list_questions(
     return result.scalars().all()
 
 
+@router.patch("/{survey_id}/posts/{post_id}/questions/{question_id}", response_model=QuestionOut)
 @router.patch(
     "/surveys/{survey_id}/posts/{post_id}/questions/{question_id}",
     response_model=QuestionOut,
+    include_in_schema=False,
 )
 async def update_question(
     survey_id: int,
@@ -1226,8 +1305,9 @@ async def update_question(
     db: AsyncSession = Depends(get_db),
     researcher: Researcher = Depends(get_current_researcher),
 ):
+    await get_survey_or_404(survey_id, researcher.id, db)
     q = await db.get(Question, question_id)
-    if not q or q.post_id != post_id:
+    if not q or q.post_id != post_id or q.survey_id != survey_id:
         raise HTTPException(404, "Question not found")
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(q, k, v)
@@ -1236,9 +1316,11 @@ async def update_question(
     return q
 
 
+@router.delete("/{survey_id}/posts/{post_id}/questions/{question_id}", status_code=204)
 @router.delete(
     "/surveys/{survey_id}/posts/{post_id}/questions/{question_id}",
     status_code=204,
+    include_in_schema=False,
 )
 async def delete_question(
     survey_id: int,
@@ -1247,8 +1329,73 @@ async def delete_question(
     db: AsyncSession = Depends(get_db),
     researcher: Researcher = Depends(get_current_researcher),
 ):
+    await get_survey_or_404(survey_id, researcher.id, db)
     q = await db.get(Question, question_id)
-    if not q or q.post_id != post_id:
+    if not q or q.post_id != post_id or q.survey_id != survey_id:
+        raise HTTPException(404, "Question not found")
+    await db.delete(q)
+    await db.commit()
+
+
+@router.post("/{survey_id}/questions", response_model=QuestionOut, status_code=201)
+async def create_survey_question(
+    survey_id: int,
+    body: CreateQuestionRequest,
+    db: AsyncSession = Depends(get_db),
+    researcher: Researcher = Depends(get_current_researcher),
+):
+    await get_survey_or_404(survey_id, researcher.id, db)
+    q = Question(survey_id=survey_id, post_id=None, **body.model_dump())
+    db.add(q)
+    await db.commit()
+    await db.refresh(q)
+    return q
+
+
+@router.get("/{survey_id}/questions", response_model=list[QuestionOut])
+async def list_survey_questions(
+    survey_id: int,
+    db: AsyncSession = Depends(get_db),
+    researcher: Researcher = Depends(get_current_researcher),
+):
+    await get_survey_or_404(survey_id, researcher.id, db)
+    result = await db.execute(
+        select(Question)
+        .where(Question.survey_id == survey_id, Question.post_id.is_(None))
+        .order_by(Question.order)
+    )
+    return result.scalars().all()
+
+
+@router.patch("/{survey_id}/questions/{question_id}", response_model=QuestionOut)
+async def update_survey_question(
+    survey_id: int,
+    question_id: int,
+    body: UpdateQuestionRequest,
+    db: AsyncSession = Depends(get_db),
+    researcher: Researcher = Depends(get_current_researcher),
+):
+    await get_survey_or_404(survey_id, researcher.id, db)
+    q = await db.get(Question, question_id)
+    if not q or q.survey_id != survey_id or q.post_id is not None:
+        raise HTTPException(404, "Question not found")
+    for k, v in body.model_dump(exclude_unset=True).items():
+        setattr(q, k, v)
+    await db.commit()
+    await db.refresh(q)
+    return q
+
+
+@router.delete("/{survey_id}/questions/{question_id}", status_code=204)
+async def delete_survey_question(
+    survey_id: int,
+    question_id: int,
+    db: AsyncSession = Depends(get_db),
+    researcher: Researcher = Depends(get_current_researcher),
+):
+    await get_survey_or_404(survey_id, researcher.id, db)
+    q = await db.get(Question, question_id)
+    if not q or q.survey_id != survey_id or q.post_id is not None:
         raise HTTPException(404, "Question not found")
     await db.delete(q)
     await db.commit()
@@ -1273,8 +1420,16 @@ async def submit_question_response(
     survey_response = await db.get(SurveyResponse, response_id)
     if not survey_response:
         raise HTTPException(404, "Response not found")
+    if body.participant_token and survey_response.participant_token != body.participant_token:
+        raise HTTPException(404, "Response not found")
+    if survey_response.status != "in_progress":
+        raise HTTPException(409, "Response is not active")
+    if body.question_id != question_id:
+        raise HTTPException(400, "Question ID mismatch")
     question = await db.get(Question, question_id)
     if not question:
+        raise HTTPException(404, "Question not found")
+    if question.survey_id != survey_response.survey_id:
         raise HTTPException(404, "Question not found")
     answer = QuestionResponse(
         response_id=response_id,

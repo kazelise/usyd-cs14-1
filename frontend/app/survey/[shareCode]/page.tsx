@@ -17,9 +17,10 @@ interface Comment {
 
 interface Question {
   id: number;
-  post_id: number;
+  survey_id: number;
+  post_id: number | null;
   order: number;
-  question_type: string; // free_text | likert | multiple_choice
+  question_type: string; // text / single_choice / multiple_choice / likert / rating
   text: string;
   config: { min?: number; max?: number; min_label?: string; max_label?: string; options?: string[] } | null;
 }
@@ -33,6 +34,8 @@ interface Post {
   fetched_source: string | null;
   display_title: string | null;
   display_image_url: string | null;
+  display_description: string | null;
+  source_label: string | null;
   more_info_label?: string;
   display_likes: number;
   display_comments_count: number;
@@ -55,6 +58,7 @@ interface SurveySession {
   gaze_interval_ms: number;
   click_tracking_enabled: boolean;
   posts: Post[];
+  questions: Question[];
 }
 
 interface ParticipantComment {
@@ -411,6 +415,113 @@ export default function SurveyParticipantPage() {
               </div>
             </div>
 
+            {session.questions && session.questions.length > 0 && (
+              <div className="surface-panel-soft space-y-4 px-5 py-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00a7a0]">{t(locale, "questionBlock")}</p>
+                {session.questions
+                  .sort((a, b) => a.order - b.order)
+                  .map((q) => {
+                    const answered = submittedQuestions.has(q.id);
+                    const answer = questionAnswers[q.id] || {};
+                    return (
+                      <div key={q.id} className={`rounded-[18px] border p-4 ${answered ? "border-emerald-200 bg-emerald-50/60" : "border-slate-200 bg-white"}`}>
+                        <p className="text-sm font-semibold text-[#163047]">{q.text}</p>
+                        {(q.question_type === "free_text" || q.question_type === "text") && (
+                          <textarea
+                            className="mt-3 w-full rounded-[14px] border border-slate-200 px-3 py-2 text-sm focus:border-[#00a7a0] focus:outline-none focus:ring-4 focus:ring-[#00a7a0]/10"
+                            rows={2}
+                            placeholder={t(locale, "typeYourAnswer")}
+                            disabled={answered}
+                            value={answer.text || ""}
+                            onChange={(e) => setQuestionAnswers((prev) => ({ ...prev, [q.id]: { ...prev[q.id], text: e.target.value } }))}
+                          />
+                        )}
+                        {(q.question_type === "likert" || q.question_type === "rating") && q.config && (
+                          <div className="mt-3">
+                            <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
+                              <span>{q.config.min_label || "Strongly Disagree"}</span>
+                              <span>{q.config.max_label || "Strongly Agree"}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              {Array.from({ length: (q.config.max || 5) - (q.config.min || 1) + 1 }, (_, i) => {
+                                const val = (q.config!.min || 1) + i;
+                                const selected = answer.value === val;
+                                return (
+                                  <button
+                                    key={val}
+                                    disabled={answered}
+                                    onClick={() => setQuestionAnswers((prev) => ({ ...prev, [q.id]: { value: val } }))}
+                                    className={`flex-1 rounded-[12px] border py-2 text-sm font-medium transition ${
+                                      selected ? "border-[#00a7a0] bg-[#00a7a0] text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                    } ${answered ? "opacity-60" : ""}`}
+                                  >
+                                    {val}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {(q.question_type === "multiple_choice" || q.question_type === "single_choice") && q.config?.options && (
+                          <div className="mt-3 space-y-2">
+                            {q.config.options.map((opt) => {
+                              const selected = q.question_type === "single_choice"
+                                ? (answer.choices || [])[0] === opt
+                                : (answer.choices || []).includes(opt);
+                              return (
+                                <button
+                                  key={opt}
+                                  disabled={answered}
+                                  onClick={() => {
+                                    setQuestionAnswers((prev) => {
+                                      if (q.question_type === "single_choice") {
+                                        return { ...prev, [q.id]: { choices: [opt], text: opt } };
+                                      }
+                                      const current = prev[q.id]?.choices || [];
+                                      const next = selected ? current.filter((c) => c !== opt) : [...current, opt];
+                                      return { ...prev, [q.id]: { choices: next } };
+                                    });
+                                  }}
+                                  className={`block w-full rounded-[12px] border px-3 py-2 text-left text-sm transition ${
+                                    selected ? "border-[#00a7a0] bg-[#effcfb] text-[#00847f]" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                  } ${answered ? "opacity-60" : ""}`}
+                                >
+                                  {opt}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {!answered && (answer.text || answer.value || (answer.choices && answer.choices.length > 0)) && (
+                          <button
+                            className="primary-button mt-3 px-4 py-2 text-xs"
+                            onClick={async () => {
+                              if (!session) return;
+                              try {
+                                setActionError("");
+                                await api.submitQuestionResponse(session.response_id, q.id, {
+                                  question_id: q.id,
+                                  participant_token: session.participant_token,
+                                  answer_text: answer.text,
+                                  answer_value: answer.value,
+                                  answer_choices: answer.choices,
+                                });
+                                setSubmittedQuestions((prev) => new Set([...prev, q.id]));
+                              } catch (err: any) {
+                                setActionError(err.message || t(locale, "networkRequestFailed"));
+                              }
+                            }}
+                          >
+                            {t(locale, "submitAnswer")}
+                          </button>
+                        )}
+                        {answered && <p className="mt-2 text-xs font-medium text-emerald-600">{t(locale, "answerSubmitted")}</p>}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
             {actionError && (
               <div className="rounded-[16px] border border-rose-200 bg-rose-50 px-5 py-4 text-[14px] text-rose-700">
                 {actionError}
@@ -421,7 +532,8 @@ export default function SurveyParticipantPage() {
               {session.posts.map((post) => {
                 const title = post.display_title || post.fetched_title || "Untitled";
                 const imageUrl = post.display_image_url || post.fetched_image_url;
-                const source = post.fetched_source || new URL(post.original_url).hostname;
+                const source = post.source_label || post.fetched_source || new URL(post.original_url).hostname;
+                const description = post.display_description || post.fetched_description;
                 const moreInfoLabel = post.more_info_label || "More Information";
                 const isLiked = likedPosts.has(post.id);
                 const commentCount =
@@ -452,9 +564,9 @@ export default function SurveyParticipantPage() {
                           {t(locale, "externalContent")}
                         </div>
                         <h2 className="mt-4 text-[24px] font-semibold leading-tight tracking-[-0.05em] text-[#163047] md:text-[28px]">{title}</h2>
-                        {post.fetched_description && (
+                        {description && (
                           <p className="mt-3 max-w-3xl text-[14px] leading-7 text-slate-600">
-                            {post.fetched_description}
+                            {description}
                           </p>
                         )}
                         <button
@@ -603,7 +715,7 @@ export default function SurveyParticipantPage() {
                               <div key={q.id} className={`rounded-[18px] border p-4 ${answered ? "border-emerald-200 bg-emerald-50/60" : "border-slate-200 bg-white"}`}>
                                 <p className="text-sm font-semibold text-[#163047]">{q.text}</p>
 
-                                {q.question_type === "free_text" && (
+                                {(q.question_type === "free_text" || q.question_type === "text") && (
                                   <textarea
                                     className="mt-3 w-full rounded-[14px] border border-slate-200 px-3 py-2 text-sm focus:border-[#00a7a0] focus:outline-none focus:ring-4 focus:ring-[#00a7a0]/10"
                                     rows={2}
@@ -614,7 +726,7 @@ export default function SurveyParticipantPage() {
                                   />
                                 )}
 
-                                {q.question_type === "likert" && q.config && (
+                                {(q.question_type === "likert" || q.question_type === "rating") && q.config && (
                                   <div className="mt-3">
                                     <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
                                       <span>{q.config.min_label || "Strongly Disagree"}</span>
@@ -667,6 +779,26 @@ export default function SurveyParticipantPage() {
                                   </div>
                                 )}
 
+                                {q.question_type === "single_choice" && q.config?.options && (
+                                  <div className="mt-3 space-y-2">
+                                    {q.config.options.map((opt) => {
+                                      const selected = (answer.choices || [])[0] === opt;
+                                      return (
+                                        <button
+                                          key={opt}
+                                          disabled={answered}
+                                          onClick={() => setQuestionAnswers((prev) => ({ ...prev, [q.id]: { choices: [opt], text: opt } }))}
+                                          className={`block w-full rounded-[12px] border px-3 py-2 text-left text-sm transition ${
+                                            selected ? "border-[#00a7a0] bg-[#effcfb] text-[#00847f]" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                          } ${answered ? "opacity-60" : ""}`}
+                                        >
+                                          {opt}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
                                 {!answered && (answer.text || answer.value || (answer.choices && answer.choices.length > 0)) && (
                                   <button
                                     className="primary-button mt-3 px-4 py-2 text-xs"
@@ -676,6 +808,7 @@ export default function SurveyParticipantPage() {
                                         setActionError("");
                                         await api.submitQuestionResponse(session.response_id, q.id, {
                                           question_id: q.id,
+                                          participant_token: session.participant_token,
                                           answer_text: answer.text,
                                           answer_value: answer.value,
                                           answer_choices: answer.choices,

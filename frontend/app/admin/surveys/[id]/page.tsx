@@ -34,9 +34,13 @@ interface Post {
   original_url: string;
   fetched_title: string | null;
   fetched_image_url: string | null;
+  fetched_description: string | null;
   fetched_source: string | null;
   display_title: string | null;
   display_image_url: string | null;
+  display_description: string | null;
+  source_label: string | null;
+  more_info_label: string | null;
   display_likes: number;
   display_comments_count: number;
   display_shares: number;
@@ -45,6 +49,17 @@ interface Post {
   show_shares: boolean;
   visible_to_groups: number[] | null;
   comments: { id: number; order: number; author_name: string; text: string }[];
+  questions: Question[];
+}
+
+interface Question {
+  id: number;
+  survey_id: number;
+  post_id: number | null;
+  order: number;
+  question_type: string;
+  text: string;
+  config: { min?: number; max?: number; min_label?: string; max_label?: string; options?: string[] } | null;
 }
 
 interface Survey {
@@ -91,6 +106,9 @@ export default function SurveyEditPage() {
   const [editComments, setEditComments] = useState(0);
   const [editShares, setEditShares] = useState(0);
   const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editSourceLabel, setEditSourceLabel] = useState("");
+  const [editMoreInfoLabel, setEditMoreInfoLabel] = useState("");
 
   const [editingGroups, setEditingGroups] = useState<number | null>(null);
   const [groupVisibility, setGroupVisibility] = useState<number[]>([]);
@@ -101,6 +119,15 @@ export default function SurveyEditPage() {
   const [commentPostId, setCommentPostId] = useState<number | null>(null);
   const [commentAuthor, setCommentAuthor] = useState("");
   const [commentText, setCommentText] = useState("");
+  const [questionPostId, setQuestionPostId] = useState<number | null>(null);
+  const [questionText, setQuestionText] = useState("");
+  const [questionType, setQuestionType] = useState("text");
+  const [questionOptions, setQuestionOptions] = useState("Yes, No");
+  const [questionMin, setQuestionMin] = useState(1);
+  const [questionMax, setQuestionMax] = useState(5);
+  const [questionMinLabel, setQuestionMinLabel] = useState("Strongly disagree");
+  const [questionMaxLabel, setQuestionMaxLabel] = useState("Strongly agree");
+  const [editingQuestion, setEditingQuestion] = useState<number | null>(null);
 
   const [stats, setStats] = useState<
     { post_id: number; likes: number; participant_comments: number; shares: number }[] | null
@@ -114,6 +141,9 @@ export default function SurveyEditPage() {
   const [translationFile, setTranslationFile] = useState<File | null>(null);
   const [translationBusy, setTranslationBusy] = useState(false);
   const [translationStatus, setTranslationStatus] = useState("");
+  const [previewGroup, setPreviewGroup] = useState(1);
+  const [previewData, setPreviewData] = useState<{ posts: Post[]; questions: Question[]; assigned_group: number } | null>(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
   const shouldDiscardDraftRef = useRef(initialUnsavedDraft);
   const discardRequestedRef = useRef(false);
   const text =
@@ -154,6 +184,24 @@ export default function SurveyEditPage() {
           cancel: "取消",
           editNumbers: "编辑数值",
           addComment: "添加评论",
+          editQuestions: "题目",
+          addQuestion: "添加题目",
+          editQuestion: "编辑题目",
+          questionText: "题目文本",
+          questionType: "题目类型",
+          questionOptions: "选项（用逗号分隔）",
+          ratingRange: "量表范围",
+          minLabel: "低端标签",
+          maxLabel: "高端标签",
+          saveQuestion: "保存题目",
+          deleteQuestion: "删除题目",
+          displayDescription: "显示描述",
+          sourceLabel: "来源标签",
+          moreInfoLabel: "更多信息按钮",
+          preview: "预览",
+          previewParticipant: "参与者预览",
+          previewGroup: "预览分组",
+          loadPreview: "加载预览",
           abGroups: "A/B 分组",
           groupVisibility: "分组可见性",
           saveGroups: "保存分组",
@@ -220,6 +268,24 @@ export default function SurveyEditPage() {
           cancel: "Cancel",
           editNumbers: "Edit numbers",
           addComment: "Add comment",
+          editQuestions: "Questions",
+          addQuestion: "Add question",
+          editQuestion: "Edit question",
+          questionText: "Question text",
+          questionType: "Question type",
+          questionOptions: "Options (comma-separated)",
+          ratingRange: "Rating range",
+          minLabel: "Low label",
+          maxLabel: "High label",
+          saveQuestion: "Save question",
+          deleteQuestion: "Delete question",
+          displayDescription: "Display description",
+          sourceLabel: "Source label",
+          moreInfoLabel: "More Information button",
+          preview: "Preview",
+          previewParticipant: "Participant preview",
+          previewGroup: "Preview group",
+          loadPreview: "Load preview",
           abGroups: "A/B groups",
           groupVisibility: "Group visibility",
           saveGroups: "Save groups",
@@ -358,16 +424,89 @@ export default function SurveyEditPage() {
     setEditComments(post.display_comments_count);
     setEditShares(post.display_shares);
     setEditTitle(post.display_title || post.fetched_title || "");
+    setEditDescription(post.display_description || post.fetched_description || "");
+    setEditSourceLabel(post.source_label || post.fetched_source || "");
+    setEditMoreInfoLabel(post.more_info_label || "More Information");
   }
 
   async function saveEdit(postId: number) {
     await api.updatePost(surveyId, postId, {
       display_title: editTitle || null,
+      display_description: editDescription || null,
+      source_label: editSourceLabel || null,
+      more_info_label: editMoreInfoLabel || null,
       display_likes: editLikes,
       display_comments_count: editComments,
       display_shares: editShares,
     });
     setEditingPost(null);
+    await loadData();
+  }
+
+  function questionConfig() {
+    if (questionType === "single_choice" || questionType === "multiple_choice") {
+      return { options: questionOptions.split(",").map((item) => item.trim()).filter(Boolean) };
+    }
+    if (questionType === "likert" || questionType === "rating") {
+      return {
+        min: questionMin,
+        max: questionMax,
+        min_label: questionMinLabel,
+        max_label: questionMaxLabel,
+      };
+    }
+    return null;
+  }
+
+  function resetQuestionForm() {
+    setQuestionPostId(null);
+    setEditingQuestion(null);
+    setQuestionText("");
+    setQuestionType("text");
+    setQuestionOptions("Yes, No");
+    setQuestionMin(1);
+    setQuestionMax(5);
+    setQuestionMinLabel("Strongly disagree");
+    setQuestionMaxLabel("Strongly agree");
+  }
+
+  function startAddQuestion(postId: number) {
+    resetQuestionForm();
+    setQuestionPostId(postId);
+  }
+
+  function startEditQuestion(question: Question) {
+    setQuestionPostId(question.post_id);
+    setEditingQuestion(question.id);
+    setQuestionText(question.text);
+    setQuestionType(question.question_type);
+    setQuestionOptions((question.config?.options || ["Yes", "No"]).join(", "));
+    setQuestionMin(question.config?.min || 1);
+    setQuestionMax(question.config?.max || 5);
+    setQuestionMinLabel(question.config?.min_label || "Strongly disagree");
+    setQuestionMaxLabel(question.config?.max_label || "Strongly agree");
+  }
+
+  async function saveQuestion(postId: number) {
+    const payload = {
+      question_type: questionType,
+      text: questionText,
+      order: editingQuestion
+        ? posts.find((post) => post.id === postId)?.questions.find((question) => question.id === editingQuestion)?.order || 1
+        : (posts.find((post) => post.id === postId)?.questions.length || 0) + 1,
+      config: questionConfig(),
+    };
+    if (editingQuestion) {
+      await api.updateQuestion(surveyId, postId, editingQuestion, payload);
+    } else {
+      await api.createQuestion(surveyId, postId, payload);
+    }
+    resetQuestionForm();
+    await loadData();
+  }
+
+  async function deleteQuestion(postId: number, questionId: number) {
+    await api.deleteQuestion(surveyId, postId, questionId);
     await loadData();
   }
 
@@ -526,6 +665,18 @@ export default function SurveyEditPage() {
     }
   }
 
+  async function loadPreview() {
+    setPreviewBusy(true);
+    try {
+      const preview = await api.previewSurvey(surveyId, previewGroup, locale);
+      setPreviewData(preview);
+    } catch (err: any) {
+      setTranslationStatus(err.message || "Preview failed");
+    } finally {
+      setPreviewBusy(false);
+    }
+  }
+
   if (!survey) {
     return <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{text.loading}</p>;
   }
@@ -644,7 +795,9 @@ export default function SurveyEditPage() {
             const totalCountComments = (post.display_comments_count || 0) + (stat?.participant_comments || 0);
             const totalShares = (post.display_shares || 0) + (stat?.shares || 0);
             const title = post.display_title || post.fetched_title || text.untitled;
-            const source = post.fetched_source || new URL(post.original_url).hostname;
+            const source = post.source_label || post.fetched_source || new URL(post.original_url).hostname;
+            const description = post.display_description || post.fetched_description;
+            const moreInfoLabel = post.more_info_label || "More Information";
             const imageUrl = post.display_image_url || post.fetched_image_url;
 
             return (
@@ -667,6 +820,7 @@ export default function SurveyEditPage() {
                         <h3 className="mt-3 text-[18px] font-semibold leading-tight tracking-[-0.05em] text-black md:text-[20px]">
                           {title}
                         </h3>
+                        {description && <p className="mt-3 text-[13px] leading-6 text-slate-500">{description}</p>}
                         <a
                           href={post.original_url}
                           target="_blank"
@@ -674,7 +828,7 @@ export default function SurveyEditPage() {
                           className="mt-3 inline-flex max-w-full items-center gap-2 truncate text-[13px] text-slate-500 underline decoration-black/10 underline-offset-4"
                         >
                           <LinkIcon className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{post.original_url}</span>
+                          <span className="truncate">{moreInfoLabel}</span>
                         </a>
                       </div>
 
@@ -756,6 +910,97 @@ export default function SurveyEditPage() {
                   return null;
                 })()}
 
+                {(post.questions.length > 0 || survey.status === "draft") && (
+                  <div className="border-t px-5 py-5 md:px-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="section-kicker">{text.editQuestions}</p>
+                      {survey.status === "draft" && (
+                        <button type="button" onClick={() => startAddQuestion(post.id)} className="secondary-button px-4 py-2 text-[13px]">
+                          {text.addQuestion}
+                        </button>
+                      )}
+                    </div>
+                    {post.questions.length > 0 && (
+                      <div className="mt-4 space-y-3">
+                        {post.questions.map((question) => (
+                          <div key={question.id} className="rounded-[16px] border bg-stone-50 px-4 py-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <p className="text-[13px] font-semibold text-black">{question.text}</p>
+                                <p className="mt-1 text-[12px] text-slate-500">{question.question_type}</p>
+                                {question.config?.options && (
+                                  <p className="mt-2 text-[12px] leading-5 text-slate-500">{question.config.options.join(", ")}</p>
+                                )}
+                              </div>
+                              {survey.status === "draft" && (
+                                <div className="flex shrink-0 gap-2">
+                                  <button type="button" onClick={() => startEditQuestion(question)} className="secondary-button px-3 py-2 text-[12px]">
+                                    {text.editQuestion}
+                                  </button>
+                                  <button type="button" onClick={() => deleteQuestion(post.id, question.id)} className="secondary-button px-3 py-2 text-[12px]">
+                                    {text.deleteQuestion}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {survey.status === "draft" && questionPostId === post.id && (
+                      <div className="mt-4 space-y-3 rounded-[16px] border bg-white p-4">
+                        <input
+                          type="text"
+                          value={questionText}
+                          onChange={(event) => setQuestionText(event.target.value)}
+                          placeholder={text.questionText}
+                          className="field-input"
+                        />
+                        <select value={questionType} onChange={(event) => setQuestionType(event.target.value)} className="field-input">
+                          <option value="text">Text</option>
+                          <option value="single_choice">Single choice</option>
+                          <option value="multiple_choice">Multiple choice</option>
+                          <option value="likert">Likert</option>
+                          <option value="rating">Rating</option>
+                        </select>
+                        {(questionType === "single_choice" || questionType === "multiple_choice") && (
+                          <input
+                            type="text"
+                            value={questionOptions}
+                            onChange={(event) => setQuestionOptions(event.target.value)}
+                            placeholder={text.questionOptions}
+                            className="field-input"
+                          />
+                        )}
+                        {(questionType === "likert" || questionType === "rating") && (
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <label className="space-y-2 text-sm text-slate-500">
+                              <span>{text.ratingRange}</span>
+                              <div className="flex gap-2">
+                                <input type="number" value={questionMin} onChange={(event) => setQuestionMin(Number(event.target.value))} className={numberInputClass()} />
+                                <input type="number" value={questionMax} onChange={(event) => setQuestionMax(Number(event.target.value))} className={numberInputClass()} />
+                              </div>
+                            </label>
+                            <div className="grid gap-2">
+                              <input type="text" value={questionMinLabel} onChange={(event) => setQuestionMinLabel(event.target.value)} placeholder={text.minLabel} className="field-input" />
+                              <input type="text" value={questionMaxLabel} onChange={(event) => setQuestionMaxLabel(event.target.value)} placeholder={text.maxLabel} className="field-input" />
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-3">
+                          <button type="button" disabled={!questionText.trim()} onClick={() => saveQuestion(post.id)} className="primary-button">
+                            {text.saveQuestion}
+                          </button>
+                          <button type="button" onClick={resetQuestionForm} className="secondary-button">
+                            {text.cancel}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {survey.status === "draft" && (
                   <div className="border-t px-5 py-5 md:px-6">
                     {editingPost === post.id ? (
@@ -767,6 +1012,28 @@ export default function SurveyEditPage() {
                           placeholder={text.overrideTitle}
                           className="field-input"
                         />
+                        <textarea
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          placeholder={text.displayDescription}
+                          className="field-input min-h-[92px]"
+                        />
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <input
+                            type="text"
+                            value={editSourceLabel}
+                            onChange={(e) => setEditSourceLabel(e.target.value)}
+                            placeholder={text.sourceLabel}
+                            className="field-input"
+                          />
+                          <input
+                            type="text"
+                            value={editMoreInfoLabel}
+                            onChange={(e) => setEditMoreInfoLabel(e.target.value)}
+                            placeholder={text.moreInfoLabel}
+                            className="field-input"
+                          />
+                        </div>
                         <div className="flex flex-wrap gap-3">
                           <label className="space-y-2 text-sm text-slate-500">
                             <span className="block">{text.likes}</span>
@@ -990,6 +1257,52 @@ export default function SurveyEditPage() {
                 <p className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-black">{survey.num_groups}</p>
               </div>
             </div>
+          </div>
+
+          <div className="surface-panel-soft px-6 py-6">
+            <p className="section-kicker">{text.previewParticipant}</p>
+            <label className="mt-5 block space-y-2 text-[13px] text-slate-500">
+              <span>{text.previewGroup}</span>
+              <select value={previewGroup} onChange={(event) => setPreviewGroup(Number(event.target.value))} className="field-input h-11 text-[13px]">
+                {Array.from({ length: survey.num_groups }, (_, index) => index + 1).map((group) => (
+                  <option key={group} value={group}>Group {group}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={loadPreview} disabled={previewBusy} className="primary-button mt-4 w-full justify-center">
+              {previewBusy ? text.fetching : text.loadPreview}
+            </button>
+            {previewData && (
+              <div className="mt-5 space-y-3">
+                {previewData.posts.slice(0, 3).map((post) => {
+                  const previewTitle = post.display_title || post.fetched_title || text.untitled;
+                  const previewSource = post.source_label || post.fetched_source || "";
+                  const previewDescription = post.display_description || post.fetched_description;
+                  const previewImage = post.display_image_url || post.fetched_image_url;
+                  return (
+                    <div key={post.id} className="overflow-hidden rounded-[16px] border bg-white">
+                      {previewImage && <img src={previewImage} alt="" className="h-28 w-full object-cover" />}
+                      <div className="px-4 py-4">
+                      <p className="section-kicker">{previewSource}</p>
+                      <p className="mt-2 text-[14px] font-semibold leading-6 text-black">{previewTitle}</p>
+                      {previewDescription && <p className="mt-2 text-[12px] leading-5 text-slate-500">{previewDescription}</p>}
+                      <p className="mt-2 text-[12px] text-slate-500">
+                        {post.display_likes} {text.likes} · {post.display_comments_count} {text.comments} · {post.display_shares} {text.shares}
+                      </p>
+                      {post.comments.length > 0 && <p className="mt-2 text-[12px] leading-5 text-slate-500">{post.comments[0].text}</p>}
+                      {post.questions.length > 0 && <p className="mt-2 text-[12px] font-medium text-[#00847f]">{post.questions[0].text}</p>}
+                      </div>
+                    </div>
+                  );
+                })}
+                {previewData.questions.length > 0 && (
+                  <div className="rounded-[16px] border bg-white px-4 py-4">
+                    <p className="section-kicker">{text.editQuestions}</p>
+                    <p className="mt-2 text-[13px] leading-6 text-slate-500">{previewData.questions.map((question) => question.text).join(" · ")}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="surface-panel-soft px-6 py-6">

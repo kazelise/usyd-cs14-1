@@ -57,6 +57,13 @@ class Survey(Base):
     translations: Mapped[list["SurveyTranslation"]] = relationship(  # noqa: F821
         back_populates="survey", cascade="all, delete-orphan"
     )
+    questions: Mapped[list["Question"]] = relationship(  # noqa: F821
+        "Question",
+        primaryjoin="and_(Survey.id == Question.survey_id, Question.post_id.is_(None))",
+        cascade="all, delete-orphan",
+        order_by="Question.order",
+        overlaps="post,questions",
+    )
 
 
 class SurveyPost(Base):
@@ -85,6 +92,9 @@ class SurveyPost(Base):
     # ── Researcher Overrides (null = use fetched value) ─
     display_title: Mapped[str | None] = mapped_column(Text)
     display_image_url: Mapped[str | None] = mapped_column(Text)
+    display_description: Mapped[str | None] = mapped_column(Text)
+    source_label: Mapped[str | None] = mapped_column(String(255))
+    more_info_label: Mapped[str | None] = mapped_column(String(80))
 
     # ── Fake Engagement Numbers (set by researcher) ──
     display_likes: Mapped[int] = mapped_column(default=0)

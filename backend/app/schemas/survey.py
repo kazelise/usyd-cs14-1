@@ -1,6 +1,7 @@
 """Survey and post schemas. Owned by Backend A/B."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -71,17 +72,20 @@ class PublicSurveyOut(BaseModel):
 # ── Question ─────────────────────────────────────────
 
 
+QuestionType = Literal["text", "free_text", "single_choice", "multiple_choice", "likert", "rating"]
+
+
 class CreateQuestionRequest(BaseModel):
     """Create a question attached to a survey post."""
 
-    question_type: str  # free_text / likert / multiple_choice
+    question_type: QuestionType
     text: str
     order: int
     config: dict | None = None  # e.g. {"min": 1, "max": 5} for likert
 
 
 class UpdateQuestionRequest(BaseModel):
-    question_type: str | None = None
+    question_type: QuestionType | None = None
     text: str | None = None
     order: int | None = None
     config: dict | None = None
@@ -89,7 +93,8 @@ class UpdateQuestionRequest(BaseModel):
 
 class QuestionOut(BaseModel):
     id: int
-    post_id: int
+    survey_id: int | None = None
+    post_id: int | None
     order: int
     question_type: str
     text: str
@@ -137,6 +142,9 @@ class UpdatePostRequest(BaseModel):
 
     display_title: str | None = None
     display_image_url: str | None = None
+    display_description: str | None = None
+    source_label: str | None = None
+    more_info_label: str | None = None
     display_likes: int | None = None
     display_comments_count: int | None = None
     display_shares: int | None = None
@@ -159,6 +167,8 @@ class PostOut(BaseModel):
     fetched_source: str | None
     display_title: str | None
     display_image_url: str | None
+    display_description: str | None = None
+    source_label: str | None = None
     display_likes: int
     display_comments_count: int
     display_shares: int
@@ -167,7 +177,7 @@ class PostOut(BaseModel):
     show_shares: bool
     visible_to_groups: list | None
     group_overrides: dict | None
-    more_info_label: str = "More Information"
+    more_info_label: str | None = "More Information"
     language: str | None = None
     fallback_language: str = "en"
     translation_fallbacks: list[str] = Field(default_factory=list)
@@ -200,6 +210,21 @@ class StartSurveyResponse(BaseModel):
     language: str | None = None
     fallback_language: str = "en"
     posts: list[PostOut]
+    questions: list[QuestionOut] = Field(default_factory=list)
+
+
+class SurveyPreviewResponse(BaseModel):
+    survey_id: int
+    assigned_group: int
+    calibration_required: bool
+    calibration_points: int
+    gaze_tracking_enabled: bool
+    gaze_interval_ms: int
+    click_tracking_enabled: bool
+    language: str | None = None
+    fallback_language: str = "en"
+    posts: list[PostOut]
+    questions: list[QuestionOut] = Field(default_factory=list)
 
 
 class InteractionRequest(BaseModel):
@@ -299,6 +324,7 @@ class SurveyAnalyticsOut(BaseModel):
 
 class SubmitQuestionResponseRequest(BaseModel):
     question_id: int
+    participant_token: str | None = None
     answer_text: str | None = None
     answer_value: int | None = None
     answer_choices: list | None = None
