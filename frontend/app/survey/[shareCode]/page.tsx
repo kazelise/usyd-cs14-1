@@ -114,13 +114,20 @@ export default function SurveyParticipantPage() {
 
     async function init() {
       try {
+        // Resume the same response (and A/B group) across tab closes by sending
+        // back the participant_token cached on first visit. Backend ignores
+        // tokens that don't match an in_progress response for this survey.
+        const tokenStorageKey = `pt:${shareCode}`;
+        const cachedToken = localStorage.getItem(tokenStorageKey) || undefined;
         const result = await api.startSurvey(shareCode, {
           language: initialLocale,
           screen_width: window.innerWidth,
           screen_height: window.innerHeight,
           user_agent: navigator.userAgent,
+          participant_token: cachedToken,
         });
         setSession(result);
+        localStorage.setItem(tokenStorageKey, result.participant_token);
 
         try {
           const state = await api.getResponseState(result.response_id);
@@ -245,6 +252,9 @@ export default function SurveyParticipantPage() {
       await flushClicks(session.response_id, session.participant_token);
       await flushGaze();
       await api.completeSurvey(session.response_id);
+      // Drop the cached token so a fresh visit to the same share link starts
+      // a new response instead of trying to resume a completed one.
+      localStorage.removeItem(`pt:${shareCode}`);
       setCompleted(true);
     } catch (err: any) {
       setActionError(err.message || t(locale, "networkRequestFailed"));
