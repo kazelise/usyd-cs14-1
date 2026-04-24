@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocale } from "@/components/locale-provider";
@@ -21,7 +21,7 @@ function navItemClass(active: boolean, collapsed: boolean) {
     "group flex items-center rounded-[14px] text-[13px] font-medium transition",
     collapsed ? "justify-center px-2.5 py-2.5" : "gap-3 px-3.5 py-2.5",
     active
-      ? "border border-[#9ddfd8] bg-[#effcfb] text-[#0f3146] shadow-sm"
+      ? "border border-transparent bg-[#effcfb] text-[#0f3146] shadow-sm"
       : "border border-transparent text-slate-500 hover:border-slate-200 hover:bg-white hover:text-[#0f3146]",
   ].join(" ");
 }
@@ -158,6 +158,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     });
   }
 
+  function handleLiquidPointerMove(event: PointerEvent<HTMLAnchorElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    event.currentTarget.style.setProperty("--liquid-x", `${event.clientX - rect.left}px`);
+    event.currentTarget.style.setProperty("--liquid-y", `${event.clientY - rect.top}px`);
+  }
+
+  function resetLiquidPointer(event: PointerEvent<HTMLAnchorElement>) {
+    event.currentTarget.style.setProperty("--liquid-x", "50%");
+    event.currentTarget.style.setProperty("--liquid-y", "50%");
+  }
+
   async function saveProfileName() {
     const nextName = draftName.trim();
     if (!nextName) {
@@ -202,18 +213,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <nav className="hidden items-center gap-7 lg:flex">
             <Link
               href="/admin/surveys"
+              onPointerMove={handleLiquidPointerMove}
+              onPointerLeave={resetLiquidPointer}
               className={`liquid-nav-link ${pathname.startsWith("/admin/surveys") ? "liquid-nav-link-active" : ""}`}
             >
               {text.surveys}
             </Link>
             <Link
               href="/admin/templates"
+              onPointerMove={handleLiquidPointerMove}
+              onPointerLeave={resetLiquidPointer}
               className={`liquid-nav-link ${pathname.startsWith("/admin/templates") ? "liquid-nav-link-active" : ""}`}
             >
               {text.templates}
             </Link>
             <Link
               href="/admin/analytics"
+              onPointerMove={handleLiquidPointerMove}
+              onPointerLeave={resetLiquidPointer}
               className={`liquid-nav-link ${pathname.startsWith("/admin/analytics") ? "liquid-nav-link-active" : ""}`}
             >
               {text.analytics}
@@ -350,7 +367,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <Link
             href="/admin/surveys/new"
-            className={`primary-button mt-5 ${
+            onPointerMove={handleLiquidPointerMove}
+            onPointerLeave={resetLiquidPointer}
+            className={`liquid-action-button mt-5 ${
               collapsed ? "h-10 w-10 self-center p-0" : "w-full justify-center gap-2 px-0 py-2"
             }`}
             title={text.createSurvey}
