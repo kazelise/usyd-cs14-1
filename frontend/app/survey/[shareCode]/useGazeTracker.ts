@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useCallback } from "react";
 import { api } from "@/lib/api";
+import { acquireSharedFaceMesh, releaseSharedFaceMesh } from "@/lib/mediapipe-face-mesh";
 
 interface GazeTrackerOptions {
   responseId: number;
@@ -23,30 +24,6 @@ const LEFT_EYE_BOTTOM = 145;
 const RIGHT_EYE_TOP = 386;
 const RIGHT_EYE_BOTTOM = 374;
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-    const s = document.createElement("script");
-    s.src = src;
-    s.crossOrigin = "anonymous";
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.head.appendChild(s);
-  });
-}
-
-const closedFaceMeshInstances = new WeakSet<object>();
-
-function closeFaceMeshOnce(faceMesh: any) {
-  if (!faceMesh || typeof faceMesh !== "object" || closedFaceMeshInstances.has(faceMesh)) return;
-  closedFaceMeshInstances.add(faceMesh);
-  try {
-    faceMesh.close?.();
-  } catch {
-    // MediaPipe can throw BindingError when React cleanup races with WASM disposal.
-  }
-}
-
 /**
  * Continuously captures gaze data during the survey using MediaPipe Face Mesh
  * for real iris tracking, then sends batches to POST /tracking/gaze.
@@ -67,6 +44,7 @@ export function useGazeTracker({
   const streamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const faceMeshRef = useRef<any>(null);
+  const faceMeshOwnerRef = useRef<symbol | null>(null);
   const captureRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -119,78 +97,64 @@ export function useGazeTracker({
     let cameraInstance: any = null;
 
     async function start() {
-      // Load MediaPipe scripts
+      // Acquire the shared Face Mesh instance. The CDN WASM runtime is brittle when
+      // reinitialized after calibration, so calibration and gaze tracking reuse it.
+      const browserWindow = window as any;
+      let faceMesh: any;
       try {
-        await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js");
-        await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js");
+        const acquired = await acquireSharedFaceMesh((results: any) => {
+          if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+            latestRef.current = { ...latestRef.current, detected: false };
+            return;
+          }
+
+          const lm = results.multiFaceLandmarks[0];
+          const leftIris = lm[LEFT_IRIS_CENTER];
+          const rightIris = lm[RIGHT_IRIS_CENTER];
+
+          // Gaze estimation: iris position relative to eye corners
+          const leftOuter = lm[LEFT_EYE_OUTER];
+          const leftInner = lm[LEFT_EYE_INNER];
+          const rightOuter = lm[RIGHT_EYE_OUTER];
+          const rightInner = lm[RIGHT_EYE_INNER];
+
+          const leftRatioX = (leftIris.x - leftOuter.x) / (leftInner.x - leftOuter.x);
+          const rightRatioX = (rightIris.x - rightOuter.x) / (rightInner.x - rightOuter.x);
+
+          const leftTop = lm[LEFT_EYE_TOP];
+          const leftBottom = lm[LEFT_EYE_BOTTOM];
+          const rightTop = lm[RIGHT_EYE_TOP];
+          const rightBottom = lm[RIGHT_EYE_BOTTOM];
+
+          const leftRatioY = (leftIris.y - leftTop.y) / (leftBottom.y - leftTop.y);
+          const rightRatioY = (rightIris.y - rightTop.y) / (rightBottom.y - rightTop.y);
+
+          const gazeX = (leftRatioX + rightRatioX) / 2;
+          const gazeY = (leftRatioY + rightRatioY) / 2;
+
+          // Map to screen coordinates (mirrored horizontally)
+          const screenX = Math.round((1 - gazeX) * window.innerWidth);
+          const screenY = Math.round(gazeY * window.innerHeight);
+
+          latestRef.current = {
+            detected: true,
+            leftIrisX: leftIris.x,
+            leftIrisY: leftIris.y,
+            rightIrisX: rightIris.x,
+            rightIrisY: rightIris.y,
+            screenX,
+            screenY,
+          };
+        });
+        faceMesh = acquired.faceMesh;
+        faceMeshOwnerRef.current = acquired.owner;
       } catch (err) {
         console.error("Failed to load MediaPipe for gaze tracking:", err);
         return;
       }
-      if (cancelled) return;
-
-      const w = window as any;
-
-      // Initialize Face Mesh
-      const faceMesh = new w.FaceMesh({
-        locateFile: (file: string) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-      });
-      faceMesh.setOptions({
-        maxNumFaces: 1,
-        refineLandmarks: true,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-
-      faceMesh.onResults((results: any) => {
-        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-          latestRef.current = { ...latestRef.current, detected: false };
-          return;
-        }
-
-        const lm = results.multiFaceLandmarks[0];
-        const leftIris = lm[LEFT_IRIS_CENTER];
-        const rightIris = lm[RIGHT_IRIS_CENTER];
-
-        // Gaze estimation: iris position relative to eye corners
-        const leftOuter = lm[LEFT_EYE_OUTER];
-        const leftInner = lm[LEFT_EYE_INNER];
-        const rightOuter = lm[RIGHT_EYE_OUTER];
-        const rightInner = lm[RIGHT_EYE_INNER];
-
-        const leftRatioX = (leftIris.x - leftOuter.x) / (leftInner.x - leftOuter.x);
-        const rightRatioX = (rightIris.x - rightOuter.x) / (rightInner.x - rightOuter.x);
-
-        const leftTop = lm[LEFT_EYE_TOP];
-        const leftBottom = lm[LEFT_EYE_BOTTOM];
-        const rightTop = lm[RIGHT_EYE_TOP];
-        const rightBottom = lm[RIGHT_EYE_BOTTOM];
-
-        const leftRatioY = (leftIris.y - leftTop.y) / (leftBottom.y - leftTop.y);
-        const rightRatioY = (rightIris.y - rightTop.y) / (rightBottom.y - rightTop.y);
-
-        const gazeX = (leftRatioX + rightRatioX) / 2;
-        const gazeY = (leftRatioY + rightRatioY) / 2;
-
-        // Map to screen coordinates (mirrored horizontally)
-        const screenX = Math.round((1 - gazeX) * window.innerWidth);
-        const screenY = Math.round(gazeY * window.innerHeight);
-
-        latestRef.current = {
-          detected: true,
-          leftIrisX: leftIris.x,
-          leftIrisY: leftIris.y,
-          rightIrisX: rightIris.x,
-          rightIrisY: rightIris.y,
-          screenX,
-          screenY,
-        };
-      });
-
-      await faceMesh.initialize();
       if (cancelled) {
-        closeFaceMeshOnce(faceMesh);
+        releaseSharedFaceMesh(faceMeshOwnerRef.current);
+        faceMeshOwnerRef.current = null;
         return;
       }
       faceMeshRef.current = faceMesh;
@@ -202,7 +166,7 @@ export function useGazeTracker({
       video.muted = true;
       videoRef.current = video;
 
-      cameraInstance = new w.Camera(video, {
+      cameraInstance = new browserWindow.Camera(video, {
         onFrame: async () => {
           if (faceMeshRef.current) {
             try { await faceMeshRef.current.send({ image: video }); } catch {}
@@ -248,9 +212,9 @@ export function useGazeTracker({
       if (flushTimerRef.current) clearInterval(flushTimerRef.current);
       flush();
       if (cameraInstance) { try { cameraInstance.stop(); } catch {} }
-      const faceMesh = faceMeshRef.current;
       faceMeshRef.current = null;
-      closeFaceMeshOnce(faceMesh);
+      releaseSharedFaceMesh(faceMeshOwnerRef.current);
+      faceMeshOwnerRef.current = null;
       if (videoRef.current) { videoRef.current.srcObject = null; videoRef.current = null; }
     };
   }, [enabled, responseId, participantToken, intervalMs, flushIntervalMs, flush, getVisiblePostId]);

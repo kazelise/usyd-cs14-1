@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { acquireSharedFaceMesh, releaseSharedFaceMesh } from "@/lib/mediapipe-face-mesh";
 
 type CalibrationStep = "permission" | "detection" | "calibration" | "results";
 
@@ -49,30 +50,6 @@ const CHIN = 152;
 const LEFT_CHEEK = 234;
 const RIGHT_CHEEK = 454;
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-    const s = document.createElement("script");
-    s.src = src;
-    s.crossOrigin = "anonymous";
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.head.appendChild(s);
-  });
-}
-
-const closedFaceMeshInstances = new WeakSet<object>();
-
-function closeFaceMeshOnce(faceMesh: any) {
-  if (!faceMesh || typeof faceMesh !== "object" || closedFaceMeshInstances.has(faceMesh)) return;
-  closedFaceMeshInstances.add(faceMesh);
-  try {
-    faceMesh.close?.();
-  } catch {
-    // MediaPipe can throw BindingError when React cleanup races with WASM disposal.
-  }
-}
-
 const POINT_LAYOUT = [
   { x: 0.12, y: 0.14, label: "Top left" },
   { x: 0.5, y: 0.14, label: "Top center" },
@@ -98,6 +75,7 @@ export function CalibrationExperience({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const faceMeshRef = useRef<any>(null);
+  const faceMeshOwnerRef = useRef<symbol | null>(null);
   const mediaPipeLoopRef = useRef<number | null>(null);
   const detectionHistoryRef = useRef<boolean[]>([]);
   // Latest iris reading from MediaPipe, updated every frame
@@ -129,9 +107,9 @@ export function CalibrationExperience({
   useEffect(() => {
     return () => {
       stopCamera();
-      const faceMesh = faceMeshRef.current;
       faceMeshRef.current = null;
-      closeFaceMeshOnce(faceMesh);
+      releaseSharedFaceMesh(faceMeshOwnerRef.current);
+      faceMeshOwnerRef.current = null;
     };
   }, []);
 
@@ -202,22 +180,7 @@ export function CalibrationExperience({
     setCameraError("");
     setBusyMessage("Loading MediaPipe Face Mesh...");
     try {
-      // Load MediaPipe scripts
-      await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js");
-      await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js");
-
-      const w = window as any;
-      const faceMesh = new w.FaceMesh({
-        locateFile: (file: string) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-      });
-      faceMesh.setOptions({
-        maxNumFaces: 1,
-        refineLandmarks: true, // enables iris landmarks 468-477
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-      faceMesh.onResults((results: any) => {
+      const acquired = await acquireSharedFaceMesh((results: any) => {
         if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
           latestIrisRef.current = { ...latestIrisRef.current, detected: false };
           return;
@@ -248,8 +211,8 @@ export function CalibrationExperience({
           headPitch: Number(pitch.toFixed(2)),
         };
       });
-      await faceMesh.initialize();
-      faceMeshRef.current = faceMesh;
+      faceMeshRef.current = acquired.faceMesh;
+      faceMeshOwnerRef.current = acquired.owner;
 
       setBusyMessage("Requesting camera permission");
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -272,9 +235,9 @@ export function CalibrationExperience({
       setPermissionState("denied");
       setBusyMessage("");
       stopCamera();
-      const faceMesh = faceMeshRef.current;
       faceMeshRef.current = null;
-      closeFaceMeshOnce(faceMesh);
+      releaseSharedFaceMesh(faceMeshOwnerRef.current);
+      faceMeshOwnerRef.current = null;
       setCameraError(error instanceof Error ? error.message : "Camera permission was denied.");
     }
   }
