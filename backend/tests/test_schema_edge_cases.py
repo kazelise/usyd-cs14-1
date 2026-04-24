@@ -17,13 +17,13 @@ class TestCalibrationRequestEdgeCases:
     """Edge cases for calibration request validation."""
 
     def test_zero_screen_dimensions(self):
-        req = CreateCalibrationRequest(
-            response_id=1,
-            participant_token="participant-token",
-            screen_width=0,
-            screen_height=0,
-        )
-        assert req.screen_width == 0
+        with pytest.raises(ValidationError):
+            CreateCalibrationRequest(
+                response_id=1,
+                participant_token="participant-token",
+                screen_width=0,
+                screen_height=0,
+            )
 
     def test_large_screen_dimensions(self):
         req = CreateCalibrationRequest(
@@ -35,13 +35,13 @@ class TestCalibrationRequestEdgeCases:
         assert req.screen_width == 7680
 
     def test_negative_response_id(self):
-        req = CreateCalibrationRequest(
-            response_id=-1,
-            participant_token="participant-token",
-            screen_width=1920,
-            screen_height=1080,
-        )
-        assert req.response_id == -1
+        with pytest.raises(ValidationError):
+            CreateCalibrationRequest(
+                response_id=-1,
+                participant_token="participant-token",
+                screen_width=1920,
+                screen_height=1080,
+            )
 
     def test_string_response_id_rejected(self):
         with pytest.raises(ValidationError):
@@ -101,15 +101,15 @@ class TestIrisSampleEdgeCases:
         assert sample.left_iris_x == 1.0
 
     def test_negative_iris_coordinates(self):
-        sample = IrisSample(
-            timestamp_ms=1000,
-            left_iris_x=-0.1,
-            left_iris_y=-0.1,
-            right_iris_x=-0.1,
-            right_iris_y=-0.1,
-            face_detected=False,
-        )
-        assert sample.left_iris_x == -0.1
+        with pytest.raises(ValidationError):
+            IrisSample(
+                timestamp_ms=1000,
+                left_iris_x=-0.1,
+                left_iris_y=-0.1,
+                right_iris_x=-0.1,
+                right_iris_y=-0.1,
+                face_detected=False,
+            )
 
     def test_empty_head_rotation(self):
         sample = IrisSample(
@@ -121,7 +121,7 @@ class TestIrisSampleEdgeCases:
             face_detected=True,
             head_rotation={},
         )
-        assert sample.head_rotation == {}
+        assert sample.head_rotation.yaw is None
 
 
 class TestBatchRequestEdgeCases:
@@ -142,6 +142,14 @@ class TestBatchRequestEdgeCases:
         ]
         batch = GazeBatchRequest(response_id=1, participant_token="participant-token", data=data)
         assert len(batch.data) == 100
+
+    def test_gaze_batch_too_large_rejected(self):
+        data = [
+            {"timestamp_ms": i * 1000, "screen_x": float(i), "screen_y": float(i)}
+            for i in range(501)
+        ]
+        with pytest.raises(ValidationError):
+            GazeBatchRequest(response_id=1, participant_token="participant-token", data=data)
 
     def test_click_batch_single_item(self):
         batch = ClickBatchRequest(
