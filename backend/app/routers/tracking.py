@@ -33,7 +33,7 @@ from app.schemas.tracking import (
     QualityInfo,
     RecordCalibrationPointRequest,
 )
-from app.utils.quality import compute_calibration_quality
+from app.utils.quality import assess_calibration_point, compute_calibration_quality
 
 router = APIRouter(prefix="/tracking", tags=["Tracking"])
 
@@ -112,18 +112,35 @@ async def record_calibration_point(
     if not session:
         raise HTTPException(status_code=404, detail="Active calibration session not found")
     await get_active_response_or_404(session.response_id, body.participant_token, db)
+    if body.point_index > session.expected_points:
+        raise HTTPException(
+            status_code=422,
+            detail=f"point_index must be between 1 and {session.expected_points}",
+        )
 
-    valid = [s for s in body.samples if s.face_detected]
-    face_detection_rate = round(len(valid) / len(body.samples), 3) if body.samples else 0.0
+    sample_dicts = [s.model_dump() for s in body.samples]
+    point_metrics = assess_calibration_point(
+        {"samples_count": len(body.samples), "samples": sample_dicts}
+    )
+    valid = [
+        s
+        for s in body.samples
+        if s.face_detected
+        and s.left_iris_x is not None
+        and s.left_iris_y is not None
+        and s.right_iris_x is not None
+        and s.right_iris_y is not None
+    ]
     point = CalibrationPoint(
         session_id=session_id,
         point_index=body.point_index,
         target_screen_x=body.target_screen_x,
         target_screen_y=body.target_screen_y,
-        samples=[s.model_dump() for s in body.samples],
+        samples=sample_dicts,
         samples_count=len(body.samples),
-        face_detection_rate=face_detection_rate,
-        valid=face_detection_rate >= 0.7 and len(body.samples) >= 10,
+        face_detection_rate=point_metrics["face_detection_rate"],
+        stability_score=point_metrics["stability_score"],
+        valid=point_metrics["valid"],
         median_left_iris_x=median([s.left_iris_x for s in valid]) if valid else None,
         median_left_iris_y=median([s.left_iris_y for s in valid]) if valid else None,
         median_right_iris_x=median([s.right_iris_x for s in valid]) if valid else None,
@@ -171,12 +188,10 @@ async def complete_calibration(
     session.status = "completed"
     session.completed_at = datetime.utcnow()
     session.face_detection_rate = metrics["face_detection_rate"]
-    session.quality_score = round(metrics["face_detection_rate"] * 100, 1)
-    session.passed = metrics["overall_quality"] != "poor"
-    session.quality_reason = (
-        f"{metrics['valid_points']} of {session.expected_points} expected points passed sample "
-        f"coverage; face detection rate {metrics['face_detection_rate']:.3f}"
-    )
+    session.stability_score = metrics["stability_score"]
+    session.quality_score = metrics["quality_score"]
+    session.passed = metrics["passed"]
+    session.quality_reason = metrics["quality_reason"]
     session.quality = metrics["overall_quality"]
     await db.flush()
     await db.refresh(session)
@@ -186,10 +201,16 @@ async def complete_calibration(
         status="completed",
         quality=QualityInfo(
             total_points=metrics["total_points"],
+            expected_points=metrics["expected_points"],
             valid_points=metrics["valid_points"],
+            missing_points=metrics["missing_points"],
             avg_samples_per_point=metrics["avg_samples_per_point"],
             face_detection_rate=metrics["face_detection_rate"],
+            stability_score=metrics["stability_score"],
+            quality_score=metrics["quality_score"],
+            passed=metrics["passed"],
             overall_quality=metrics["overall_quality"],
+            quality_reason=metrics["quality_reason"],
         ),
         completed_at=session.completed_at,
     )

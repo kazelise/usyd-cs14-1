@@ -7,7 +7,6 @@ from app import models  # noqa: F401
 from app.config import settings
 from app.routers import auth, surveys, tracking
 
-
 app = FastAPI(
     title="CS14-1 Survey Platform",
     description="Social media survey platform with gaze & click tracking.",

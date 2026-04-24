@@ -86,18 +86,15 @@ class TestIrisSample:
             face_detected=True,
             head_rotation={"pitch": 0.1, "yaw": -0.2, "roll": 0.0},
         )
-        assert sample.head_rotation["pitch"] == 0.1
+        assert sample.head_rotation.pitch == 0.1
 
     def test_face_not_detected(self):
         sample = IrisSample(
             timestamp_ms=2000,
-            left_iris_x=0.0,
-            left_iris_y=0.0,
-            right_iris_x=0.0,
-            right_iris_y=0.0,
             face_detected=False,
         )
         assert sample.face_detected is False
+        assert sample.left_iris_x is None
 
     def test_missing_required_fields(self):
         with pytest.raises(ValidationError):
@@ -121,23 +118,23 @@ class TestRecordCalibrationPointRequest:
         ]
         req = RecordCalibrationPointRequest(
             participant_token="participant-token",
-            point_index=0,
+            point_index=1,
             target_screen_x=100,
             target_screen_y=100,
             samples=samples,
         )
-        assert req.point_index == 0
+        assert req.point_index == 1
         assert len(req.samples) == 10
 
     def test_empty_samples_list(self):
-        req = RecordCalibrationPointRequest(
-            participant_token="participant-token",
-            point_index=0,
-            target_screen_x=100,
-            target_screen_y=100,
-            samples=[],
-        )
-        assert len(req.samples) == 0
+        with pytest.raises(ValidationError):
+            RecordCalibrationPointRequest(
+                participant_token="participant-token",
+                point_index=1,
+                target_screen_x=100,
+                target_screen_y=100,
+                samples=[],
+            )
 
     def test_missing_point_index(self):
         with pytest.raises(ValidationError):
@@ -309,20 +306,32 @@ class TestQualityInfo:
     def test_good_quality(self):
         info = QualityInfo(
             total_points=9,
+            expected_points=9,
             valid_points=9,
+            missing_points=0,
             avg_samples_per_point=12.5,
             face_detection_rate=0.95,
+            stability_score=0.98,
+            quality_score=97.0,
+            passed=True,
             overall_quality="good",
+            quality_reason="Calibration passed.",
         )
         assert info.overall_quality == "good"
 
     def test_poor_quality(self):
         info = QualityInfo(
             total_points=9,
+            expected_points=9,
             valid_points=3,
+            missing_points=0,
             avg_samples_per_point=5.0,
             face_detection_rate=0.4,
+            stability_score=0.5,
+            quality_score=45.0,
+            passed=False,
             overall_quality="poor",
+            quality_reason="Calibration failed.",
         )
         assert info.overall_quality == "poor"
 
@@ -336,10 +345,16 @@ class TestCalibrationCompleteOut:
             status="completed",
             quality=QualityInfo(
                 total_points=9,
+                expected_points=9,
                 valid_points=8,
+                missing_points=0,
                 avg_samples_per_point=11.2,
                 face_detection_rate=0.92,
+                stability_score=0.94,
+                quality_score=91.0,
+                passed=True,
                 overall_quality="good",
+                quality_reason="Calibration passed.",
             ),
             completed_at=datetime(2026, 4, 1, 10, 5, 0),
         )
@@ -353,10 +368,16 @@ class TestCalibrationCompleteOut:
             status="completed",
             quality=QualityInfo(
                 total_points=9,
+                expected_points=9,
                 valid_points=2,
+                missing_points=0,
                 avg_samples_per_point=4.0,
                 face_detection_rate=0.3,
+                stability_score=0.4,
+                quality_score=35.0,
+                passed=False,
                 overall_quality="poor",
+                quality_reason="Calibration failed.",
             ),
             completed_at=datetime(2026, 4, 1, 10, 10, 0),
         )

@@ -32,7 +32,7 @@ class TestCalibrationWorkflowSchemas:
         samples = [IrisSample(**sample_iris_data) for _ in range(12)]
         req = RecordCalibrationPointRequest(
             participant_token="participant-token",
-            point_index=0,
+            point_index=1,
             target_screen_x=100,
             target_screen_y=100,
             samples=samples,
@@ -53,10 +53,16 @@ class TestCalibrationWorkflowSchemas:
             status="completed",
             quality=QualityInfo(
                 total_points=9,
+                expected_points=9,
                 valid_points=9,
+                missing_points=0,
                 avg_samples_per_point=12.0,
                 face_detection_rate=0.95,
+                stability_score=0.95,
+                quality_score=95.0,
+                passed=True,
                 overall_quality="good",
+                quality_reason="Calibration passed.",
             ),
             completed_at=datetime.utcnow(),
         )
@@ -80,10 +86,10 @@ class TestCalibrationWorkflowSchemas:
             samples = [IrisSample(**sample_iris_data) for _ in range(12)]
             req = RecordCalibrationPointRequest(
                 participant_token="participant-token",
-                point_index=idx,
+                point_index=idx + 1,
                 target_screen_x=x,
                 target_screen_y=y,
                 samples=samples,
             )
-            assert req.point_index == idx
+            assert req.point_index == idx + 1
             assert len(req.samples) == 12
