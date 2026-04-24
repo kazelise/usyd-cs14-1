@@ -31,24 +31,26 @@ class SurveyResponse(Base):
     __tablename__ = "survey_responses"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    survey_id: Mapped[int] = mapped_column(ForeignKey("surveys.id"), nullable=False)
+    survey_id: Mapped[int] = mapped_column(
+        ForeignKey("surveys.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     participant_token: Mapped[str] = mapped_column(
         String(64), unique=True, default=lambda: secrets.token_urlsafe(32)
     )
 
     # ── A/B Group Assignment ─────────────────────────
-    assigned_group: Mapped[int] = mapped_column(SmallInteger, default=1)
+    assigned_group: Mapped[int] = mapped_column(SmallInteger, default=1, index=True)
 
     # ── Participant Metadata ─────────────────────────
     user_agent: Mapped[str | None] = mapped_column(Text)
     screen_width: Mapped[int | None] = mapped_column()
     screen_height: Mapped[int | None] = mapped_column()
-    language: Mapped[str | None] = mapped_column(String(10))
+    language: Mapped[str | None] = mapped_column(String(10), index=True)
 
     # Anti-fraud/Privacy: Stores salted hash for IP/Fingerprint to ensure anonymity.
     participant_fingerprint: Mapped[str | None] = mapped_column(String(128))
 
-    status: Mapped[str] = mapped_column(String(20), default="in_progress")
+    status: Mapped[str] = mapped_column(String(20), default="in_progress", index=True)
     is_speed_test_failed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     started_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
