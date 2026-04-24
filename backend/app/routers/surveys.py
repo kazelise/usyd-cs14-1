@@ -12,8 +12,10 @@ Core flow:
 
 import random
 from datetime import datetime
+from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,6 +61,11 @@ from app.schemas.survey import (
     UpdatePostRequest,
     UpdateQuestionRequest,
     UpdateSurveyRequest,
+)
+from app.services.export_service import (
+    ExportFilters,
+    export_payload_to_csv,
+    load_survey_export,
 )
 from app.services.og_fetcher import fetch_og_metadata
 
@@ -211,6 +218,42 @@ async def publish_survey(
     await db.flush()
     await db.refresh(survey)
     return survey
+
+
+@router.get("/{survey_id}/export")
+async def export_survey_data(
+    survey_id: int,
+    export_format: Literal["csv", "json"] = Query("csv", alias="format"),
+    condition: int | None = None,
+    assigned_group: int | None = None,
+    language: str | None = None,
+    response_status: str | None = None,
+    calibration_passed: bool | None = None,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export research data for one owned survey as CSV or JSON."""
+    payload = await load_survey_export(
+        db,
+        survey_id=survey_id,
+        researcher_id=researcher.id,
+        filters=ExportFilters(
+            assigned_group=assigned_group,
+            condition=condition,
+            language=language,
+            response_status=response_status,
+            calibration_passed=calibration_passed,
+        ),
+    )
+    if export_format == "json":
+        return payload
+
+    filename = f"survey_{survey_id}_export.csv"
+    return StreamingResponse(
+        iter([export_payload_to_csv(payload)]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Post CRUD ─────────────────────────────────────────
