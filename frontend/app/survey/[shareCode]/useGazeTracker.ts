@@ -35,6 +35,18 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
+const closedFaceMeshInstances = new WeakSet<object>();
+
+function closeFaceMeshOnce(faceMesh: any) {
+  if (!faceMesh || typeof faceMesh !== "object" || closedFaceMeshInstances.has(faceMesh)) return;
+  closedFaceMeshInstances.add(faceMesh);
+  try {
+    faceMesh.close?.();
+  } catch {
+    // MediaPipe can throw BindingError when React cleanup races with WASM disposal.
+  }
+}
+
 /**
  * Continuously captures gaze data during the survey using MediaPipe Face Mesh
  * for real iris tracking, then sends batches to POST /tracking/gaze.
@@ -177,8 +189,11 @@ export function useGazeTracker({
       });
 
       await faceMesh.initialize();
+      if (cancelled) {
+        closeFaceMeshOnce(faceMesh);
+        return;
+      }
       faceMeshRef.current = faceMesh;
-      if (cancelled) { faceMesh.close(); return; }
 
       // Start webcam via MediaPipe Camera utility
       const video = document.createElement("video");
@@ -233,8 +248,9 @@ export function useGazeTracker({
       if (flushTimerRef.current) clearInterval(flushTimerRef.current);
       flush();
       if (cameraInstance) { try { cameraInstance.stop(); } catch {} }
-      faceMeshRef.current?.close();
+      const faceMesh = faceMeshRef.current;
       faceMeshRef.current = null;
+      closeFaceMeshOnce(faceMesh);
       if (videoRef.current) { videoRef.current.srcObject = null; videoRef.current = null; }
     };
   }, [enabled, responseId, participantToken, intervalMs, flushIntervalMs, flush, getVisiblePostId]);

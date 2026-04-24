@@ -61,6 +61,18 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
+const closedFaceMeshInstances = new WeakSet<object>();
+
+function closeFaceMeshOnce(faceMesh: any) {
+  if (!faceMesh || typeof faceMesh !== "object" || closedFaceMeshInstances.has(faceMesh)) return;
+  closedFaceMeshInstances.add(faceMesh);
+  try {
+    faceMesh.close?.();
+  } catch {
+    // MediaPipe can throw BindingError when React cleanup races with WASM disposal.
+  }
+}
+
 const POINT_LAYOUT = [
   { x: 0.12, y: 0.14, label: "Top left" },
   { x: 0.5, y: 0.14, label: "Top center" },
@@ -86,6 +98,7 @@ export function CalibrationExperience({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const faceMeshRef = useRef<any>(null);
+  const mediaPipeLoopRef = useRef<number | null>(null);
   const detectionHistoryRef = useRef<boolean[]>([]);
   // Latest iris reading from MediaPipe, updated every frame
   const latestIrisRef = useRef<IrisReading>({
@@ -116,7 +129,9 @@ export function CalibrationExperience({
   useEffect(() => {
     return () => {
       stopCamera();
-      faceMeshRef.current?.close();
+      const faceMesh = faceMeshRef.current;
+      faceMeshRef.current = null;
+      closeFaceMeshOnce(faceMesh);
     };
   }, []);
 
@@ -256,13 +271,21 @@ export function CalibrationExperience({
     } catch (error) {
       setPermissionState("denied");
       setBusyMessage("");
+      stopCamera();
+      const faceMesh = faceMeshRef.current;
+      faceMeshRef.current = null;
+      closeFaceMeshOnce(faceMesh);
       setCameraError(error instanceof Error ? error.message : "Camera permission was denied.");
     }
   }
 
   function startMediaPipeLoop() {
+    if (mediaPipeLoopRef.current !== null) {
+      window.clearInterval(mediaPipeLoopRef.current);
+      mediaPipeLoopRef.current = null;
+    }
     let sending = false;
-    const interval = window.setInterval(async () => {
+    mediaPipeLoopRef.current = window.setInterval(async () => {
       if (sending || !videoRef.current || !faceMeshRef.current || videoRef.current.readyState < 2) return;
       sending = true;
       try {
@@ -270,20 +293,19 @@ export function CalibrationExperience({
       } catch { /* skip frame */ }
       sending = false;
     }, 33); // ~30 fps for responsive tracking
-    // Store interval so we can clean up
-    const origStop = stopCamera;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    stopCamera = () => {
-      window.clearInterval(interval);
-      origStop();
-    };
   }
 
-  // eslint-disable-next-line prefer-const
-  let stopCamera = () => {
+  function stopCamera() {
+    if (mediaPipeLoopRef.current !== null) {
+      window.clearInterval(mediaPipeLoopRef.current);
+      mediaPipeLoopRef.current = null;
+    }
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
-  };
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }
 
   function analyzeFrame(): CameraSnapshot {
     const video = videoRef.current;
