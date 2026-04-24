@@ -18,15 +18,18 @@ class Question(Base):
     __tablename__ = "questions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    post_id: Mapped[int] = mapped_column(
-        ForeignKey("survey_posts.id", ondelete="CASCADE"), nullable=False
+    survey_id: Mapped[int] = mapped_column(
+        ForeignKey("surveys.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    post_id: Mapped[int | None] = mapped_column(
+        ForeignKey("survey_posts.id", ondelete="CASCADE"), nullable=True, index=True
     )
     order: Mapped[int] = mapped_column(nullable=False)
 
     # ── Question Content ─────────────────────────────
     question_type: Mapped[str] = mapped_column(
-        String(20), nullable=False
-    )  # free_text / likert / multiple_choice
+        String(30), nullable=False
+    )  # text / single_choice / multiple_choice / likert / rating
     text: Mapped[str] = mapped_column(Text, nullable=False)
 
     # ── Type-specific Config ─────────────────────────
@@ -36,7 +39,8 @@ class Question(Base):
 
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
-    post: Mapped["SurveyPost"] = relationship(back_populates="questions")  # noqa: F821
+    survey: Mapped["Survey"] = relationship(overlaps="questions")  # noqa: F821
+    post: Mapped["SurveyPost | None"] = relationship(back_populates="questions")  # noqa: F821
     translations: Mapped[list["QuestionTranslation"]] = relationship(  # noqa: F821
         back_populates="question", cascade="all, delete-orphan"
     )

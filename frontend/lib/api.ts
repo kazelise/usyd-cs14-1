@@ -64,6 +64,8 @@ export const api = {
     request(`/surveys/${id}/publish`, { method: "POST" }),
   getSurveyAnalytics: (id: number) => request(`/surveys/${id}/analytics-summary`),
   getSurveyParticipantComments: (id: number) => request(`/surveys/${id}/participant-comments`),
+  previewSurvey: (id: number, assignedGroup = 1, language = "en") =>
+    request(`/surveys/${id}/preview?assigned_group=${assignedGroup}&language=${encodeURIComponent(language)}`),
   exportTranslationsJson: (id: number, language = "zh") =>
     request(`/surveys/${id}/translations/export?format=json&language=${encodeURIComponent(language)}`),
   exportTranslationsCsv: (id: number, language = "zh") =>
@@ -90,6 +92,18 @@ export const api = {
     request(`/surveys/${surveyId}/posts/${postId}`, { method: "DELETE" }),
   addComment: (surveyId: number, postId: number, data: { author_name: string; text: string }) =>
     request(`/surveys/${surveyId}/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(data) }),
+  createQuestion: (surveyId: number, postId: number, data: any) =>
+    request(`/surveys/${surveyId}/posts/${postId}/questions`, { method: "POST", body: JSON.stringify(data) }),
+  updateQuestion: (surveyId: number, postId: number, questionId: number, data: any) =>
+    request(`/surveys/${surveyId}/posts/${postId}/questions/${questionId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteQuestion: (surveyId: number, postId: number, questionId: number) =>
+    request(`/surveys/${surveyId}/posts/${postId}/questions/${questionId}`, { method: "DELETE" }),
+  createSurveyQuestion: (surveyId: number, data: any) =>
+    request(`/surveys/${surveyId}/questions`, { method: "POST", body: JSON.stringify(data) }),
+  updateSurveyQuestion: (surveyId: number, questionId: number, data: any) =>
+    request(`/surveys/${surveyId}/questions/${questionId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteSurveyQuestion: (surveyId: number, questionId: number) =>
+    request(`/surveys/${surveyId}/questions/${questionId}`, { method: "DELETE" }),
 
   // Participant
   startSurvey: (
@@ -152,6 +166,6 @@ export const api = {
   submitQuestionResponse: (
     responseId: number,
     questionId: number,
-    data: { question_id: number; answer_text?: string; answer_value?: number; answer_choices?: any[] }
+    data: { question_id: number; participant_token?: string; answer_text?: string; answer_value?: number; answer_choices?: any[] }
   ) => request(`/surveys/responses/${responseId}/questions/${questionId}/answer`, { method: "POST", body: JSON.stringify(data) }),
 };

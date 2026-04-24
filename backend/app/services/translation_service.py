@@ -117,6 +117,9 @@ def build_translation_items(survey: Survey, language_code: str) -> list[dict[str
         ),
     ]
 
+    for question in sorted(getattr(survey, "questions", []) or [], key=lambda item: item.order):
+        items.extend(build_question_translation_items(question, survey.id, None, language_code))
+
     for post in sorted(getattr(survey, "posts", []) or [], key=lambda item: item.order):
         post_fields = get_translation_fields(getattr(post, "translations", []), language_code)
         display_title_source = post.display_title or post.fetched_title or ""
@@ -138,9 +141,13 @@ def build_translation_items(survey: Survey, language_code: str) -> list[dict[str
                     entity_id=post.id,
                     parent_id=survey.id,
                     field="fetched_description",
-                    source=post.fetched_description or "",
+                    source=post.display_description or post.fetched_description or "",
                     language_code=language_code,
-                    translation=translation_value(post_fields, "fetched_description"),
+                    translation=translation_value(
+                        post_fields,
+                        "display_description",
+                        translation_value(post_fields, "fetched_description"),
+                    ),
                 ),
                 translation_item(
                     key=f"post.{post.id}.fetched_source",
@@ -148,9 +155,13 @@ def build_translation_items(survey: Survey, language_code: str) -> list[dict[str
                     entity_id=post.id,
                     parent_id=survey.id,
                     field="fetched_source",
-                    source=post.fetched_source or "",
+                    source=post.source_label or post.fetched_source or "",
                     language_code=language_code,
-                    translation=translation_value(post_fields, "fetched_source"),
+                    translation=translation_value(
+                        post_fields,
+                        "source_label",
+                        translation_value(post_fields, "fetched_source"),
+                    ),
                 ),
                 translation_item(
                     key=f"post.{post.id}.more_info_label",
@@ -194,34 +205,39 @@ def build_translation_items(survey: Survey, language_code: str) -> list[dict[str
             )
 
         for question in sorted(getattr(post, "questions", []) or [], key=lambda item: item.order):
-            question_fields = get_translation_fields(
-                getattr(question, "translations", []), language_code
-            )
-            items.extend(
-                [
-                    translation_item(
-                        key=f"question.{question.id}.text",
-                        entity_type="question",
-                        entity_id=question.id,
-                        parent_id=post.id,
-                        field="text",
-                        source=question.text,
-                        language_code=language_code,
-                        translation=translation_value(question_fields, "text"),
-                    ),
-                    translation_item(
-                        key=f"question.{question.id}.config",
-                        entity_type="question",
-                        entity_id=question.id,
-                        parent_id=post.id,
-                        field="config",
-                        source=question.config or {},
-                        language_code=language_code,
-                        translation=translation_value(question_fields, "config", {}),
-                    ),
-                ]
-            )
+            items.extend(build_question_translation_items(question, survey.id, post.id, language_code))
     return items
+
+
+def build_question_translation_items(
+    question: Question,
+    survey_id: int,
+    parent_id: int | None,
+    language_code: str,
+) -> list[dict[str, Any]]:
+    question_fields = get_translation_fields(getattr(question, "translations", []), language_code)
+    return [
+        translation_item(
+            key=f"question.{question.id}.text",
+            entity_type="question",
+            entity_id=question.id,
+            parent_id=parent_id or survey_id,
+            field="text",
+            source=question.text,
+            language_code=language_code,
+            translation=translation_value(question_fields, "text"),
+        ),
+        translation_item(
+            key=f"question.{question.id}.config",
+            entity_type="question",
+            entity_id=question.id,
+            parent_id=parent_id or survey_id,
+            field="config",
+            source=question.config or {},
+            language_code=language_code,
+            translation=translation_value(question_fields, "config", {}),
+        ),
+    ]
 
 
 def translation_item(
@@ -558,6 +574,7 @@ async def load_owned_survey_for_translations(
 def translation_load_options() -> tuple[Any, ...]:
     return (
         selectinload(Survey.translations),
+        selectinload(Survey.questions).selectinload(Question.translations),
         selectinload(Survey.posts).selectinload(SurveyPost.translations),
         selectinload(Survey.posts).selectinload(SurveyPost.comments),
         selectinload(Survey.posts)
@@ -631,12 +648,22 @@ def apply_translations_to_post(
     post.display_title = translated_or_fallback(
         fields, "display_title", post.display_title or post.fetched_title, fallbacks
     )
-    post.fetched_description = translated_or_fallback(
-        fields, "fetched_description", post.fetched_description, fallbacks
+    translated_description = translated_or_fallback(
+        fields,
+        "display_description" if fields.get("display_description") else "fetched_description",
+        post.display_description or post.fetched_description,
+        fallbacks,
     )
-    post.fetched_source = translated_or_fallback(
-        fields, "fetched_source", post.fetched_source, fallbacks
+    post.display_description = translated_description
+    post.fetched_description = translated_description
+    translated_source = translated_or_fallback(
+        fields,
+        "source_label" if fields.get("source_label") else "fetched_source",
+        post.source_label or post.fetched_source,
+        fallbacks,
     )
+    post.source_label = translated_source
+    post.fetched_source = translated_source
     post.more_info_label = translated_or_fallback(
         fields, "more_info_label", MORE_INFORMATION_LABEL, fallbacks
     )
@@ -660,25 +687,35 @@ def apply_translations_to_post(
     source_questions = {question.id: question for question in getattr(source_post, "questions", []) or []}
     for question in post.questions:
         source_question = source_questions.get(question.id)
-        question_fields = get_translation_fields(
-            getattr(source_question, "translations", []) if source_question else [], language_code
-        )
-        question_fallbacks: list[str] = []
-        question.text = translated_or_fallback(
-            question_fields, "text", question.text, question_fallbacks
-        )
-        question.config = translated_or_fallback(
-            question_fields, "config", question.config, question_fallbacks
-        )
-        question.language = language_code
-        question.fallback_language = DEFAULT_LANGUAGE_CODE
-        question.translation_fallbacks = question_fallbacks
-        translated_questions.append(question)
+        translated_questions.append(apply_translations_to_question(question, source_question, language_code))
     post.questions = translated_questions
     post.language = language_code
     post.fallback_language = DEFAULT_LANGUAGE_CODE
     post.translation_fallbacks = fallbacks
     return post
+
+
+def apply_translations_to_question(
+    question: QuestionOut,
+    source_question: Question | None,
+    language_code: str | None,
+) -> QuestionOut:
+    language_code = normalize_optional_language(language_code)
+    question.language = language_code
+    question.fallback_language = DEFAULT_LANGUAGE_CODE
+    if language_code == DEFAULT_LANGUAGE_CODE:
+        return question
+
+    question_fields = get_translation_fields(
+        getattr(source_question, "translations", []) if source_question else [], language_code
+    )
+    question_fallbacks: list[str] = []
+    question.text = translated_or_fallback(question_fields, "text", question.text, question_fallbacks)
+    question.config = translated_or_fallback(
+        question_fields, "config", question.config, question_fallbacks
+    )
+    question.translation_fallbacks = question_fallbacks
+    return question
 
 
 def translated_or_fallback(

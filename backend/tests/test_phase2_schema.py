@@ -39,7 +39,7 @@ def test_alembic_head_revision_is_configured():
 
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_current_head() == "20260425_0001"
+    assert script.get_current_head() == "20260425_0002"
 
 
 def test_tracking_schema_hardening_columns_and_relationships():
