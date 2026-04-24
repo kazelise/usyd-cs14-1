@@ -22,6 +22,26 @@ async function request(path: string, options: RequestInit = {}) {
   return res.json();
 }
 
+async function requestText(path: string, options: RequestInit = {}) {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  } catch {
+    throw new Error("Network request failed. Please try again.");
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || err.error?.message || "Request failed");
+  }
+  return res.text();
+}
+
 export const api = {
   // Auth
   register: (data: { email: string; password: string; name: string }) =>
@@ -44,6 +64,21 @@ export const api = {
     request(`/surveys/${id}/publish`, { method: "POST" }),
   getSurveyAnalytics: (id: number) => request(`/surveys/${id}/analytics-summary`),
   getSurveyParticipantComments: (id: number) => request(`/surveys/${id}/participant-comments`),
+  exportTranslationsJson: (id: number, language = "zh") =>
+    request(`/surveys/${id}/translations/export?format=json&language=${encodeURIComponent(language)}`),
+  exportTranslationsCsv: (id: number, language = "zh") =>
+    requestText(`/surveys/${id}/translations/export?format=csv&language=${encodeURIComponent(language)}`),
+  importTranslationsJson: (id: number, payload: any) =>
+    request(`/surveys/${id}/translations/import?format=json`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  importTranslationsCsv: (id: number, csvText: string, language?: string) =>
+    request(`/surveys/${id}/translations/import?format=csv${language ? `&language=${encodeURIComponent(language)}` : ""}`, {
+      method: "POST",
+      headers: { "Content-Type": "text/csv" },
+      body: csvText,
+    }),
 
   // Posts
   listPosts: (surveyId: number) => request(`/surveys/${surveyId}/posts`),
@@ -66,7 +101,8 @@ export const api = {
       user_agent?: string;
     },
   ) => request(`/surveys/${shareCode}/start`, { method: "POST", body: JSON.stringify(data || {}) }),
-  getPublicSurvey: (shareCode: string) => request(`/surveys/public/${shareCode}`),
+  getPublicSurvey: (shareCode: string, language?: string) =>
+    request(`/surveys/public/${shareCode}${language ? `?language=${encodeURIComponent(language)}` : ""}`),
   getResponseState: (responseId: number) => request(`/surveys/responses/${responseId}/state`),
   toggleLike: (responseId: number, postId: number) =>
     request(`/surveys/responses/${responseId}/likes/toggle`, { method: "POST", body: JSON.stringify({ post_id: postId }) }),

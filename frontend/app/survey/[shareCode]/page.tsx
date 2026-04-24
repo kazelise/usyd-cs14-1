@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useLocale } from "@/components/locale-provider";
-import { t, type Locale } from "@/lib/i18n";
+import { isLocale, t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, LinkIcon, SurveyIcon, UsersIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
 import { useGazeTracker } from "./useGazeTracker";
@@ -29,9 +29,11 @@ interface Post {
   original_url: string;
   fetched_title: string | null;
   fetched_image_url: string | null;
+  fetched_description: string | null;
   fetched_source: string | null;
   display_title: string | null;
   display_image_url: string | null;
+  more_info_label?: string;
   display_likes: number;
   display_comments_count: number;
   display_shares: number;
@@ -66,9 +68,13 @@ export default function SurveyParticipantPage() {
   const shareCode = params.shareCode as string;
   const search = useSearchParams();
   const { locale, setLocale } = useLocale();
-  const initialLocale =
-    (search.get("lang") as Locale) ||
-    (typeof window !== "undefined" ? ((localStorage.getItem("locale") as Locale) || "en") : "en");
+  const requestedLocale = search.get("lang");
+  const savedLocale = typeof window !== "undefined" ? localStorage.getItem("locale") : null;
+  const initialLocale: Locale = isLocale(requestedLocale)
+    ? requestedLocale
+    : isLocale(savedLocale)
+      ? savedLocale
+      : "en";
 
   const [session, setSession] = useState<SurveySession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,9 +101,7 @@ export default function SurveyParticipantPage() {
   });
 
   useEffect(() => {
-    if (initialLocale === "en" || initialLocale === "zh") {
-      setLocale(initialLocale);
-    }
+    setLocale(initialLocale);
   }, [initialLocale, setLocale]);
 
   useEffect(() => {
@@ -326,6 +330,7 @@ export default function SurveyParticipantPage() {
                 >
                   <option value="en">English</option>
                   <option value="zh">中文</option>
+                  <option value="ar">العربية</option>
                 </select>
               </div>
             </div>
@@ -417,6 +422,7 @@ export default function SurveyParticipantPage() {
                 const title = post.display_title || post.fetched_title || "Untitled";
                 const imageUrl = post.display_image_url || post.fetched_image_url;
                 const source = post.fetched_source || new URL(post.original_url).hostname;
+                const moreInfoLabel = post.more_info_label || "More Information";
                 const isLiked = likedPosts.has(post.id);
                 const commentCount =
                   post.display_comments_count + post.comments.length + (participantComments[post.id]?.length || 0);
@@ -446,10 +452,22 @@ export default function SurveyParticipantPage() {
                           {t(locale, "externalContent")}
                         </div>
                         <h2 className="mt-4 text-[24px] font-semibold leading-tight tracking-[-0.05em] text-[#163047] md:text-[28px]">{title}</h2>
-                        <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-500">
+                        {post.fetched_description && (
+                          <p className="mt-3 max-w-3xl text-[14px] leading-7 text-slate-600">
+                            {post.fetched_description}
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          className="mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] font-semibold text-slate-600 transition hover:border-[#00a7a0]/40 hover:bg-[#effcfb] hover:text-[#00847f]"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleClickPost(post.id, post.original_url);
+                          }}
+                        >
                           <LinkIcon className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{post.original_url}</span>
-                        </div>
+                          <span className="truncate">{moreInfoLabel}</span>
+                        </button>
                       </div>
                     </div>
 

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # ── Survey ────────────────────────────────────────────
 
@@ -62,6 +62,9 @@ class PublicSurveyOut(BaseModel):
     title: str
     description: str | None = None
     status: str
+    language: str | None = None
+    fallback_language: str = "en"
+    translation_fallbacks: list[str] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
 
@@ -92,6 +95,9 @@ class QuestionOut(BaseModel):
     text: str
     config: dict | None
     created_at: datetime
+    language: str | None = None
+    fallback_language: str = "en"
+    translation_fallbacks: list[str] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
 
@@ -110,6 +116,9 @@ class CommentOut(BaseModel):
     author_name: str
     author_avatar_url: str | None
     text: str
+    language: str | None = None
+    fallback_language: str = "en"
+    translation_fallbacks: list[str] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
 
@@ -158,8 +167,12 @@ class PostOut(BaseModel):
     show_shares: bool
     visible_to_groups: list | None
     group_overrides: dict | None
-    comments: list[CommentOut] = []
-    questions: list[QuestionOut] = []
+    more_info_label: str = "More Information"
+    language: str | None = None
+    fallback_language: str = "en"
+    translation_fallbacks: list[str] = Field(default_factory=list)
+    comments: list[CommentOut] = Field(default_factory=list)
+    questions: list[QuestionOut] = Field(default_factory=list)
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -184,6 +197,8 @@ class StartSurveyResponse(BaseModel):
     gaze_tracking_enabled: bool
     gaze_interval_ms: int
     click_tracking_enabled: bool
+    language: str | None = None
+    fallback_language: str = "en"
     posts: list[PostOut]
 
 

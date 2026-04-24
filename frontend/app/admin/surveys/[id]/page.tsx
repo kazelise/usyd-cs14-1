@@ -110,6 +110,10 @@ export default function SurveyEditPage() {
   >({});
   const [isUnsavedDraft, setIsUnsavedDraft] = useState(initialUnsavedDraft);
   const [templateSaved, setTemplateSaved] = useState(false);
+  const [translationLanguage, setTranslationLanguage] = useState("zh");
+  const [translationFile, setTranslationFile] = useState<File | null>(null);
+  const [translationBusy, setTranslationBusy] = useState(false);
+  const [translationStatus, setTranslationStatus] = useState("");
   const shouldDiscardDraftRef = useRef(initialUnsavedDraft);
   const discardRequestedRef = useRef(false);
   const text =
@@ -169,6 +173,16 @@ export default function SurveyEditPage() {
           checklistMulti: "确认每条帖子对各分组的可见性",
           observation: "观察",
           observationCopy: "参与者互动会叠加到你预先配置的基线数值之上，因此已发布的信息流会看起来更真实，同时仍保持实验可控。",
+          translationsTitle: "翻译文件",
+          translationsCopy: "导出翻译模板，填入目标语言后再导入。",
+          targetLanguage: "目标语言",
+          exportJson: "导出 JSON",
+          exportCsv: "导出 CSV",
+          chooseTranslationFile: "选择 JSON 或 CSV 文件",
+          importFile: "导入文件",
+          translationExported: "翻译模板已导出",
+          translationImported: "翻译已导入",
+          noTranslationFile: "请先选择翻译文件。",
         }
       : {
           deleteConfirm: "Delete this post?",
@@ -225,6 +239,16 @@ export default function SurveyEditPage() {
           checklistMulti: "Confirm group visibility for each post",
           observation: "Observation",
           observationCopy: "Participant reactions accumulate on top of your configured baseline values, so the published feed feels active while still remaining experimentally controlled.",
+          translationsTitle: "Translation files",
+          translationsCopy: "Export a translation template, fill the target language, then import it back.",
+          targetLanguage: "Target language",
+          exportJson: "Export JSON",
+          exportCsv: "Export CSV",
+          chooseTranslationFile: "Choose JSON or CSV file",
+          importFile: "Import file",
+          translationExported: "Translation template exported",
+          translationImported: "Translations imported",
+          noTranslationFile: "Choose a translation file first.",
         };
 
   const loadData = useCallback(async () => {
@@ -435,6 +459,71 @@ export default function SurveyEditPage() {
       setCopiedShare(true);
       window.setTimeout(() => setCopiedShare(false), 1800);
     } catch {}
+  }
+
+  function downloadTextFile(content: string, filename: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportTranslations(format: "json" | "csv") {
+    setTranslationBusy(true);
+    setTranslationStatus("");
+    try {
+      if (format === "json") {
+        const payload = await api.exportTranslationsJson(surveyId, translationLanguage);
+        downloadTextFile(
+          JSON.stringify(payload, null, 2),
+          `survey-${surveyId}-translations-${translationLanguage}.json`,
+          "application/json",
+        );
+      } else {
+        const csv = await api.exportTranslationsCsv(surveyId, translationLanguage);
+        downloadTextFile(
+          csv,
+          `survey-${surveyId}-translations-${translationLanguage}.csv`,
+          "text/csv;charset=utf-8",
+        );
+      }
+      setTranslationStatus(text.translationExported);
+    } catch (err: any) {
+      setTranslationStatus(err.message || "Translation export failed");
+    } finally {
+      setTranslationBusy(false);
+    }
+  }
+
+  async function importTranslations() {
+    if (!translationFile) {
+      setTranslationStatus(text.noTranslationFile);
+      return;
+    }
+    setTranslationBusy(true);
+    setTranslationStatus("");
+    try {
+      const content = await translationFile.text();
+      const isCsv = translationFile.name.toLowerCase().endsWith(".csv") || translationFile.type.includes("csv");
+      if (isCsv) {
+        await api.importTranslationsCsv(surveyId, content, translationLanguage);
+      } else {
+        const payload = JSON.parse(content);
+        if (!payload.language_code && !payload.language) {
+          payload.language_code = translationLanguage;
+        }
+        await api.importTranslationsJson(surveyId, payload);
+      }
+      setTranslationFile(null);
+      setTranslationStatus(text.translationImported);
+    } catch (err: any) {
+      setTranslationStatus(err.message || "Translation import failed");
+    } finally {
+      setTranslationBusy(false);
+    }
   }
 
   if (!survey) {
@@ -901,6 +990,68 @@ export default function SurveyEditPage() {
                 <p className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-black">{survey.num_groups}</p>
               </div>
             </div>
+          </div>
+
+          <div className="surface-panel-soft px-6 py-6">
+            <p className="section-kicker">{text.translationsTitle}</p>
+            <p className="mt-3 text-[14px] leading-7 text-slate-500">{text.translationsCopy}</p>
+
+            <label className="mt-5 block space-y-2 text-[13px] text-slate-500">
+              <span>{text.targetLanguage}</span>
+              <select
+                value={translationLanguage}
+                onChange={(event) => setTranslationLanguage(event.target.value)}
+                className="field-input h-11 text-[13px]"
+              >
+                <option value="zh">中文</option>
+                <option value="ar">العربية</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => exportTranslations("json")}
+                disabled={translationBusy}
+                className="secondary-button justify-center px-3 text-[13px]"
+              >
+                {text.exportJson}
+              </button>
+              <button
+                type="button"
+                onClick={() => exportTranslations("csv")}
+                disabled={translationBusy}
+                className="secondary-button justify-center px-3 text-[13px]"
+              >
+                {text.exportCsv}
+              </button>
+            </div>
+
+            <label className="mt-4 block rounded-[16px] border border-dashed border-slate-200 bg-white px-4 py-4 text-[13px] leading-6 text-slate-500">
+              <span>{translationFile?.name || text.chooseTranslationFile}</span>
+              <input
+                key={translationFile ? "translation-file-selected" : "translation-file-empty"}
+                type="file"
+                accept=".json,.csv,application/json,text/csv"
+                className="sr-only"
+                onChange={(event) => setTranslationFile(event.target.files?.[0] || null)}
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={importTranslations}
+              disabled={translationBusy}
+              className="primary-button mt-4 w-full justify-center"
+            >
+              {text.importFile}
+            </button>
+            {translationStatus && (
+              <p className="mt-3 rounded-[14px] border border-slate-200 bg-white px-3 py-2 text-[12px] leading-5 text-slate-500">
+                {translationStatus}
+              </p>
+            )}
           </div>
 
           <div className="surface-panel-soft px-6 py-6">

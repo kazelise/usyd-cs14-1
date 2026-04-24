@@ -14,7 +14,7 @@ import random
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -68,6 +68,15 @@ from app.services.export_service import (
     load_survey_export,
 )
 from app.services.og_fetcher import fetch_og_metadata
+from app.services.translation_service import (
+    apply_translations_to_post,
+    apply_translations_to_public_survey,
+    build_translation_export_payload,
+    import_translation_payload,
+    load_owned_survey_for_translations,
+    normalize_optional_language,
+    translation_payload_to_csv,
+)
 
 router = APIRouter(prefix="/surveys", tags=["Surveys"])
 
@@ -256,6 +265,61 @@ async def export_survey_data(
     )
 
 
+@router.get("/{survey_id}/translations/export")
+async def export_survey_translations(
+    survey_id: int,
+    export_format: Literal["csv", "json"] = Query("json", alias="format"),
+    language: str = "zh",
+    researcher: Researcher = Depends(get_current_researcher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export a translation template and any existing localized values."""
+    survey = await load_owned_survey_for_translations(
+        db, survey_id=survey_id, researcher_id=researcher.id
+    )
+    payload = build_translation_export_payload(survey, language_code=language)
+    if export_format == "json":
+        return payload
+
+    filename = f"survey_{survey_id}_translations_{payload['language_code']}.csv"
+    return StreamingResponse(
+        iter([translation_payload_to_csv(payload)]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/{survey_id}/translations/import")
+async def import_survey_translations(
+    survey_id: int,
+    request: Request,
+    import_format: Literal["csv", "json"] = Query("json", alias="format"),
+    language: str | None = None,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import translated survey/post/comment/question fields for one language."""
+    survey = await load_owned_survey_for_translations(
+        db, survey_id=survey_id, researcher_id=researcher.id
+    )
+    content_type = request.headers.get("content-type", "")
+    payload_format: Literal["csv", "json"] = (
+        "csv" if import_format == "csv" or "text/csv" in content_type else "json"
+    )
+    if payload_format == "csv":
+        raw_payload = (await request.body()).decode("utf-8")
+    else:
+        raw_payload = await request.json()
+
+    return await import_translation_payload(
+        db,
+        survey,
+        raw_payload,
+        payload_format=payload_format,
+        language_override=language,
+    )
+
+
 # ── Post CRUD ─────────────────────────────────────────
 
 
@@ -418,8 +482,12 @@ async def start_survey(
     result = await db.execute(
         select(Survey)
         .options(
+            selectinload(Survey.translations),
+            selectinload(Survey.posts).selectinload(SurveyPost.translations),
             selectinload(Survey.posts).selectinload(SurveyPost.comments),
-            selectinload(Survey.posts).selectinload(SurveyPost.questions),
+            selectinload(Survey.posts)
+            .selectinload(SurveyPost.questions)
+            .selectinload(Question.translations),
         )
         .where(Survey.share_code == share_code, Survey.status == "published")
     )
@@ -427,13 +495,15 @@ async def start_survey(
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found or inactive")
 
+    language_code = normalize_optional_language(body.language) if body and body.language else None
+
     # Random group assignment
     assigned_group = random.randint(1, survey.num_groups)
 
     response = SurveyResponse(
         survey_id=survey.id,
         assigned_group=assigned_group,
-        language=body.language if body else None,
+        language=language_code,
         screen_width=body.screen_width if body else None,
         screen_height=body.screen_height if body else None,
         user_agent=body.user_agent if body else None,
@@ -448,7 +518,8 @@ async def start_survey(
     visible_posts = []
     for post in survey.posts:
         if post.visible_to_groups is None or assigned_group in post.visible_to_groups:
-            visible_posts.append(build_participant_post(post, assigned_group))
+            post_out = build_participant_post(post, assigned_group)
+            visible_posts.append(apply_translations_to_post(post_out, post, language_code))
 
     return StartSurveyResponse(
         response_id=response.id,
@@ -460,6 +531,7 @@ async def start_survey(
         gaze_tracking_enabled=survey.gaze_tracking_enabled,
         gaze_interval_ms=survey.gaze_interval_ms,
         click_tracking_enabled=survey.click_tracking_enabled,
+        language=response.language,
         posts=visible_posts,
     )
 
@@ -467,18 +539,21 @@ async def start_survey(
 @router.get("/public/{share_code}", response_model=PublicSurveyOut)
 async def get_public_survey(
     share_code: str,
+    language: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Public metadata for start screen before starting a session."""
     result = await db.execute(
-        select(Survey).where(Survey.share_code == share_code, Survey.status == "published")
+        select(Survey)
+        .options(selectinload(Survey.translations))
+        .where(Survey.share_code == share_code, Survey.status == "published")
     )
     survey = result.scalar_one_or_none()
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found or not published")
     if survey.share_code_expires_at and survey.share_code_expires_at < datetime.utcnow():
         raise HTTPException(status_code=410, detail="Survey link has expired")
-    return survey
+    return apply_translations_to_public_survey(survey, language)
 
 
 @router.post("/responses/{response_id}/interact", response_model=InteractionOut)
