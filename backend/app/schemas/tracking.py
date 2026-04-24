@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 class CreateCalibrationRequest(BaseModel):
     response_id: int = Field(description="ID of the survey response this calibration belongs to")
+    participant_token: str = Field(description="Anonymous participant token for this response")
     screen_width: int = Field(description="Participant screen width in pixels")
     screen_height: int = Field(description="Participant screen height in pixels")
     camera_width: int | None = Field(default=None, description="Webcam resolution width")
@@ -37,6 +38,7 @@ class IrisSample(BaseModel):
 
 
 class RecordCalibrationPointRequest(BaseModel):
+    participant_token: str
     point_index: int
     target_screen_x: int
     target_screen_y: int
@@ -66,6 +68,10 @@ class CalibrationCompleteOut(BaseModel):
     completed_at: datetime
 
 
+class CompleteCalibrationRequest(BaseModel):
+    participant_token: str
+
+
 # ── Gaze Tracking ─────────────────────────────────────
 
 
@@ -86,6 +92,7 @@ class GazeBatchRequest(BaseModel):
     """Frontend sends gaze data in batches (e.g., every 5-10 seconds)."""
 
     response_id: int
+    participant_token: str
     data: list[GazeDataPoint]
 
 
@@ -106,6 +113,7 @@ class ClickDataPoint(BaseModel):
 
 class ClickBatchRequest(BaseModel):
     response_id: int
+    participant_token: str
     data: list[ClickDataPoint]
 
 

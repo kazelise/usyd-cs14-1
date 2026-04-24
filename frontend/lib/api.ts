@@ -57,8 +57,15 @@ export const api = {
     request(`/surveys/${surveyId}/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(data) }),
 
   // Participant
-  startSurvey: (shareCode: string) =>
-    request(`/surveys/${shareCode}/start`, { method: "POST" }),
+  startSurvey: (
+    shareCode: string,
+    data?: {
+      language?: string;
+      screen_width?: number;
+      screen_height?: number;
+      user_agent?: string;
+    },
+  ) => request(`/surveys/${shareCode}/start`, { method: "POST", body: JSON.stringify(data || {}) }),
   getPublicSurvey: (shareCode: string) => request(`/surveys/public/${shareCode}`),
   getResponseState: (responseId: number) => request(`/surveys/responses/${responseId}/state`),
   toggleLike: (responseId: number, postId: number) =>
@@ -82,6 +89,7 @@ export const api = {
   // Tracking
   createCalibrationSession: (data: {
     response_id: number;
+    participant_token: string;
     screen_width: number;
     screen_height: number;
     camera_width?: number;
@@ -91,16 +99,17 @@ export const api = {
     sessionId: number,
     data: {
       point_index: number;
+      participant_token: string;
       target_screen_x: number;
       target_screen_y: number;
       samples: any[];
     }
   ) => request(`/tracking/calibration/sessions/${sessionId}/points`, { method: "POST", body: JSON.stringify(data) }),
-  completeCalibration: (sessionId: number) =>
-    request(`/tracking/calibration/sessions/${sessionId}/complete`, { method: "POST" }),
-  recordGaze: (data: { response_id: number; data: any[] }) =>
+  completeCalibration: (sessionId: number, data: { participant_token: string }) =>
+    request(`/tracking/calibration/sessions/${sessionId}/complete`, { method: "POST", body: JSON.stringify(data) }),
+  recordGaze: (data: { response_id: number; participant_token: string; data: any[] }) =>
     request("/tracking/gaze", { method: "POST", body: JSON.stringify(data) }),
-  recordClicks: (data: { response_id: number; data: any[] }) =>
+  recordClicks: (data: { response_id: number; participant_token: string; data: any[] }) =>
     request("/tracking/clicks", { method: "POST", body: JSON.stringify(data) }),
 
   // Question responses

@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.participant import SurveyResponse
+from app.models.survey import Survey
 from app.models.tracking import (
     CalibrationPoint,
     CalibrationSession,
@@ -25,6 +26,7 @@ from app.schemas.tracking import (
     CalibrationSessionOut,
     ClickBatchOut,
     ClickBatchRequest,
+    CompleteCalibrationRequest,
     CreateCalibrationRequest,
     GazeBatchOut,
     GazeBatchRequest,
@@ -36,6 +38,19 @@ from app.utils.quality import compute_calibration_quality
 router = APIRouter(prefix="/tracking", tags=["Tracking"])
 
 
+async def get_active_response_or_404(
+    response_id: int, participant_token: str, db: AsyncSession
+) -> SurveyResponse:
+    """Return an active participant response only when the anonymous token matches."""
+    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == response_id))
+    response = result.scalar_one_or_none()
+    if not response or response.participant_token != participant_token:
+        raise HTTPException(status_code=404, detail="Survey response not found")
+    if response.status != "in_progress":
+        raise HTTPException(status_code=409, detail="Survey response is not active")
+    return response
+
+
 # ── Calibration ───────────────────────────────────────
 
 
@@ -45,9 +60,9 @@ async def create_calibration_session(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a calibration session when participant begins webcam calibration."""
-    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == body.response_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Survey response not found")
+    response = await get_active_response_or_404(
+        body.response_id, body.participant_token, db
+    )
 
     existing = await db.execute(
         select(CalibrationSession).where(CalibrationSession.response_id == body.response_id)
@@ -55,12 +70,16 @@ async def create_calibration_session(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Calibration session already exists")
 
+    survey = await db.get(Survey, response.survey_id)
+    expected_points = survey.calibration_points if survey else 9
+
     session = CalibrationSession(
-        response_id=body.response_id,
+        response_id=response.id,
         screen_width=body.screen_width,
         screen_height=body.screen_height,
         camera_width=body.camera_width,
         camera_height=body.camera_height,
+        expected_points=expected_points,
     )
     db.add(session)
     await db.flush()
@@ -90,6 +109,7 @@ async def record_calibration_point(
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Active calibration session not found")
+    await get_active_response_or_404(session.response_id, body.participant_token, db)
 
     valid = [s for s in body.samples if s.face_detected]
     point = CalibrationPoint(
@@ -123,7 +143,11 @@ async def record_calibration_point(
 
 
 @router.post("/calibration/sessions/{session_id}/complete", response_model=CalibrationCompleteOut)
-async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_db)):
+async def complete_calibration(
+    session_id: int,
+    body: CompleteCalibrationRequest,
+    db: AsyncSession = Depends(get_db),
+):
     """Complete calibration and compute quality metrics."""
     result = await db.execute(
         select(CalibrationSession)
@@ -133,6 +157,7 @@ async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_d
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Active calibration session not found")
+    await get_active_response_or_404(session.response_id, body.participant_token, db)
 
     points = session.points
     point_dicts = [{"samples_count": p.samples_count, "samples": p.samples} for p in points]
@@ -165,10 +190,13 @@ async def complete_calibration(session_id: int, db: AsyncSession = Depends(get_d
 @router.post("/gaze", response_model=GazeBatchOut)
 async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(get_db)):
     """Record a batch of gaze data points. Frontend sends these every 5-10 seconds."""
+    response = await get_active_response_or_404(
+        body.response_id, body.participant_token, db
+    )
     for g in body.data:
         db.add(
             GazeRecord(
-                response_id=body.response_id,
+                response_id=response.id,
                 post_id=g.post_id,
                 timestamp_ms=g.timestamp_ms,
                 screen_x=g.screen_x,
@@ -189,10 +217,13 @@ async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(g
 @router.post("/clicks", response_model=ClickBatchOut)
 async def record_click_batch(body: ClickBatchRequest, db: AsyncSession = Depends(get_db)):
     """Record a batch of mouse click events."""
+    response = await get_active_response_or_404(
+        body.response_id, body.participant_token, db
+    )
     for c in body.data:
         db.add(
             ClickRecord(
-                response_id=body.response_id,
+                response_id=response.id,
                 post_id=c.post_id,
                 timestamp_ms=c.timestamp_ms,
                 screen_x=c.screen_x,

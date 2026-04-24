@@ -24,6 +24,7 @@ def sample_calibration_request():
     """Generate sample calibration session request data."""
     return {
         "response_id": 1,
+        "participant_token": "participant-token",
         "screen_width": 1920,
         "screen_height": 1080,
         "camera_width": 640,

@@ -31,6 +31,7 @@ class TestCalibrationWorkflowSchemas:
     def test_point_recording_flow(self, sample_iris_data):
         samples = [IrisSample(**sample_iris_data) for _ in range(12)]
         req = RecordCalibrationPointRequest(
+            participant_token="participant-token",
             point_index=0,
             target_screen_x=100,
             target_screen_y=100,
@@ -78,6 +79,7 @@ class TestCalibrationWorkflowSchemas:
         for idx, (x, y) in enumerate(grid_positions):
             samples = [IrisSample(**sample_iris_data) for _ in range(12)]
             req = RecordCalibrationPointRequest(
+                participant_token="participant-token",
                 point_index=idx,
                 target_screen_x=x,
                 target_screen_y=y,

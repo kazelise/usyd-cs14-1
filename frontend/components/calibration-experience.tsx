@@ -20,6 +20,7 @@ type CalibrationResult = {
 
 type CalibrationExperienceProps = {
   responseId: number;
+  participantToken?: string;
   expectedPoints?: number;
   onComplete: (result: CalibrationResult) => void;
 };
@@ -78,6 +79,7 @@ function sleep(ms: number) {
 
 export function CalibrationExperience({
   responseId,
+  participantToken,
   expectedPoints = 9,
   onComplete,
 }: CalibrationExperienceProps) {
@@ -141,11 +143,23 @@ export function CalibrationExperience({
       setBrightnessScore(snapshot.brightness);
       setQualityScore(nextQuality);
 
-      if (!sessionId && !creatingSession && videoRef.current && videoRef.current.videoWidth > 0) {
+      if (sessionId === null && responseId <= 0) {
+        setSessionId(0);
+        return;
+      }
+
+      if (
+        sessionId === null &&
+        participantToken &&
+        !creatingSession &&
+        videoRef.current &&
+        videoRef.current.videoWidth > 0
+      ) {
         creatingSession = true;
         try {
           const session = await api.createCalibrationSession({
             response_id: responseId,
+            participant_token: participantToken,
             screen_width: window.innerWidth,
             screen_height: window.innerHeight,
             camera_width: videoRef.current.videoWidth,
@@ -167,7 +181,7 @@ export function CalibrationExperience({
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [permissionState, responseId, sessionId]);
+  }, [participantToken, permissionState, responseId, sessionId]);
 
   async function requestCameraAccess() {
     setCameraError("");
@@ -317,7 +331,7 @@ export function CalibrationExperience({
   }
 
   async function runCalibration() {
-    if (!sessionId || calibrating) return;
+    if (sessionId === null || calibrating) return;
     setCalibrating(true);
     setStep("calibration");
     setBusyMessage("Capturing gaze samples");
@@ -342,17 +356,34 @@ export function CalibrationExperience({
           samples.push(buildSample());
         }
 
-        await api.recordCalibrationPoint(sessionId, {
-          point_index: index + 1,
-          target_screen_x: targetX,
-          target_screen_y: targetY,
-          samples,
-        });
+        if (sessionId > 0 && participantToken) {
+          await api.recordCalibrationPoint(sessionId, {
+            participant_token: participantToken,
+            point_index: index + 1,
+            target_screen_x: targetX,
+            target_screen_y: targetY,
+            samples,
+          });
+        }
         setPointsCompleted(index + 1);
         await sleep(200);
       }
 
-      const completeResult = await api.completeCalibration(sessionId);
+      const completeResult =
+        sessionId > 0 && participantToken
+          ? await api.completeCalibration(sessionId, { participant_token: participantToken })
+          : {
+              session_id: sessionId,
+              status: "completed",
+              quality: {
+                total_points: points.length,
+                valid_points: points.length,
+                avg_samples_per_point: 12,
+                face_detection_rate: faceDetected ? 1 : 0,
+                overall_quality: faceDetected ? "good" : "poor",
+              },
+              completed_at: new Date().toISOString(),
+            };
       setResult(completeResult);
       setBusyMessage("");
       setStep("results");
@@ -637,7 +668,7 @@ export function CalibrationExperience({
                     {step === "detection" && (
                       <button
                         onClick={runCalibration}
-                        disabled={!detectionStable || !sessionId}
+                        disabled={!detectionStable || sessionId === null}
                         className="w-full rounded-[16px] bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-slate-500"
                       >
                         Start Calibration Dots

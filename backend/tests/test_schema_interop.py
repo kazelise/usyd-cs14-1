@@ -16,7 +16,12 @@ class TestSchemaInteroperability:
     """Verify data flows correctly between request and response schemas."""
 
     def test_calibration_request_fields_map_to_output(self):
-        req = CreateCalibrationRequest(response_id=42, screen_width=1920, screen_height=1080)
+        req = CreateCalibrationRequest(
+            response_id=42,
+            participant_token="participant-token",
+            screen_width=1920,
+            screen_height=1080,
+        )
         out = CalibrationSessionOut(
             session_id=1,
             response_id=req.response_id,
@@ -29,6 +34,7 @@ class TestSchemaInteroperability:
     def test_gaze_batch_count_matches_output(self):
         batch = GazeBatchRequest(
             response_id=1,
+            participant_token="participant-token",
             data=[
                 {"timestamp_ms": i * 1000, "screen_x": float(i), "screen_y": float(i)}
                 for i in range(7)
@@ -40,6 +46,7 @@ class TestSchemaInteroperability:
     def test_click_batch_count_matches_output(self):
         batch = ClickBatchRequest(
             response_id=1,
+            participant_token="participant-token",
             data=[
                 {"timestamp_ms": i * 500, "screen_x": 100.0, "screen_y": 200.0} for i in range(3)
             ],
@@ -48,7 +55,7 @@ class TestSchemaInteroperability:
         assert out.saved == 3
 
     def test_empty_batch_produces_zero_saved(self):
-        gaze_batch = GazeBatchRequest(response_id=1, data=[])
-        click_batch = ClickBatchRequest(response_id=1, data=[])
+        gaze_batch = GazeBatchRequest(response_id=1, participant_token="participant-token", data=[])
+        click_batch = ClickBatchRequest(response_id=1, participant_token="participant-token", data=[])
         assert GazeBatchOut(saved=len(gaze_batch.data)).saved == 0
         assert ClickBatchOut(saved=len(click_batch.data)).saved == 0

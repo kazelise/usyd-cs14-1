@@ -26,13 +26,20 @@ class TestCreateCalibrationRequest:
     """Tests for calibration session creation schema."""
 
     def test_valid_minimal(self):
-        req = CreateCalibrationRequest(response_id=1, screen_width=1920, screen_height=1080)
+        req = CreateCalibrationRequest(
+            response_id=1,
+            participant_token="participant-token",
+            screen_width=1920,
+            screen_height=1080,
+        )
         assert req.response_id == 1
+        assert req.participant_token == "participant-token"
         assert req.camera_width is None
 
     def test_valid_with_camera(self):
         req = CreateCalibrationRequest(
             response_id=1,
+            participant_token="participant-token",
             screen_width=1920,
             screen_height=1080,
             camera_width=640,
@@ -47,7 +54,11 @@ class TestCreateCalibrationRequest:
 
     def test_missing_screen_height(self):
         with pytest.raises(ValidationError):
-            CreateCalibrationRequest(response_id=1, screen_width=1920)
+            CreateCalibrationRequest(
+                response_id=1,
+                participant_token="participant-token",
+                screen_width=1920,
+            )
 
 
 class TestIrisSample:
@@ -109,6 +120,7 @@ class TestRecordCalibrationPointRequest:
             for i in range(10)
         ]
         req = RecordCalibrationPointRequest(
+            participant_token="participant-token",
             point_index=0,
             target_screen_x=100,
             target_screen_y=100,
@@ -119,6 +131,7 @@ class TestRecordCalibrationPointRequest:
 
     def test_empty_samples_list(self):
         req = RecordCalibrationPointRequest(
+            participant_token="participant-token",
             point_index=0,
             target_screen_x=100,
             target_screen_y=100,
@@ -128,7 +141,12 @@ class TestRecordCalibrationPointRequest:
 
     def test_missing_point_index(self):
         with pytest.raises(ValidationError):
-            RecordCalibrationPointRequest(target_screen_x=100, target_screen_y=100, samples=[])
+            RecordCalibrationPointRequest(
+                participant_token="participant-token",
+                target_screen_x=100,
+                target_screen_y=100,
+                samples=[],
+            )
 
 
 class TestGazeDataPoint:
@@ -164,6 +182,7 @@ class TestGazeBatchRequest:
     def test_valid_batch(self):
         batch = GazeBatchRequest(
             response_id=1,
+            participant_token="participant-token",
             data=[
                 {"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 200.0},
                 {"timestamp_ms": 2000, "screen_x": 300.0, "screen_y": 400.0},
@@ -173,7 +192,7 @@ class TestGazeBatchRequest:
         assert len(batch.data) == 2
 
     def test_empty_batch(self):
-        batch = GazeBatchRequest(response_id=1, data=[])
+        batch = GazeBatchRequest(response_id=1, participant_token="participant-token", data=[])
         assert len(batch.data) == 0
 
     def test_missing_response_id(self):
@@ -218,6 +237,7 @@ class TestClickBatchRequest:
     def test_valid_batch(self):
         batch = ClickBatchRequest(
             response_id=1,
+            participant_token="participant-token",
             data=[
                 {"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 200.0},
                 {
@@ -231,7 +251,7 @@ class TestClickBatchRequest:
         assert len(batch.data) == 2
 
     def test_empty_batch(self):
-        batch = ClickBatchRequest(response_id=1, data=[])
+        batch = ClickBatchRequest(response_id=1, participant_token="participant-token", data=[])
         assert len(batch.data) == 0
 
 
