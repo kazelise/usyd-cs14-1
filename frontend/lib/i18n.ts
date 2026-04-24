@@ -1,4 +1,9 @@
-export type Locale = "en" | "zh";
+export type Locale = "en" | "zh" | "ar";
+export const supportedLocales: Locale[] = ["en", "zh", "ar"];
+
+export function isLocale(value: string | null): value is Locale {
+  return supportedLocales.includes(value as Locale);
+}
 
 export const dict = {
   en: {
@@ -200,5 +205,5 @@ export const dict = {
 } as const;
 
 export function t(locale: Locale, key: keyof typeof dict["en"]) {
-  return dict[locale][key];
+  return (locale === "zh" ? dict.zh : dict.en)[key];
 }

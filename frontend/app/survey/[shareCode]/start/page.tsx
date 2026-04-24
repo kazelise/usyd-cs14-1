@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useLocale } from "@/components/locale-provider";
-import { t, type Locale } from "@/lib/i18n";
+import { isLocale, t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, SurveyIcon } from "@/components/icons";
 
 export default function StartScreen() {
@@ -17,19 +17,23 @@ export default function StartScreen() {
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? (localStorage.getItem("locale") as Locale | null) : null;
-    if (saved === "en" || saved === "zh") setLocale(saved);
+    if (isLocale(saved)) setLocale(saved);
+  }, [setLocale]);
 
+  useEffect(() => {
     (async () => {
+      setLoading(true);
+      setError("");
       try {
-        const survey = await api.getPublicSurvey(shareCode as string);
+        const survey = await api.getPublicSurvey(shareCode as string, locale);
         setMeta(survey);
       } catch (e: any) {
-        setError(e.message || t(saved === "zh" ? "zh" : "en", "surveyNotFound"));
+        setError(e.message || t(locale, "surveyNotFound"));
       } finally {
         setLoading(false);
       }
     })();
-  }, [setLocale, shareCode]);
+  }, [locale, shareCode]);
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-sm uppercase tracking-[0.24em] text-slate-400">{t(locale, "loadingStudy")}</div>;
@@ -68,6 +72,7 @@ export default function StartScreen() {
             >
               <option value="en">English</option>
               <option value="zh">中文</option>
+              <option value="ar">العربية</option>
             </select>
           </div>
         </div>
