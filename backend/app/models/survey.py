@@ -54,6 +54,9 @@ class Survey(Base):
         back_populates="survey", cascade="all, delete-orphan", order_by="SurveyPost.order"
     )
     responses: Mapped[list["SurveyResponse"]] = relationship(back_populates="survey")  # noqa: F821
+    translations: Mapped[list["SurveyTranslation"]] = relationship(  # noqa: F821
+        back_populates="survey", cascade="all, delete-orphan"
+    )
 
 
 class SurveyPost(Base):
@@ -105,6 +108,9 @@ class SurveyPost(Base):
     )
     questions: Mapped[list["Question"]] = relationship(  # noqa: F821
         back_populates="post", cascade="all, delete-orphan", order_by="Question.order"
+    )
+    translations: Mapped[list["PostTranslation"]] = relationship(  # noqa: F821
+        back_populates="post", cascade="all, delete-orphan"
     )
 
 

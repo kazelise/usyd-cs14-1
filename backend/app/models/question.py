@@ -37,3 +37,6 @@ class Question(Base):
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     post: Mapped["SurveyPost"] = relationship(back_populates="questions")  # noqa: F821
+    translations: Mapped[list["QuestionTranslation"]] = relationship(  # noqa: F821
+        back_populates="question", cascade="all, delete-orphan"
+    )

@@ -80,6 +80,8 @@ async def create_calibration_session(
         camera_width=body.camera_width,
         camera_height=body.camera_height,
         expected_points=expected_points,
+        model_type="mediapipe_face_mesh",
+        model_params={"expected_points": expected_points},
     )
     db.add(session)
     await db.flush()
@@ -112,6 +114,7 @@ async def record_calibration_point(
     await get_active_response_or_404(session.response_id, body.participant_token, db)
 
     valid = [s for s in body.samples if s.face_detected]
+    face_detection_rate = round(len(valid) / len(body.samples), 3) if body.samples else 0.0
     point = CalibrationPoint(
         session_id=session_id,
         point_index=body.point_index,
@@ -119,6 +122,8 @@ async def record_calibration_point(
         target_screen_y=body.target_screen_y,
         samples=[s.model_dump() for s in body.samples],
         samples_count=len(body.samples),
+        face_detection_rate=face_detection_rate,
+        valid=face_detection_rate >= 0.7 and len(body.samples) >= 10,
         median_left_iris_x=median([s.left_iris_x for s in valid]) if valid else None,
         median_left_iris_y=median([s.left_iris_y for s in valid]) if valid else None,
         median_right_iris_x=median([s.right_iris_x for s in valid]) if valid else None,
@@ -166,6 +171,12 @@ async def complete_calibration(
     session.status = "completed"
     session.completed_at = datetime.utcnow()
     session.face_detection_rate = metrics["face_detection_rate"]
+    session.quality_score = round(metrics["face_detection_rate"] * 100, 1)
+    session.passed = metrics["overall_quality"] != "poor"
+    session.quality_reason = (
+        f"{metrics['valid_points']} of {session.expected_points} expected points passed sample "
+        f"coverage; face detection rate {metrics['face_detection_rate']:.3f}"
+    )
     session.quality = metrics["overall_quality"]
     await db.flush()
     await db.refresh(session)

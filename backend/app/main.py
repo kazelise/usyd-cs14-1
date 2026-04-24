@@ -1,31 +1,17 @@
 """CS14-1 Survey Platform API."""
 
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import models  # noqa: F401
 from app.config import settings
-from app.database import Base, engine
-from app.models import (
-    question,  # noqa: F401
-    question_response,  # noqa: F401
-)
 from app.routers import auth, surveys, tracking
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
 
 
 app = FastAPI(
     title="CS14-1 Survey Platform",
     description="Social media survey platform with gaze & click tracking.",
     version="0.1.0",
-    lifespan=lifespan,
 )
 
 app.add_middleware(
