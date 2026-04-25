@@ -73,8 +73,8 @@ class TestClickDataPointEdgeCases:
     """Edge cases for click data point validation."""
 
     def test_empty_target_element(self):
-        point = ClickDataPoint(timestamp_ms=1000, screen_x=100.0, screen_y=100.0, target_element="")
-        assert point.target_element == ""
+        with pytest.raises(ValidationError):
+            ClickDataPoint(timestamp_ms=1000, screen_x=100.0, screen_y=100.0, target_element="")
 
     def test_long_target_element(self):
         point = ClickDataPoint(

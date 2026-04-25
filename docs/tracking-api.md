@@ -75,6 +75,8 @@ frames, and raw media blobs must not be sent or persisted.
 - `point_index` is 1-based and must be within the session's expected point range.
 - Calibration point samples must include 1 to 60 samples.
 - Gaze and click batches may include at most 500 records.
+- `post_id`, when supplied on gaze or click records, must belong to the same survey as the participant response.
+- `target_element`, when supplied on click records, must be a non-empty string.
 - Normalized iris coordinates must be between 0 and 1 when present.
 - If `face_detected` is true, all four iris coordinates are required. The frontend fallback is to send normalized numeric estimates rather than raw webcam media.
 
@@ -104,6 +106,8 @@ frames, and raw media blobs must not be sent or persisted.
   "started_at": "2026-04-01T10:00:00"
 }
 ```
+
+Creating a second calibration session for the same response returns `409`.
 
 ### Record Calibration Point
 
@@ -143,6 +147,8 @@ frames, and raw media blobs must not be sent or persisted.
 }
 ```
 
+Submitting the same `point_index` twice for a session returns `409`.
+
 ### Complete Calibration
 
 **Request:**
@@ -174,6 +180,9 @@ frames, and raw media blobs must not be sent or persisted.
 }
 ```
 
+Completing a calibration session before at least one point has been recorded
+returns `409`.
+
 ### Record Gaze Batch
 
 **Request:**
@@ -201,6 +210,9 @@ frames, and raw media blobs must not be sent or persisted.
 }
 ```
 
+If a batch references a `post_id` outside the response's survey, the request
+returns `422` and no records from that batch are saved.
+
 ### Record Click Batch
 
 **Request:**
@@ -226,6 +238,9 @@ frames, and raw media blobs must not be sent or persisted.
   "saved": 1
 }
 ```
+
+If a batch references a `post_id` outside the response's survey, the request
+returns `422` and no records from that batch are saved.
 
 
 ## Related Documents
