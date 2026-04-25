@@ -14,7 +14,7 @@ import random
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -631,13 +631,21 @@ async def get_public_survey(
 async def record_interaction(
     response_id: int,
     body: InteractionRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """Record a participant interaction with a post (like, comment, or click to original)."""
     result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == response_id))
-    if not result.scalar_one_or_none():
+    response = result.scalar_one_or_none()
+    if not response:
         raise HTTPException(status_code=404, detail="Response not found")
+    post_result = await db.execute(
+        select(SurveyPost.id).where(
+            SurveyPost.id == body.post_id,
+            SurveyPost.survey_id == response.survey_id,
+        )
+    )
+    if not post_result.scalar_one_or_none():
+        raise HTTPException(status_code=422, detail="Post does not belong to this response survey")
 
     interaction = ParticipantInteraction(
         response_id=response_id,
@@ -649,16 +657,10 @@ async def record_interaction(
         click_x=getattr(body, "click_x", None),
         click_y=getattr(body, "click_y", None),
     )
-    # Asynchronous persistence to prevent performance bottlenecks
-    background_tasks.add_task(save_to_db, db, interaction)
-
+    db.add(interaction)
+    await db.flush()
+    await db.refresh(interaction)
     return interaction
-
-
-async def save_to_db(db: AsyncSession, item):
-    """Background utility for non-blocking database persistence[cite: 79]."""
-    db.add(item)
-    await db.commit()
 
 
 class ToggleLikeRequest(BaseModel):

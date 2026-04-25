@@ -8,12 +8,13 @@ from statistics import median
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.participant import SurveyResponse
-from app.models.survey import Survey
+from app.models.survey import Survey, SurveyPost
 from app.models.tracking import (
     CalibrationPoint,
     CalibrationSession,
@@ -51,6 +52,30 @@ async def get_active_response_or_404(
     return response
 
 
+async def validate_post_ids_for_response(
+    response: SurveyResponse,
+    post_ids: set[int],
+    db: AsyncSession,
+) -> None:
+    """Ensure tracking data references only posts in the response's survey."""
+    if not post_ids:
+        return
+
+    result = await db.execute(
+        select(SurveyPost.id).where(
+            SurveyPost.survey_id == response.survey_id,
+            SurveyPost.id.in_(post_ids),
+        )
+    )
+    valid_post_ids = set(result.scalars().all())
+    invalid_post_ids = sorted(post_ids - valid_post_ids)
+    if invalid_post_ids:
+        raise HTTPException(
+            status_code=422,
+            detail=f"post_id values do not belong to this survey: {invalid_post_ids}",
+        )
+
+
 # ── Calibration ───────────────────────────────────────
 
 
@@ -84,7 +109,13 @@ async def create_calibration_session(
         model_params={"expected_points": expected_points},
     )
     db.add(session)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409, detail="Calibration session already exists"
+        ) from exc
     await db.refresh(session)
     return CalibrationSessionOut(
         session_id=session.id,
@@ -147,7 +178,14 @@ async def record_calibration_point(
         median_right_iris_y=median([s.right_iris_y for s in valid]) if valid else None,
     )
     db.add(point)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"Calibration point {body.point_index} already exists for this session",
+        ) from exc
 
     count = (
         await db.execute(
@@ -182,6 +220,11 @@ async def complete_calibration(
     await get_active_response_or_404(session.response_id, body.participant_token, db)
 
     points = session.points
+    if not points:
+        raise HTTPException(
+            status_code=409,
+            detail="At least one calibration point is required before completion",
+        )
     point_dicts = [{"samples_count": p.samples_count, "samples": p.samples} for p in points]
     metrics = compute_calibration_quality(point_dicts, session.expected_points)
 
@@ -225,6 +268,9 @@ async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(g
     response = await get_active_response_or_404(
         body.response_id, body.participant_token, db
     )
+    await validate_post_ids_for_response(
+        response, {g.post_id for g in body.data if g.post_id is not None}, db
+    )
     for g in body.data:
         db.add(
             GazeRecord(
@@ -251,6 +297,9 @@ async def record_click_batch(body: ClickBatchRequest, db: AsyncSession = Depends
     """Record a batch of mouse click events."""
     response = await get_active_response_or_404(
         body.response_id, body.participant_token, db
+    )
+    await validate_post_ids_for_response(
+        response, {c.post_id for c in body.data if c.post_id is not None}, db
     )
     for c in body.data:
         db.add(

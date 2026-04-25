@@ -150,7 +150,7 @@ class ClickDataPoint(BaseModel):
     timestamp_ms: int = Field(ge=0)
     screen_x: float
     screen_y: float
-    target_element: str | None = Field(default=None, max_length=80)
+    target_element: str | None = Field(default=None, min_length=1, max_length=80)
 
 
 class ClickBatchRequest(BaseModel):
