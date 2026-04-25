@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { useLocale } from "@/components/locale-provider";
 import { ChartIcon, CheckCircleIcon, SearchIcon, UsersIcon } from "@/components/icons";
 
 type SurveyListItem = {
@@ -72,7 +71,7 @@ function formatMinutes(value: number) {
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const { locale } = useLocale();
+  const locale: string = "en";
   const [surveys, setSurveys] = useState<SurveyListItem[]>([]);
   const [selectedSurveyId, setSelectedSurveyId] = useState<number | null>(null);
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);

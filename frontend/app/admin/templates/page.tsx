@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { useLocale } from "@/components/locale-provider";
 import { ChartIcon, CheckCircleIcon, SearchIcon, TemplateIcon, UsersIcon } from "@/components/icons";
 import { defaultTemplateLibrary, loadSavedTemplates, type TemplateDefinition } from "@/lib/template-library";
 
@@ -11,7 +10,7 @@ const baseCategories = ["All", "News", "Trust", "Health", "Ads", "Saved"];
 
 export default function TemplatesPage() {
   const router = useRouter();
-  const { locale } = useLocale();
+  const locale: string = "en";
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [savedTemplates, setSavedTemplates] = useState<TemplateDefinition[]>([]);

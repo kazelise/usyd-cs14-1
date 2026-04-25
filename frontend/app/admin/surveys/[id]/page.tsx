@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { useLocale } from "@/components/locale-provider";
 import { buildTemplateFromSurvey, persistTemplate } from "@/lib/template-library";
 import {
   ChartIcon,
@@ -88,7 +87,7 @@ function numberInputClass() {
 
 export default function SurveyEditPage() {
   const router = useRouter();
-  const { locale } = useLocale();
+  const locale: string = "en";
   const params = useParams();
   const searchParams = useSearchParams();
   const surveyId = Number(params.id);

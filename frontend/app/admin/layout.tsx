@@ -2,15 +2,12 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useLocale } from "@/components/locale-provider";
 import { api } from "@/lib/api";
 import {
   ArchiveIcon,
-  BellIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   DraftIcon,
-  HelpIcon,
   PlusIcon,
   SurveyIcon,
   UsersIcon,
@@ -29,7 +26,7 @@ function navItemClass(active: boolean, collapsed: boolean) {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { locale, setLocale } = useLocale();
+  const locale: string = "en";
   const [authed, setAuthed] = useState(false);
   const [profileName, setProfileName] = useState("S");
   const [profileEmail, setProfileEmail] = useState("");
@@ -47,7 +44,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           surveys: "问卷",
           templates: "模板",
           analytics: "分析",
-          workspaceBadge: "实验管理工作台",
           workspace: "工作区",
           controlPanel: "控制面板",
           expandSidebar: "展开侧栏",
@@ -76,7 +72,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           surveys: "Surveys",
           templates: "Templates",
           analytics: "Analytics",
-          workspaceBadge: "Experience Management Workspace",
           workspace: "Workspace",
           controlPanel: "Control panel",
           expandSidebar: "Expand sidebar",
@@ -100,6 +95,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           nameRequired: "Name cannot be empty",
           logout: "Logout",
         };
+
+  useEffect(() => {
+    document.documentElement.lang = "en";
+    document.documentElement.dir = "ltr";
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -236,22 +236,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               {text.analytics}
             </Link>
           </nav>
-          <div className="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-medium text-slate-500 xl:block">
-            {text.workspaceBadge}
-          </div>
           <div className="ml-auto flex items-center gap-3">
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-[#0f3146] transition hover:bg-slate-50"
-            >
-              <BellIcon className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-[#0f3146] transition hover:bg-slate-50"
-            >
-              <HelpIcon className="h-4 w-4" />
-            </button>
             <div className="relative" ref={profileRef}>
               <button
                 type="button"
@@ -416,40 +401,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               {!collapsed && <span>{text.archived}</span>}
             </Link>
           </nav>
-
-          <div className="mt-auto pt-6">
-            <div
-              className={`rounded-[14px] border border-slate-200 bg-white/80 p-1 ${
-                collapsed ? "mx-auto w-[52px]" : "w-full"
-              }`}
-              title={text.language}
-            >
-              <div className={`grid gap-1 ${collapsed ? "grid-cols-1" : "grid-cols-2"}`}>
-                <button
-                  type="button"
-                  onClick={() => setLocale("en")}
-                  className={`rounded-[10px] px-3 py-2 text-[13px] font-medium transition ${
-                    locale === "en"
-                      ? "bg-[#effcfb] text-[#0f3146] shadow-sm"
-                      : "text-slate-500 hover:bg-slate-50 hover:text-[#0f3146]"
-                  }`}
-                >
-                  {collapsed ? "EN" : text.english}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLocale("zh")}
-                  className={`rounded-[10px] px-3 py-2 text-[13px] font-medium transition ${
-                    locale === "zh"
-                      ? "bg-[#effcfb] text-[#0f3146] shadow-sm"
-                      : "text-slate-500 hover:bg-slate-50 hover:text-[#0f3146]"
-                  }`}
-                >
-                  {collapsed ? "中" : text.chinese}
-                </button>
-              </div>
-            </div>
-          </div>
+          <div className="mt-auto" />
         </aside>
 
         <main className="h-full overflow-y-auto px-4 py-5 md:px-7 md:py-6">
