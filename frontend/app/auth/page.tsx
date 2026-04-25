@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { useLocale } from "@/components/locale-provider";
 import { ChartIcon, CheckCircleIcon, SurveyIcon, WorkspaceIcon } from "@/components/icons";
 
 export default function AuthPage() {
   const router = useRouter();
-  const { locale, toggleLocale } = useLocale();
+  const locale: string = "en";
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -80,6 +79,11 @@ export default function AuthPage() {
           ],
         };
 
+  useEffect(() => {
+    document.documentElement.lang = "en";
+    document.documentElement.dir = "ltr";
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -106,8 +110,7 @@ export default function AuthPage() {
       <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_35px_90px_rgba(17,24,39,0.08)] lg:grid-cols-[1.02fr_0.98fr]">
         <section className="flex flex-col justify-between bg-[linear-gradient(180deg,#111111_0%,#1f1f1f_100%)] px-8 py-10 text-white lg:px-12 lg:py-12">
           <div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-white/10">
                 <WorkspaceIcon className="h-5 w-5" />
               </div>
@@ -117,14 +120,6 @@ export default function AuthPage() {
                 </p>
                 <p className="mt-1 text-sm text-white/55">{text.workspace}</p>
               </div>
-            </div>
-              <button
-                type="button"
-                onClick={toggleLocale}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
-              >
-                {locale === "en" ? "中文" : "English"}
-              </button>
             </div>
 
             <div className="mt-16 max-w-xl">

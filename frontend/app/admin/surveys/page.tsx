@@ -4,7 +4,6 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { useLocale } from "@/components/locale-provider";
 import { PlusIcon, SearchIcon, SurveyIcon, UsersIcon } from "@/components/icons";
 
 interface Survey {
@@ -33,7 +32,7 @@ function formatDate(date: string) {
 function SurveysPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { locale } = useLocale();
+  const locale: string = "en";
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -232,10 +231,8 @@ function SurveysPageContent() {
 }
 
 export default function SurveysPage() {
-  const { locale } = useLocale();
-  const loading = locale === "zh" ? "正在加载问卷" : "Loading surveys";
   return (
-    <Suspense fallback={<p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{loading}</p>}>
+    <Suspense fallback={<p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">Loading surveys</p>}>
       <SurveysPageContent />
     </Suspense>
   );

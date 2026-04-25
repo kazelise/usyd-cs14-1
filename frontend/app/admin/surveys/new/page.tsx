@@ -3,13 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { useLocale } from "@/components/locale-provider";
 import { CheckCircleIcon, SurveyIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
 
 export default function NewSurveyPage() {
   const router = useRouter();
-  const { locale } = useLocale();
+  const locale: string = "en";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [numGroups, setNumGroups] = useState(1);
