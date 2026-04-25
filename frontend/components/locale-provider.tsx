@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { isLocale, type Locale } from "@/lib/i18n";
+import { isLocale, localeDir, supportedLocales, type Locale } from "@/lib/i18n";
 
 type LocaleContextValue = {
   locale: Locale;
@@ -24,14 +24,20 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     window.localStorage.setItem("locale", locale);
     document.documentElement.lang = locale;
-    document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
+    document.documentElement.dir = localeDir(locale);
   }, [locale]);
 
   const value = useMemo<LocaleContextValue>(
     () => ({
       locale,
       setLocale: setLocaleState,
-      toggleLocale: () => setLocaleState((prev) => (prev === "en" ? "zh" : "en")),
+      // Cycles through every supported locale so the toggle keeps working
+      // when more locales are added (and Arabic isn't skipped).
+      toggleLocale: () =>
+        setLocaleState((prev) => {
+          const idx = supportedLocales.indexOf(prev);
+          return supportedLocales[(idx + 1) % supportedLocales.length];
+        }),
     }),
     [locale],
   );

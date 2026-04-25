@@ -7,9 +7,28 @@ export const metadata: Metadata = {
   description: "Social media survey platform with gaze tracking",
 };
 
+// Runs synchronously in <head> before React hydrates. Reads the cached
+// locale from localStorage and applies lang/dir on <html> so the very
+// first paint is already in the correct reading direction. Without this
+// the page flashes LTR/English for one frame before LocaleProvider's
+// effect flips it to RTL/Arabic, which the user perceives as flicker.
+const localeBootstrapScript = `(function () {
+  try {
+    var l = window.localStorage.getItem('locale');
+    if (l === 'en' || l === 'zh' || l === 'ar') {
+      var html = document.documentElement;
+      html.lang = l;
+      html.dir = l === 'ar' ? 'rtl' : 'ltr';
+    }
+  } catch (e) {}
+})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: localeBootstrapScript }} />
+      </head>
       <body className="bg-gray-50 text-gray-900 min-h-screen">
         <LocaleProvider>
           <svg
