@@ -13,19 +13,26 @@ const LocaleContext = createContext<LocaleContextValue | null>(null);
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("en");
+  // Tracks whether we've finished reading localStorage on mount. Without
+  // this gate the persistence effect would run with the initial "en" state
+  // before the hydration effect had a chance to swap in the saved locale,
+  // clobbering whatever value the bootstrap script restored on first paint.
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("locale");
     if (isLocale(saved)) {
       setLocaleState(saved);
     }
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     window.localStorage.setItem("locale", locale);
     document.documentElement.lang = locale;
     document.documentElement.dir = localeDir(locale);
-  }, [locale]);
+  }, [locale, hydrated]);
 
   const value = useMemo<LocaleContextValue>(
     () => ({
