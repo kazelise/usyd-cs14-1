@@ -8,14 +8,20 @@ export const metadata: Metadata = {
 };
 
 // Runs synchronously in <head> before React hydrates. Reads the cached
-// locale from localStorage and applies lang/dir on <html> so the very
-// first paint is already in the correct reading direction. Without this
-// the page flashes LTR/English for one frame before LocaleProvider's
-// effect flips it to RTL/Arabic, which the user perceives as flicker.
+// locale from localStorage (or a ?lang= query override, useful for
+// link-shareable previews and translator screenshots) and applies
+// lang/dir on <html> so the very first paint is already in the correct
+// reading direction. Without this the page flashes LTR/English for one
+// frame before LocaleProvider's effect flips it to RTL/Arabic, which
+// the user perceives as flicker.
 const localeBootstrapScript = `(function () {
   try {
-    var l = window.localStorage.getItem('locale');
+    var q = new URLSearchParams(window.location.search).get('lang');
+    var l = (q === 'en' || q === 'zh' || q === 'ar')
+      ? q
+      : window.localStorage.getItem('locale');
     if (l === 'en' || l === 'zh' || l === 'ar') {
+      window.localStorage.setItem('locale', l);
       var html = document.documentElement;
       html.lang = l;
       html.dir = l === 'ar' ? 'rtl' : 'ltr';
