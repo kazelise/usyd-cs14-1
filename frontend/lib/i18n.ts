@@ -1,8 +1,20 @@
 export type Locale = "en" | "zh" | "ar";
 export const supportedLocales: Locale[] = ["en", "zh", "ar"];
 
+// Locales that read right-to-left. Used to drive `<html dir>` and the
+// rtl: Tailwind variants on layout elements that don't auto-flip.
+export const rtlLocales: readonly Locale[] = ["ar"] as const;
+
 export function isLocale(value: string | null): value is Locale {
   return supportedLocales.includes(value as Locale);
+}
+
+export function isRtl(locale: Locale): boolean {
+  return rtlLocales.includes(locale);
+}
+
+export function localeDir(locale: Locale): "ltr" | "rtl" {
+  return isRtl(locale) ? "rtl" : "ltr";
 }
 
 export const dict = {
@@ -202,8 +214,113 @@ export const dict = {
     noteCalibration: "为获得完整追踪精度，需要完成校准。",
     completionDetails: "你的交互、点击数据和校准会话都已被记录。",
   },
+  ar: {
+    title: "المشاركة في الدراسة",
+    subtitle: "يرجى قراءة المعلومات أدناه قبل البدء.",
+    estTime: "المدة التقديرية",
+    consent:
+      "بالنقر على ابدأ، فإنك توافق على المشاركة وعلى جمع بيانات مجهولة الهوية لأغراض البحث.",
+    start: "ابدأ",
+    minutes: "دقائق",
+    language: "اللغة",
+    like: "👍 إعجاب",
+    liked: "👍 أعجبني",
+    comment: "💬 تعليق",
+    writeComment: "اكتب تعليقًا...",
+    complete: "إنهاء الاستبيان",
+    thankYou: "شكرًا لك!",
+    recorded: "تم تسجيل إجاباتك.",
+    comments: "تعليقات",
+    shares: "مشاركات",
+    // Calibration
+    calibCameraAccess: "الوصول إلى الكاميرا",
+    calibFaceAlignment: "محاذاة الوجه",
+    calibEyeTracking: "تتبع العين",
+    calibSummary: "ملخص المعايرة",
+    calibAllowCamera: "اسمح بالوصول إلى الكاميرا لبدء المعايرة.",
+    calibCenterFace: "ضع وجهك في وسط الإطار واحرص على الثبات.",
+    calibFollowDot: "تابع النقطة النشطة بعينيك فقط.",
+    calibFinished: "انتهت المعايرة. راجع جودة الالتقاط.",
+    calibRetry: "إعادة المعايرة",
+    calibContinue: "المتابعة إلى الاستبيان",
+    calibFaceDetected: "تم اكتشاف الوجه",
+    calibSearching: "جارٍ البحث عن الوجه",
+    // Tracking indicators
+    gazeTrackingActive: "تتبع النظر مفعل",
+    clickTrackingActive: "تتبع النقر مفعل",
+    calibrationCompleted: "اكتملت المعايرة",
+    // Questions
+    submitAnswer: "إرسال الإجابة",
+    answerSubmitted: "تم إرسال الإجابة",
+    questions: "أسئلة",
+    typeYourAnswer: "اكتب إجابتك...",
+    loadingStudy: "جارٍ تحميل الدراسة",
+    loadingSurvey: "جارٍ تحميل الاستبيان",
+    surveyNotFound: "لم يتم العثور على الاستبيان",
+    surveyExperience: "تجربة الاستبيان",
+    researchPlatform: "منصة CS14 للأبحاث",
+    participantStudy: "دراسة المشاركين",
+    format: "النمط",
+    formatValue: "موجز اجتماعي مع وحدات إجابة موجهة",
+    tracking: "التتبع",
+    trackingValue: "قد يتم تسجيل إشارات التفاعل في المتصفح",
+    beforeBegin: "قبل أن تبدأ",
+    participantInstructions: "تعليمات المشارك",
+    participantInstructionsCopy:
+      "هذا التدفق مصمم كجلسة استبيان قياسية عبر الإنترنت: اقرأ بعناية، أجب بشكل طبيعي، واستمر حتى تظهر شاشة الإكمال.",
+    desktopCamera: "استخدم متصفح سطح المكتب واسمح بالوصول إلى الكاميرا عند الطلب.",
+    expectedSession: "الجلسة المتوقعة",
+    expectedSessionCopy:
+      "ستعرض الشاشة التالية موجز الدراسة وحالة التتبع وزر الإكمال في اللوحة الجانبية.",
+    surveySession: "جلسة الاستبيان",
+    participantResponseExperience: "تجربة إجابة المشارك",
+    participantResponseCopy:
+      "راجع كل منشور وأجب بشكل طبيعي. ستبقى جلستك نشطة حتى تنهي الإرسال.",
+    surveyProgress: "تقدم الاستبيان",
+    postsInteracted: "منشورات تم التفاعل معها",
+    surveyContext: "سياق الاستبيان",
+    participantFeed: "موجز المشارك",
+    participantFeedCopy:
+      "تصفح كل منشور كما تفعل عادة على وسائل التواصل الاجتماعي، ولكن ضمن بيئة استبيان منظمة.",
+    sessionSnapshot: "نظرة عامة على الجلسة",
+    assignedGroup: "المجموعة المعينة",
+    clickTracking: "تتبع النقر",
+    gazeTracking: "تتبع النظر",
+    calibration: "المعايرة",
+    required: "مطلوب",
+    notRequired: "غير مطلوب",
+    on: "مفعل",
+    off: "معطل",
+    studyInstructions: "تعليمات الدراسة",
+    studyInstructionsCopy:
+      "يرجى مراجعة المنشورات أدناه بالترتيب. استخدم شريط الإجراءات وأي وحدات إجابة معروضة داخل كل بطاقة.",
+    totalPostsInSurvey: "إجمالي المنشورات في هذا الاستبيان",
+    stimulusPost: "منشور تحفيزي",
+    externalContent: "محتوى خارجي",
+    commentThread: "سلسلة التعليقات",
+    yourResponse: "إجابتك",
+    saveResponse: "حفظ الإجابة",
+    questionBlock: "وحدة السؤال",
+    progress: "التقدم",
+    interactionMarkersRecorded: "تم تسجيل علامات تفاعل عبر",
+    researchNotes: "ملاحظات بحثية",
+    stayInSurvey:
+      "ابق في الاستبيان حتى تراجع جميع المنشورات. يمكنك تعديل تعليقاتك أو حذفها قبل الإرسال.",
+    networkRequestFailed: "فشل طلب الشبكة. يرجى المحاولة مرة أخرى.",
+    delete: "حذف",
+    share: "مشاركة",
+    likesLabel: "إعجابات",
+    noteClicks: "يتم التقاط النقرات في الخلفية.",
+    noteGaze: "قد يتم تسجيل عينات النظر خلال الجلسة.",
+    noteCalibration: "المعايرة مطلوبة للحصول على دقة تتبع كاملة.",
+    completionDetails: "تم تسجيل تفاعلاتك وبيانات النقر وجلسة المعايرة.",
+  },
 } as const;
 
 export function t(locale: Locale, key: keyof typeof dict["en"]) {
-  return (locale === "zh" ? dict.zh : dict.en)[key];
+  // Per-locale dictionary with safe fallback to English when a key is missing
+  // (e.g. a future locale lands before all strings are translated).
+  const bundle = dict[locale] ?? dict.en;
+  const value = (bundle as typeof dict.en)[key];
+  return value ?? dict.en[key];
 }
