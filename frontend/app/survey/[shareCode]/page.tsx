@@ -54,6 +54,7 @@ interface SurveySession {
   assigned_group: number;
   calibration_required: boolean;
   calibration_points: number;
+  calibration_completed: boolean;
   gaze_tracking_enabled: boolean;
   gaze_interval_ms: number;
   click_tracking_enabled: boolean;
@@ -128,6 +129,11 @@ export default function SurveyParticipantPage() {
         });
         setSession(result);
         localStorage.setItem(tokenStorageKey, result.participant_token);
+        // Resume hint from backend: a prior calibration on this response was
+        // already completed, so skip the calibration UI for the user.
+        if (result.calibration_completed) {
+          setCalibrationDone(true);
+        }
 
         try {
           const state = await api.getResponseState(result.response_id);
