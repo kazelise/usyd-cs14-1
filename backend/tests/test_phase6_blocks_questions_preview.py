@@ -38,7 +38,10 @@ class Phase6DB:
         self.added = []
         self.commits = 0
 
-    async def execute(self, _statement):
+    async def execute(self, statement):
+        froms = statement.get_final_froms() if hasattr(statement, "get_final_froms") else []
+        if any(getattr(f, "name", None) == "question_responses" for f in froms):
+            return ScalarResult(None)
         return ScalarResult(self.survey)
 
     async def get(self, model, item_id):
