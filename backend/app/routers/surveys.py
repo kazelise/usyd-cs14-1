@@ -1474,6 +1474,14 @@ async def submit_question_response(
         raise HTTPException(404, "Question not found")
     if question.survey_id != survey_response.survey_id:
         raise HTTPException(404, "Question not found")
+    existing_answer = await db.execute(
+        select(QuestionResponse).where(
+            QuestionResponse.response_id == response_id,
+            QuestionResponse.question_id == question_id,
+        )
+    )
+    if existing_answer.scalar_one_or_none():
+        raise HTTPException(409, "Answer already submitted for this question")
     answer = QuestionResponse(
         response_id=response_id,
         question_id=question_id,
