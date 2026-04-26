@@ -384,20 +384,20 @@ export function CalibrationExperience({
 
   const qualityTone =
     result?.quality.overall_quality === "good"
-      ? "text-emerald-300"
+      ? "text-emerald-600"
       : result?.quality.overall_quality === "acceptable"
-        ? "text-amber-300"
-        : "text-rose-300";
+        ? "text-amber-600"
+        : "text-rose-600";
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#1f2937_0%,#0f172a_48%,#020617_100%)] text-white">
+    <div className="min-h-screen text-[var(--app-text)]">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-5 py-6 lg:px-8">
-        <div className="mb-6 flex items-center justify-between text-sm text-slate-300">
+        <div className="mb-6 flex items-center justify-between text-sm text-[var(--app-muted)]">
           <div>
-            <p className="font-mono uppercase tracking-[0.3em] text-cyan-300">Survey Engine</p>
-            <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-white">Webcam Calibration</h1>
+            <p className="section-kicker text-[var(--app-accent)]">Survey Engine</p>
+            <h1 className="page-title mt-2">Webcam Calibration</h1>
           </div>
-          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2">
+          <div className="rounded-full border bg-white px-4 py-2 text-[var(--app-muted-strong)]">
             Step{" "}
             {step === "permission"
               ? "1"
@@ -411,8 +411,8 @@ export function CalibrationExperience({
         </div>
 
         <div className="grid flex-1 gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-          <aside className="rounded-[20px] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-cyan-950/20 backdrop-blur">
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Calibration Progress</p>
+          <aside className="surface-panel p-5">
+            <p className="section-kicker">Calibration Progress</p>
             <div className="mt-6 space-y-3">
               {[
                 { key: "permission", label: "Camera permission" },
@@ -433,10 +433,10 @@ export function CalibrationExperience({
                     key={item.key}
                     className={`rounded-[18px] border px-4 py-3 transition ${
                       active
-                        ? "border-cyan-300/40 bg-cyan-400/10 text-white"
+                        ? "border-[rgba(0,167,160,0.4)] bg-[rgba(0,167,160,0.08)] text-[var(--app-text)]"
                         : complete
-                          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-                          : "border-white/8 bg-white/4 text-slate-400"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border bg-[var(--app-panel-muted)] text-[var(--app-muted)]"
                     }`}
                   >
                     <p className="text-[11px] uppercase tracking-[0.24em]">Stage {index + 1}</p>
@@ -446,40 +446,40 @@ export function CalibrationExperience({
               })}
             </div>
 
-            <div className="mt-8 rounded-[18px] border border-white/8 bg-slate-950/40 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Live Metrics</p>
+            <div className="mt-8 rounded-[18px] border bg-[var(--app-panel-muted)] p-4">
+              <p className="section-kicker">Live Metrics</p>
               <div className="mt-4 space-y-4">
                 <div>
-                  <div className="mb-1 flex items-center justify-between text-xs text-slate-400">
+                  <div className="mb-1 flex items-center justify-between text-xs text-[var(--app-muted)]">
                     <span>Face lock</span>
-                    <span className={faceDetected ? "text-emerald-300" : "text-rose-300"}>
+                    <span className={faceDetected ? "text-emerald-600" : "text-rose-500"}>
                       {faceDetected ? "Detected" : "Searching"}
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-white/10">
+                  <div className="h-2 rounded-full bg-slate-200">
                     <div
-                      className={`h-2 rounded-full transition-all ${faceDetected ? "bg-emerald-400" : "bg-rose-400"}`}
+                      className={`h-2 rounded-full transition-all ${faceDetected ? "bg-emerald-500" : "bg-rose-400"}`}
                       style={{ width: `${faceDetected ? 100 : 24}%` }}
                     />
                   </div>
                 </div>
                 <div>
-                  <div className="mb-1 flex items-center justify-between text-xs text-slate-400">
+                  <div className="mb-1 flex items-center justify-between text-xs text-[var(--app-muted)]">
                     <span>Environment quality</span>
                     <span>{qualityScore}%</span>
                   </div>
-                  <div className="h-2 rounded-full bg-white/10">
-                    <div className="h-2 rounded-full bg-cyan-300 transition-all" style={{ width: `${qualityScore}%` }} />
+                  <div className="h-2 rounded-full bg-slate-200">
+                    <div className="h-2 rounded-full bg-[var(--app-accent)] transition-all" style={{ width: `${qualityScore}%` }} />
                   </div>
                 </div>
-                  <div className="grid grid-cols-2 gap-3 text-xs text-slate-300">
-                  <div className="rounded-[16px] border border-white/8 bg-white/4 p-3">
-                    <p className="text-slate-400">Brightness</p>
-                    <p className="mt-1 text-lg font-semibold text-white">{brightnessScore}</p>
+                  <div className="grid grid-cols-2 gap-3 text-xs text-[var(--app-muted)]">
+                  <div className="rounded-[16px] border bg-white p-3">
+                    <p className="text-[var(--app-muted)]">Brightness</p>
+                    <p className="mt-1 text-lg font-semibold text-[var(--app-text)]">{brightnessScore}</p>
                   </div>
-                  <div className="rounded-[16px] border border-white/8 bg-white/4 p-3">
-                    <p className="text-slate-400">Dots done</p>
-                    <p className="mt-1 text-lg font-semibold text-white">
+                  <div className="rounded-[16px] border bg-white p-3">
+                    <p className="text-[var(--app-muted)]">Dots done</p>
+                    <p className="mt-1 text-lg font-semibold text-[var(--app-text)]">
                       {pointsCompleted}/{points.length}
                     </p>
                   </div>
@@ -488,12 +488,12 @@ export function CalibrationExperience({
             </div>
           </aside>
 
-          <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-slate-950/55 shadow-2xl shadow-slate-950/50 backdrop-blur">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(34,211,238,0.16),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(56,189,248,0.12),transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(2,6,23,0.97))]" />
+          <section className="surface-panel relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(0,167,160,0.06),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(0,132,127,0.04),transparent_28%)]" />
             <div className="relative flex h-full flex-col p-6 lg:p-8">
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">
+                  <p className="section-kicker text-[var(--app-accent)]">
                     {step === "permission"
                       ? "Camera access"
                       : step === "detection"
@@ -502,7 +502,7 @@ export function CalibrationExperience({
                           ? "Eye tracking"
                           : "Calibration summary"}
                   </p>
-                  <h2 className="mt-2 text-[22px] font-semibold tracking-tight text-white">
+                  <h2 className="section-title mt-2">
                     {step === "permission" && "Allow camera access to begin calibration."}
                     {step === "detection" && "Center your face in the frame and keep still."}
                     {step === "calibration" && "Follow the active dot with your eyes only."}
@@ -510,21 +510,21 @@ export function CalibrationExperience({
                   </h2>
                 </div>
                 {busyMessage && (
-                  <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-cyan-100">
+                  <div className="rounded-full border border-[rgba(0,167,160,0.2)] bg-[rgba(0,167,160,0.08)] px-4 py-2 text-xs uppercase tracking-[0.22em] text-[var(--app-accent-strong)]">
                     {busyMessage}
                   </div>
                 )}
               </div>
 
               <div className="grid flex-1 gap-6 xl:grid-cols-[minmax(0,1fr)_240px]">
-                <div className="relative min-h-[520px] overflow-hidden rounded-[20px] border border-white/10 bg-slate-900/80">
+                <div className="relative min-h-[520px] overflow-hidden rounded-[20px] border bg-slate-900">
                   <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08),rgba(2,6,23,0.4))]" />
 
                   {step !== "results" && (
                     <div className="pointer-events-none absolute inset-0">
-                      <div className="absolute left-1/2 top-1/2 h-[58%] w-[42%] -translate-x-1/2 -translate-y-1/2 rounded-[48%_48%_42%_42%/58%_58%_34%_34%] border-2 border-dashed border-white/35" />
-                      <div className="absolute left-6 top-6 rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-white">
+                      <div className="absolute left-1/2 top-1/2 h-[58%] w-[42%] -translate-x-1/2 -translate-y-1/2 rounded-[48%_48%_42%_42%/58%_58%_34%_34%] border-2 border-dashed border-white/50" />
+                      <div className="absolute left-6 top-6 rounded-full border border-white/20 bg-black/50 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-white">
                         {faceDetected ? "Face detected" : "Searching for face"}
                       </div>
                     </div>
@@ -551,15 +551,15 @@ export function CalibrationExperience({
                                 active ? "scale-100 opacity-100" : complete ? "scale-75 opacity-35" : "scale-75 opacity-18"
                               }`}
                             >
-                              <div className={`absolute inset-0 rounded-full ${active ? "animate-ping bg-cyan-300/20" : "bg-transparent"}`} />
+                              <div className={`absolute inset-0 rounded-full ${active ? "animate-ping bg-[rgba(0,167,160,0.25)]" : "bg-transparent"}`} />
                               <div
                                 className={`absolute inset-3 rounded-full border ${
-                                  active ? "border-cyan-200" : complete ? "border-emerald-300/40" : "border-white/30"
+                                  active ? "border-[var(--app-accent)]" : complete ? "border-emerald-400/50" : "border-white/30"
                                 }`}
                               />
                               <div
                                 className={`h-4 w-4 rounded-full ${
-                                  active ? "bg-cyan-200 shadow-[0_0_24px_rgba(103,232,249,0.8)]" : complete ? "bg-emerald-300" : "bg-white/50"
+                                  active ? "bg-[var(--app-accent)] shadow-[0_0_24px_rgba(0,167,160,0.7)]" : complete ? "bg-emerald-400" : "bg-white/50"
                                 }`}
                               />
                             </div>
@@ -570,32 +570,32 @@ export function CalibrationExperience({
                   )}
 
                   {step === "results" && result && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
-                      <div className="w-full max-w-xl rounded-[20px] border border-white/10 bg-slate-950/80 p-8 shadow-2xl">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                      <div className="w-full max-w-xl rounded-[20px] border bg-white p-8 shadow-2xl">
                         <p className={`text-xs uppercase tracking-[0.28em] ${qualityTone}`}>Overall quality</p>
-                        <h3 className="mt-3 text-4xl font-semibold capitalize text-white">
+                        <h3 className="mt-3 text-4xl font-semibold capitalize text-[var(--app-text)]">
                           {result.quality.overall_quality}
                         </h3>
                         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                          <div className="rounded-[16px] border border-white/8 bg-white/4 p-4">
-                            <p className="text-sm text-slate-400">Face detection rate</p>
-                            <p className="mt-2 text-3xl font-semibold text-white">
+                          <div className="metric-panel">
+                            <p className="text-sm text-[var(--app-muted)]">Face detection rate</p>
+                            <p className="mt-2 text-3xl font-semibold text-[var(--app-text)]">
                               {Math.round(result.quality.face_detection_rate * 100)}%
                             </p>
                           </div>
-                          <div className="rounded-[16px] border border-white/8 bg-white/4 p-4">
-                            <p className="text-sm text-slate-400">Avg samples / point</p>
-                            <p className="mt-2 text-3xl font-semibold text-white">
+                          <div className="metric-panel">
+                            <p className="text-sm text-[var(--app-muted)]">Avg samples / point</p>
+                            <p className="mt-2 text-3xl font-semibold text-[var(--app-text)]">
                               {result.quality.avg_samples_per_point}
                             </p>
                           </div>
                         </div>
-                        <div className="mt-4 rounded-[16px] border border-white/8 bg-white/4 p-4 text-sm text-slate-300">
+                        <div className="mt-4 rounded-[16px] border bg-[var(--app-panel-muted)] p-4 text-sm text-[var(--app-muted-strong)]">
                           {result.quality.valid_points} of {result.quality.total_points} points reached the required
                           sample threshold.
                         </div>
                         {result.quality.overall_quality === "poor" && (
-                          <div className="mt-4 rounded-[16px] border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-200">
+                          <div className="mt-4 rounded-[16px] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                             Low quality detected. Please ensure your face is visible and well-lit, then retry.
                           </div>
                         )}
@@ -604,10 +604,10 @@ export function CalibrationExperience({
                   )}
                 </div>
 
-                <div className="flex flex-col justify-between rounded-[20px] border border-white/10 bg-white/6 p-5">
+                <div className="flex flex-col justify-between rounded-[20px] border bg-[var(--app-panel-muted)] p-5">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.26em] text-slate-400">Operator Notes</p>
-                    <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
+                    <p className="section-kicker">Operator Notes</p>
+                    <div className="mt-4 space-y-3 text-sm leading-6 text-[var(--app-muted-strong)]">
                       {step === "permission" && (
                         <>
                           <p>Chrome or Edge gives the best local result because FaceDetector support is stronger.</p>
@@ -635,7 +635,7 @@ export function CalibrationExperience({
                     </div>
 
                     {cameraError && (
-                      <div className="mt-5 rounded-[16px] border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+                      <div className="mt-5 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                         {cameraError}
                       </div>
                     )}
@@ -645,7 +645,7 @@ export function CalibrationExperience({
                     {step === "permission" && (
                       <button
                         onClick={requestCameraAccess}
-                        className="w-full rounded-[16px] bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
+                        className="primary-button w-full px-5 py-3"
                       >
                         Allow Camera Access
                       </button>
@@ -654,13 +654,13 @@ export function CalibrationExperience({
                       <button
                         onClick={runCalibration}
                         disabled={!detectionStable || sessionId === null}
-                        className="w-full rounded-[16px] bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-slate-500"
+                        className="primary-button w-full px-5 py-3"
                       >
                         Start Calibration Dots
                       </button>
                     )}
                     {step === "calibration" && (
-                      <div className="rounded-[16px] border border-white/8 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
+                      <div className="rounded-[16px] border bg-white px-4 py-3 text-sm text-[var(--app-muted-strong)]">
                         Recording point {Math.min(activePointIndex + 1, points.length)} of {points.length}
                       </div>
                     )}
@@ -689,14 +689,14 @@ export function CalibrationExperience({
                                 await requestCameraAccess();
                               }
                             }}
-                            className="w-full rounded-[16px] bg-amber-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-200"
+                            className="secondary-button w-full px-5 py-3"
                           >
                             Retry Calibration
                           </button>
                         )}
                         <button
                           onClick={() => onComplete(result)}
-                          className="w-full rounded-[16px] bg-emerald-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200"
+                          className="primary-button w-full px-5 py-3"
                         >
                           Continue to Survey
                         </button>
