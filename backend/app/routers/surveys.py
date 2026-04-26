@@ -181,9 +181,11 @@ async def list_surveys(
     query = select(Survey).where(Survey.researcher_id == researcher.id)
     if status:
         query = query.where(Survey.status == status)
-    count_result = await db.execute(
-        select(func.count(Survey.id)).where(Survey.researcher_id == researcher.id)
-    )
+    count_query = select(func.count(Survey.id)).where(Survey.researcher_id == researcher.id)
+    if status:
+        count_query = count_query.where(Survey.status == status)
+    count_result = await db.execute(count_query)
+    
     result = await db.execute(query.order_by(Survey.created_at.desc()).limit(limit).offset(offset))
     surveys = result.scalars().all()
     return SurveyListOut(items=surveys, total=count_result.scalar() or 0)
