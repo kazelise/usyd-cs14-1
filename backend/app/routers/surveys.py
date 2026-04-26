@@ -571,7 +571,9 @@ async def start_survey(
     survey = result.scalar_one_or_none()
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found or inactive")
-
+    if survey.share_code_expires_at and survey.share_code_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=410, detail="Survey link has expired")
+        
     language_code = normalize_optional_language(body.language) if body and body.language else None
 
     # Resume path: when the client supplies a token from a prior start_survey
