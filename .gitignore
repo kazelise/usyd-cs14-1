@@ -25,3 +25,4 @@ pgdata/
 frontend/tsconfig.tsbuildinfo
 *.next.broken.*
 backend/.venv*/
+.alma-snapshots
