@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { CheckCircleIcon, SurveyIcon } from "@/components/icons";
@@ -15,6 +16,7 @@ export default function NewSurveyPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showCalibrationPreview, setShowCalibrationPreview] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const text =
     locale === "zh"
       ? {
@@ -86,6 +88,20 @@ export default function NewSurveyPage() {
           irisDemoCopy: "Real-time face mesh & gaze visualization",
         };
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!showCalibrationPreview) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showCalibrationPreview]);
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -109,8 +125,8 @@ export default function NewSurveyPage() {
 
   // Full-screen calibration preview
   if (showCalibrationPreview) {
-    return (
-      <div className="fixed inset-0 z-[320]">
+    const preview = (
+      <div className="fixed inset-0 z-[999] overflow-auto bg-[#eef2f7]">
         <CalibrationExperience
           responseId={0}
           onComplete={() => setShowCalibrationPreview(false)}
@@ -123,6 +139,8 @@ export default function NewSurveyPage() {
         </button>
       </div>
     );
+
+    return mounted ? createPortal(preview, document.body) : preview;
   }
 
   return (
