@@ -41,7 +41,15 @@ async function ensureMediaPipeScripts() {
 async function createSharedFaceMesh() {
   await ensureMediaPipeScripts();
   const browserWindow = window as any;
-  const faceMesh = new browserWindow.FaceMesh({
+  const FaceMeshCtor = typeof browserWindow.FaceMesh === "function"
+    ? browserWindow.FaceMesh
+    : browserWindow.FaceMesh?.FaceMesh;
+
+  if (typeof FaceMeshCtor !== "function") {
+    throw new Error("MediaPipe Face Mesh failed to load.");
+  }
+
+  const faceMesh = new FaceMeshCtor({
     locateFile: (file: string) => `${FACE_MESH_BASE_URL}/${file}`,
   });
 
