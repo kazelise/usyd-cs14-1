@@ -31,6 +31,7 @@ export type TemplateDefinition = {
   setup: {
     title: string;
     description: string;
+    platform_style: "x" | "facebook" | "instagram" | "xiaohongshu";
     num_groups: number;
     gaze_tracking_enabled: boolean;
     gaze_interval_ms?: number;
@@ -59,6 +60,7 @@ export const defaultTemplateLibrary: TemplateDefinition[] = [
     setup: {
       title: "News Credibility A/B Study",
       description: "Evaluate how visible social proof changes click behaviour and trust ratings across equivalent news posts.",
+      platform_style: "x",
       num_groups: 2,
       gaze_tracking_enabled: true,
       click_tracking_enabled: true,
@@ -85,6 +87,7 @@ export const defaultTemplateLibrary: TemplateDefinition[] = [
     setup: {
       title: "Source Trust Perception Study",
       description: "Measure how source labels and branding affect engagement and perceived credibility.",
+      platform_style: "facebook",
       num_groups: 2,
       gaze_tracking_enabled: true,
       click_tracking_enabled: true,
@@ -111,6 +114,7 @@ export const defaultTemplateLibrary: TemplateDefinition[] = [
     setup: {
       title: "Health Misinformation Response Study",
       description: "Track participant reactions to health claims with varied headline framing and social proof conditions.",
+      platform_style: "xiaohongshu",
       num_groups: 3,
       gaze_tracking_enabled: true,
       click_tracking_enabled: true,
@@ -141,6 +145,7 @@ export const defaultTemplateLibrary: TemplateDefinition[] = [
     setup: {
       title: "Sponsored Post Recall Study",
       description: "Measure recall, click behaviour, and participant sentiment for sponsored content in-feed.",
+      platform_style: "instagram",
       num_groups: 1,
       gaze_tracking_enabled: false,
       click_tracking_enabled: true,
@@ -180,6 +185,7 @@ export function buildTemplateFromSurvey(input: {
     id: number;
     title: string;
     description?: string | null;
+    platform_style?: "x" | "facebook" | "instagram" | "xiaohongshu";
     num_groups: number;
     gaze_tracking_enabled?: boolean;
     gaze_interval_ms?: number;
@@ -216,6 +222,7 @@ export function buildTemplateFromSurvey(input: {
     setup: {
       title: survey.title,
       description: survey.description || "",
+      platform_style: survey.platform_style ?? "x",
       num_groups: survey.num_groups,
       gaze_tracking_enabled: survey.gaze_tracking_enabled ?? true,
       gaze_interval_ms: survey.gaze_interval_ms ?? 1000,

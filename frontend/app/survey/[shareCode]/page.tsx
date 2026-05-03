@@ -9,6 +9,136 @@ import { CheckCircleIcon, GlobeIcon, LinkIcon, SurveyIcon, UsersIcon } from "@/c
 import { CalibrationExperience } from "@/components/calibration-experience";
 import { useGazeTracker } from "./useGazeTracker";
 
+type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
+
+const PLATFORM_FEED_STYLES: Record<
+  PlatformStyle,
+  {
+    name: string;
+    pageClass: string;
+    accentTextClass: string;
+    accentBgClass: string;
+    progressClass: string;
+    cardClass: string;
+    headerClass: string;
+    avatarClass: string;
+    badgeClass: string;
+    imageWrapClass: string;
+    imageClass: string;
+    moreInfoButtonClass: string;
+    engagementClass: string;
+    actionGridClass: string;
+    actionButtonClass: string;
+    activeActionClass: string;
+    commentCardClass: string;
+    participantCommentClass: string;
+  }
+> = {
+  x: {
+    name: "X",
+    pageClass: "bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)]",
+    accentTextClass: "text-slate-900",
+    accentBgClass: "bg-slate-900",
+    progressClass: "bg-slate-900",
+    cardClass: "overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm",
+    headerClass: "border-b border-slate-200 bg-white px-6 py-4",
+    avatarClass: "flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-[13px] font-semibold text-white",
+    badgeClass: "inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600",
+    imageWrapClass: "border-b border-slate-200 bg-slate-100",
+    imageClass: "h-72 w-full object-cover",
+    moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-[13px] font-semibold text-slate-700 transition hover:border-slate-900/30 hover:bg-slate-100",
+    engagementClass: "flex flex-wrap items-center gap-6 border-t border-slate-200 bg-white px-6 py-4 text-[13px] text-slate-500",
+    actionGridClass: "grid border-t border-slate-200 text-[13px] md:grid-cols-3",
+    actionButtonClass: "border-slate-200 px-4 py-4 font-semibold text-slate-600 transition hover:bg-slate-50",
+    activeActionClass: "bg-slate-900 text-white hover:bg-slate-800",
+    commentCardClass: "rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4",
+    participantCommentClass: "rounded-[18px] border border-slate-300 bg-white px-4 py-4",
+  },
+  facebook: {
+    name: "Facebook",
+    pageClass: "bg-[linear-gradient(180deg,#f3f7ff_0%,#e9eef7_100%)]",
+    accentTextClass: "text-[#1877f2]",
+    accentBgClass: "bg-[#1877f2]",
+    progressClass: "bg-[#1877f2]",
+    cardClass: "overflow-hidden rounded-[18px] border border-blue-100 bg-white shadow-[0_16px_42px_rgba(24,119,242,0.10)]",
+    headerClass: "border-b border-blue-50 bg-white px-6 py-4",
+    avatarClass: "flex h-11 w-11 items-center justify-center rounded-full bg-[#1877f2] text-[13px] font-semibold text-white",
+    badgeClass: "inline-flex rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1877f2]",
+    imageWrapClass: "border-b border-blue-50 bg-blue-50",
+    imageClass: "h-72 w-full object-cover",
+    moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-[12px] border border-blue-100 bg-blue-50 px-3 py-2 text-[13px] font-semibold text-[#1877f2] transition hover:bg-blue-100",
+    engagementClass: "flex flex-wrap items-center gap-6 border-t border-blue-50 bg-blue-50/50 px-6 py-4 text-[13px] text-slate-600",
+    actionGridClass: "grid border-t border-blue-50 text-[13px] md:grid-cols-3",
+    actionButtonClass: "border-blue-50 px-4 py-4 font-semibold text-slate-600 transition hover:bg-blue-50",
+    activeActionClass: "bg-[#1877f2] text-white hover:bg-[#1668d8]",
+    commentCardClass: "rounded-[18px] border border-blue-100 bg-blue-50/60 px-4 py-4",
+    participantCommentClass: "rounded-[18px] border border-blue-200 bg-white px-4 py-4",
+  },
+  instagram: {
+    name: "Instagram",
+    pageClass: "bg-[linear-gradient(180deg,#fff7fb_0%,#f5f5f7_100%)]",
+    accentTextClass: "text-[#c13584]",
+    accentBgClass: "bg-[#c13584]",
+    progressClass: "bg-[linear-gradient(90deg,#f58529_0%,#dd2a7b_48%,#515bd4_100%)]",
+    cardClass: "overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-[0_18px_46px_rgba(193,53,132,0.10)]",
+    headerClass: "border-b border-slate-100 bg-white px-6 py-4",
+    avatarClass: "flex h-11 w-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f58529,#dd2a7b,#515bd4)] text-[13px] font-semibold text-white",
+    badgeClass: "inline-flex rounded-[8px] bg-pink-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c13584]",
+    imageWrapClass: "bg-black",
+    imageClass: "max-h-[520px] w-full object-cover",
+    moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-[10px] border border-pink-100 bg-pink-50 px-3 py-2 text-[13px] font-semibold text-[#c13584] transition hover:bg-pink-100",
+    engagementClass: "flex flex-wrap items-center gap-6 border-t border-slate-100 bg-white px-6 py-4 text-[13px] text-slate-600",
+    actionGridClass: "grid border-t border-slate-100 text-[13px] md:grid-cols-3",
+    actionButtonClass: "border-slate-100 px-4 py-4 font-semibold text-slate-700 transition hover:bg-pink-50",
+    activeActionClass: "bg-[#c13584] text-white hover:bg-[#a62b70]",
+    commentCardClass: "rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-4",
+    participantCommentClass: "rounded-[12px] border border-pink-200 bg-pink-50/40 px-4 py-4",
+  },
+  xiaohongshu: {
+    name: "Xiaohongshu",
+    pageClass: "bg-[linear-gradient(180deg,#fff8f8_0%,#f7f2f0_100%)]",
+    accentTextClass: "text-[#ff2442]",
+    accentBgClass: "bg-[#ff2442]",
+    progressClass: "bg-[#ff2442]",
+    cardClass: "overflow-hidden rounded-[20px] border border-rose-100 bg-white shadow-[0_18px_46px_rgba(255,36,66,0.10)]",
+    headerClass: "border-b border-rose-50 bg-white px-5 py-4",
+    avatarClass: "flex h-10 w-10 items-center justify-center rounded-full bg-[#ff2442] text-[13px] font-semibold text-white",
+    badgeClass: "inline-flex rounded-full bg-rose-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#ff2442]",
+    imageWrapClass: "bg-rose-50 px-4 pt-4",
+    imageClass: "max-h-[520px] w-full rounded-[16px] object-cover",
+    moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-rose-100 bg-rose-50 px-3 py-2 text-[13px] font-semibold text-[#ff2442] transition hover:bg-rose-100",
+    engagementClass: "flex flex-wrap items-center gap-6 border-t border-rose-50 bg-rose-50/45 px-6 py-4 text-[13px] text-slate-600",
+    actionGridClass: "grid border-t border-rose-50 text-[13px] md:grid-cols-3",
+    actionButtonClass: "border-rose-50 px-4 py-4 font-semibold text-slate-700 transition hover:bg-rose-50",
+    activeActionClass: "bg-[#ff2442] text-white hover:bg-[#e01f39]",
+    commentCardClass: "rounded-[16px] border border-rose-100 bg-rose-50/50 px-4 py-4",
+    participantCommentClass: "rounded-[16px] border border-rose-200 bg-white px-4 py-4",
+  },
+};
+
+function getPlatformFeedStyle(style?: string | null) {
+  return PLATFORM_FEED_STYLES[(style as PlatformStyle) || "x"] ?? PLATFORM_FEED_STYLES.x;
+}
+
+function getPlatformActionLabels(style: PlatformStyle, locale: Locale) {
+  if (style === "x") {
+    return locale === "zh"
+      ? { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" }
+      : { like: "Like", liked: "Liked", comment: "Reply", share: "Repost" };
+  }
+  if (style === "xiaohongshu") {
+    return locale === "zh"
+      ? { like: "赞", liked: "已赞", comment: "评论", share: "收藏" }
+      : { like: "Like", liked: "Liked", comment: "Comment", share: "Collect" };
+  }
+  return {
+    like: t(locale, "like"),
+    liked: t(locale, "liked"),
+    comment: t(locale, "comment"),
+    share: t(locale, "share"),
+  };
+}
+
 interface Comment {
   id: number;
   author_name: string;
@@ -52,6 +182,7 @@ interface SurveySession {
   participant_token: string;
   survey_id: number;
   assigned_group: number;
+  platform_style: PlatformStyle;
   calibration_required: boolean;
   calibration_points: number;
   calibration_completed: boolean;
@@ -322,14 +453,17 @@ export default function SurveyParticipantPage() {
     locale === "zh"
       ? `已记录交互标记，覆盖 ${totalPosts} 条帖子`
       : `Interaction markers recorded across ${totalPosts} posts`;
+  const platformStyle = (session.platform_style || "x") as PlatformStyle;
+  const platform = getPlatformFeedStyle(platformStyle);
+  const platformActionLabels = getPlatformActionLabels(platformStyle, locale);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(0,167,160,0.10),_transparent_24%),linear-gradient(180deg,#f7fafc_0%,#edf3f8_100%)]">
+    <div className={`min-h-screen ${platform.pageClass}`}>
       <div className="border-b border-slate-200 bg-white/85 backdrop-blur">
         <div className="mx-auto flex max-w-[1560px] flex-col gap-4 px-4 py-4 lg:px-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00a7a0]">{t(locale, "surveySession")}</p>
+              <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${platform.accentTextClass}`}>{t(locale, "surveySession")}</p>
               <h1 className="mt-2 text-[28px] font-semibold tracking-[-0.05em] text-[#163047]">{t(locale, "participantResponseExperience")}</h1>
               <p className="mt-1 text-[14px] leading-7 text-slate-500">{t(locale, "participantResponseCopy")}</p>
             </div>
@@ -337,6 +471,9 @@ export default function SurveyParticipantPage() {
             <div className="flex flex-wrap items-center gap-3">
               <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-[13px] text-slate-600">
                 {t(locale, "assignedGroup")} {session.assigned_group}
+              </div>
+              <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[13px] text-slate-600">
+                {platform.name} feed
               </div>
               <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-4 py-2">
                 <GlobeIcon className="h-4 w-4 text-slate-500" />
@@ -364,7 +501,7 @@ export default function SurveyParticipantPage() {
               </div>
               <div className="h-3 overflow-hidden rounded-full bg-slate-200">
                 <div
-                  className="h-full rounded-full bg-[linear-gradient(90deg,#00a7a0_0%,#0f83a0_100%)] transition-all"
+                  className={`h-full rounded-full transition-all ${platform.progressClass}`}
                   style={{ width: `${progressValue}%` }}
                 />
               </div>
@@ -380,10 +517,10 @@ export default function SurveyParticipantPage() {
         <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
           <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
             <div className="surface-panel-soft px-6 py-6">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#0f3146] text-white">
+              <div className={`flex h-12 w-12 items-center justify-center rounded-[16px] text-white ${platform.accentBgClass}`}>
                 <SurveyIcon className="h-5 w-5" />
               </div>
-              <p className="section-kicker mt-6 text-[#00a7a0]">{t(locale, "surveyContext")}</p>
+              <p className={`section-kicker mt-6 ${platform.accentTextClass}`}>{t(locale, "surveyContext")}</p>
               <h2 className="section-title mt-3 md:text-[24px]">{t(locale, "participantFeed")}</h2>
               <p className="mt-4 text-[14px] leading-7 text-slate-500">{t(locale, "participantFeedCopy")}</p>
 
@@ -410,7 +547,7 @@ export default function SurveyParticipantPage() {
             </div>
 
             <div className="surface-panel-soft px-6 py-6">
-              <p className="section-kicker text-[#00a7a0]">{t(locale, "sessionSnapshot")}</p>
+              <p className={`section-kicker ${platform.accentTextClass}`}>{t(locale, "sessionSnapshot")}</p>
               <div className="mt-5 space-y-4 text-[14px] leading-7 text-slate-500">
                 <p>{t(locale, "assignedGroup")}: <span className="font-medium text-[#163047]">{session.assigned_group}</span></p>
                 <p>{t(locale, "clickTracking")}: <span className="font-medium text-[#163047]">{session.click_tracking_enabled ? t(locale, "on") : t(locale, "off")}</span></p>
@@ -423,7 +560,7 @@ export default function SurveyParticipantPage() {
           <main className="space-y-6">
             <div className="surface-panel-soft flex flex-col gap-3 px-6 py-5 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="section-kicker text-[#00a7a0]">{t(locale, "studyInstructions")}</p>
+                <p className={`section-kicker ${platform.accentTextClass}`}>{t(locale, "studyInstructions")}</p>
                 <p className="mt-2 text-[14px] leading-7 text-slate-500">{t(locale, "studyInstructionsCopy")}</p>
               </div>
               <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-[13px] text-slate-600">
@@ -433,7 +570,7 @@ export default function SurveyParticipantPage() {
 
             {session.questions && session.questions.length > 0 && (
               <div className="surface-panel-soft space-y-4 px-5 py-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00a7a0]">{t(locale, "questionBlock")}</p>
+                <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${platform.accentTextClass}`}>{t(locale, "questionBlock")}</p>
                 {session.questions
                   .sort((a, b) => a.order - b.order)
                   .map((q) => {
@@ -556,10 +693,10 @@ export default function SurveyParticipantPage() {
                   post.display_comments_count + post.comments.length + (participantComments[post.id]?.length || 0);
 
                 return (
-                  <div key={post.id} data-post-id={post.id} className="surface-panel overflow-hidden border-slate-200">
-                    <div className="border-b border-slate-200 bg-[#fbfdff] px-6 py-4">
+                  <div key={post.id} data-post-id={post.id} className={platform.cardClass}>
+                    <div className={platform.headerClass}>
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[13px] font-semibold text-slate-500">
+                        <div className={platform.avatarClass}>
                           {source.charAt(0).toUpperCase()}
                         </div>
                         <div>
@@ -571,13 +708,13 @@ export default function SurveyParticipantPage() {
 
                     <div className="cursor-pointer bg-white" data-track="headline" onClick={() => handleClickPost(post.id, post.original_url)}>
                       {imageUrl && (
-                        <div data-track="image" className="border-b border-slate-200 bg-slate-100">
-                          <img src={imageUrl} alt="" className="h-72 w-full object-cover" />
+                        <div data-track="image" className={platform.imageWrapClass}>
+                          <img src={imageUrl} alt="" className={platform.imageClass} />
                         </div>
                       )}
                       <div className="px-6 py-6">
-                        <div className="inline-flex rounded-full bg-[#effcfb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#00847f]">
-                          {t(locale, "externalContent")}
+                        <div className={platform.badgeClass}>
+                          {platform.name} · {t(locale, "externalContent")}
                         </div>
                         <h2 className="mt-4 text-[24px] font-semibold leading-tight tracking-[-0.05em] text-[#163047] md:text-[28px]">{title}</h2>
                         {description && (
@@ -587,7 +724,7 @@ export default function SurveyParticipantPage() {
                         )}
                         <button
                           type="button"
-                          className="mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] font-semibold text-slate-600 transition hover:border-[#00a7a0]/40 hover:bg-[#effcfb] hover:text-[#00847f]"
+                          className={platform.moreInfoButtonClass}
                           onClick={(event) => {
                             event.stopPropagation();
                             handleClickPost(post.id, post.original_url);
@@ -599,28 +736,28 @@ export default function SurveyParticipantPage() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-6 border-t border-slate-200 bg-[#fbfdff] px-6 py-4 text-[13px] text-slate-500">
+                    <div className={platform.engagementClass}>
                       {post.show_likes && <span>{(post.display_likes + (isLiked ? 1 : 0)).toLocaleString()} {t(locale, "likesLabel")}</span>}
                       {post.show_comments && <span>{commentCount} {t(locale, "comments")}</span>}
                       {post.show_shares && <span>{post.display_shares} {t(locale, "shares")}</span>}
                     </div>
 
-                    <div className="grid border-t border-slate-200 text-[13px] md:grid-cols-3">
+                    <div className={platform.actionGridClass}>
                       <button
                         data-track="like"
                         onClick={() => handleLike(post.id)}
-                        className={`px-4 py-4 font-semibold transition ${
-                          isLiked ? "bg-[#0f3146] text-white hover:bg-[#183e59]" : "text-slate-600 hover:bg-slate-50"
+                        className={`${platform.actionButtonClass} ${
+                          isLiked ? platform.activeActionClass : ""
                         }`}
                       >
-                        {isLiked ? t(locale, "liked") : t(locale, "like")}
+                        {isLiked ? platformActionLabels.liked : platformActionLabels.like}
                       </button>
                       <button
                         data-track="comment"
                         onClick={() => setShowCommentInput(showCommentInput === post.id ? null : post.id)}
-                        className="border-t border-slate-200 px-4 py-4 font-semibold text-slate-600 transition hover:bg-slate-50 md:border-l md:border-t-0"
+                        className={`${platform.actionButtonClass} border-t md:border-l md:border-t-0`}
                       >
-                        {t(locale, "comment")}
+                        {platformActionLabels.comment}
                       </button>
                       <button
                         data-track="share"
@@ -630,9 +767,9 @@ export default function SurveyParticipantPage() {
                             .recordInteraction(session.response_id, { post_id: post.id, action_type: "share" })
                             .catch((err: any) => setActionError(err.message || t(locale, "networkRequestFailed")));
                         }}
-                        className="border-t border-slate-200 px-4 py-4 font-semibold text-slate-600 transition hover:bg-slate-50 md:border-l md:border-t-0"
+                        className={`${platform.actionButtonClass} border-t md:border-l md:border-t-0`}
                       >
-                        {t(locale, "share")}
+                        {platformActionLabels.share}
                       </button>
                     </div>
 
@@ -641,17 +778,17 @@ export default function SurveyParticipantPage() {
                         <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{t(locale, "commentThread")}</p>
                         <div className="space-y-3">
                           {post.comments.map((comment) => (
-                            <div key={`r-${comment.id}`} className="rounded-[18px] border border-slate-200 bg-[#f8fbfd] px-4 py-4">
+                            <div key={`r-${comment.id}`} className={platform.commentCardClass}>
                               <p className="text-[13px] font-semibold text-[#163047]">{comment.author_name}</p>
                               <p className="mt-1 text-[13px] leading-6 text-slate-600">{comment.text}</p>
                             </div>
                           ))}
 
                           {(participantComments[post.id] || []).map((comment) => (
-                            <div key={`p-${comment.id}`} className="rounded-[18px] border border-[#bce7e4] bg-[#f4fffe] px-4 py-4">
+                            <div key={`p-${comment.id}`} className={platform.participantCommentClass}>
                               <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1">
-                                  <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#00847f]">{t(locale, "yourResponse")}</p>
+                                  <p className={`text-[12px] font-semibold uppercase tracking-[0.16em] ${platform.accentTextClass}`}>{t(locale, "yourResponse")}</p>
                                   <input
                                     className="mt-2 w-full border-0 bg-transparent p-0 text-[13px] leading-6 text-slate-600 outline-none"
                                     value={comment.text}
@@ -678,7 +815,7 @@ export default function SurveyParticipantPage() {
                                   />
                                 </div>
                                 <button
-                                  className="rounded-full border border-[#bce7e4] px-3 py-1 text-[11px] font-medium text-[#00847f] transition hover:bg-[#e8fbfa]"
+                                  className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
                                   onClick={async () => {
                                     try {
                                       setActionError("");
@@ -702,7 +839,7 @@ export default function SurveyParticipantPage() {
                     )}
 
                     {showCommentInput === post.id && (
-                      <div className="border-t border-slate-200 bg-[#fbfdff] px-6 py-5">
+                      <div className="border-t border-slate-200 bg-white px-6 py-5">
                         <div className="flex flex-col gap-3 md:flex-row">
                           <input
                             type="text"
@@ -720,8 +857,8 @@ export default function SurveyParticipantPage() {
                   )}
 
                   {post.questions && post.questions.length > 0 && (
-                    <div className="space-y-4 border-t border-slate-200 bg-[#fbfdff] px-5 py-5">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#00a7a0]">{t(locale, "questionBlock")}</p>
+                    <div className="space-y-4 border-t border-slate-200 bg-white px-5 py-5">
+                      <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${platform.accentTextClass}`}>{t(locale, "questionBlock")}</p>
                       {post.questions
                           .sort((a, b) => a.order - b.order)
                           .map((q) => {
@@ -852,22 +989,22 @@ export default function SurveyParticipantPage() {
 
           <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
             <div className="surface-panel-soft px-6 py-6">
-              <p className="section-kicker text-[#00a7a0]">{t(locale, "progress")}</p>
+              <p className={`section-kicker ${platform.accentTextClass}`}>{t(locale, "progress")}</p>
               <p className="mt-3 text-[32px] font-semibold tracking-[-0.06em] text-[#163047]">
                 {Math.min(totalPosts, Math.max(0, interactedPosts))}
               </p>
               <p className="mt-2 text-[13px] leading-6 text-slate-500">{recordedAcrossSummary}</p>
               <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
-                <div className="h-full rounded-full bg-[linear-gradient(90deg,#00a7a0_0%,#0f83a0_100%)]" style={{ width: `${progressValue}%` }} />
+                <div className={`h-full rounded-full ${platform.progressClass}`} style={{ width: `${progressValue}%` }} />
               </div>
             </div>
 
             <div className="surface-panel-soft px-6 py-6">
-              <p className="section-kicker text-[#00a7a0]">{t(locale, "researchNotes")}</p>
+              <p className={`section-kicker ${platform.accentTextClass}`}>{t(locale, "researchNotes")}</p>
               <div className="mt-5 space-y-4">
                 {researchNotes.map((item) => (
                   <div key={item} className="flex gap-3">
-                    <CheckCircleIcon className="mt-0.5 h-4 w-4 text-[#00a7a0]" />
+                    <CheckCircleIcon className={`mt-0.5 h-4 w-4 ${platform.accentTextClass}`} />
                     <p className="text-[14px] leading-7 text-slate-500">{item}</p>
                   </div>
                 ))}

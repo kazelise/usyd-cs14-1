@@ -7,11 +7,21 @@ import { api } from "@/lib/api";
 import { CheckCircleIcon, SurveyIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
 
+type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
+
+const PLATFORM_OPTIONS: { value: PlatformStyle; label: string }[] = [
+  { value: "x", label: "X" },
+  { value: "facebook", label: "Facebook" },
+  { value: "instagram", label: "Instagram" },
+  { value: "xiaohongshu", label: "Xiaohongshu" },
+];
+
 export default function NewSurveyPage() {
   const router = useRouter();
   const locale: string = "en";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [platformStyle, setPlatformStyle] = useState<PlatformStyle>("x");
   const [numGroups, setNumGroups] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -29,6 +39,8 @@ export default function NewSurveyPage() {
           internalDescription: "内部说明",
           internalDescriptionPlaceholder: "为你的团队记录研究目标、目标受众或实验备注。",
           numGroups: "A/B 分组数量",
+          platformStyle: "参与者信息流样式",
+          platformStyleCopy: "选择参与者看到的信息流外观；后续还可以在问卷工作台修改。",
           oneGroup: "1 组 · 不做 A/B 测试",
           assignedRandomly: "参与者打开实验链接时会被随机分配到已配置分组。",
           sameFeed: "所有参与者都会看到相同的帖子信息流和互动数值。",
@@ -63,6 +75,8 @@ export default function NewSurveyPage() {
           internalDescription: "Internal description",
           internalDescriptionPlaceholder: "Describe the study objective, target audience, or research notes for your team.",
           numGroups: "Number of A/B groups",
+          platformStyle: "Participant feed style",
+          platformStyleCopy: "Choose the social-feed look participants will see. You can change it later in the survey workspace.",
           oneGroup: "1 group · no A/B testing",
           assignedRandomly: "Participants will be randomly assigned to a configured group when they open the study link.",
           sameFeed: "All participants will view the same post feed and engagement values.",
@@ -108,9 +122,10 @@ export default function NewSurveyPage() {
     setError("");
     try {
       const survey = await api.createSurvey({
-        title,
-        description: description || null,
-        num_groups: numGroups,
+          title,
+          description: description || null,
+          platform_style: platformStyle,
+          num_groups: numGroups,
         gaze_tracking_enabled: true,
         click_tracking_enabled: true,
         calibration_enabled: true,
@@ -178,6 +193,22 @@ export default function NewSurveyPage() {
             </div>
 
             <div>
+              <label className="mb-2 block text-[14px] font-medium text-slate-600">{text.platformStyle}</label>
+              <select
+                value={platformStyle}
+                onChange={(e) => setPlatformStyle(e.target.value as PlatformStyle)}
+                className="field-input h-12"
+              >
+                {PLATFORM_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-[13px] leading-6 text-slate-500">{text.platformStyleCopy}</p>
+            </div>
+
+            <div>
               <label className="mb-2 block text-[14px] font-medium text-slate-600">{text.numGroups}</label>
               <select
                 value={numGroups}
@@ -201,12 +232,12 @@ export default function NewSurveyPage() {
 
           <div className="mt-auto pt-8">
             <div className="flex flex-col gap-3 sm:flex-row">
-            <button type="submit" disabled={loading} className="primary-button min-w-[148px]">
-              {loading ? text.creating : text.createSurvey}
-            </button>
-            <button type="button" onClick={() => router.push("/admin/surveys")} className="secondary-button">
-              {text.back}
-            </button>
+              <button type="submit" disabled={loading} className="primary-button min-w-[148px]">
+                {loading ? text.creating : text.createSurvey}
+              </button>
+              <button type="button" onClick={() => router.push("/admin/surveys")} className="secondary-button">
+                {text.back}
+              </button>
             </div>
           </div>
         </form>
