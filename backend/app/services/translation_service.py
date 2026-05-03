@@ -77,9 +77,7 @@ def translation_value(fields: dict[str, Any], field: str, default: Any = "") -> 
     return default if value is None else value
 
 
-def build_translation_export_payload(
-    survey: Survey, language_code: str = "zh"
-) -> dict[str, Any]:
+def build_translation_export_payload(survey: Survey, language_code: str = "zh") -> dict[str, Any]:
     """Build a stable translation template for one target language."""
     language_code = validate_language_code(language_code)
     items = build_translation_items(survey, language_code)
@@ -205,7 +203,9 @@ def build_translation_items(survey: Survey, language_code: str) -> list[dict[str
             )
 
         for question in sorted(getattr(post, "questions", []) or [], key=lambda item: item.order):
-            items.extend(build_question_translation_items(question, survey.id, post.id, language_code))
+            items.extend(
+                build_question_translation_items(question, survey.id, post.id, language_code)
+            )
     return items
 
 
@@ -353,7 +353,11 @@ def parse_csv_translation_import(
     csv_text: str, *, language_override: str | None = None
 ) -> tuple[str, dict[str, Any]]:
     reader = csv.DictReader(io.StringIO(csv_text))
-    if not reader.fieldnames or "key" not in reader.fieldnames or "translation" not in reader.fieldnames:
+    if (
+        not reader.fieldnames
+        or "key" not in reader.fieldnames
+        or "translation" not in reader.fieldnames
+    ):
         raise HTTPException(
             status_code=400,
             detail="Translation CSV must include key and translation columns",
@@ -678,7 +682,9 @@ def apply_translations_to_post(
         comment.author_name = translated_or_fallback(
             stored_comment, "author_name", comment.author_name, comment_fallbacks
         )
-        comment.text = translated_or_fallback(stored_comment, "text", comment.text, comment_fallbacks)
+        comment.text = translated_or_fallback(
+            stored_comment, "text", comment.text, comment_fallbacks
+        )
         comment.language = language_code
         comment.fallback_language = DEFAULT_LANGUAGE_CODE
         comment.translation_fallbacks = comment_fallbacks
@@ -686,10 +692,14 @@ def apply_translations_to_post(
     post.comments = translated_comments
 
     translated_questions: list[QuestionOut] = []
-    source_questions = {question.id: question for question in getattr(source_post, "questions", []) or []}
+    source_questions = {
+        question.id: question for question in getattr(source_post, "questions", []) or []
+    }
     for question in post.questions:
         source_question = source_questions.get(question.id)
-        translated_questions.append(apply_translations_to_question(question, source_question, language_code))
+        translated_questions.append(
+            apply_translations_to_question(question, source_question, language_code)
+        )
     post.questions = translated_questions
     post.language = language_code
     post.fallback_language = DEFAULT_LANGUAGE_CODE
@@ -712,7 +722,9 @@ def apply_translations_to_question(
         getattr(source_question, "translations", []) if source_question else [], language_code
     )
     question_fallbacks: list[str] = []
-    question.text = translated_or_fallback(question_fields, "text", question.text, question_fallbacks)
+    question.text = translated_or_fallback(
+        question_fields, "text", question.text, question_fallbacks
+    )
     question.config = translated_or_fallback(
         question_fields, "config", question.config, question_fallbacks
     )

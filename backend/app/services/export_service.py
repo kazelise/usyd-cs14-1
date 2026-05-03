@@ -214,9 +214,7 @@ def build_export_payload(
             {
                 "survey_id": survey.id,
                 "response_id": response.id,
-                "participant_id": anonymous_participant_id(
-                    response.participant_token, response.id
-                ),
+                "participant_id": anonymous_participant_id(response.participant_token, response.id),
                 "assigned_group": response.assigned_group,
                 "language": response.language,
                 "response_status": response.status,

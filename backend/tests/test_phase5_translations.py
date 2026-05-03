@@ -274,9 +274,7 @@ async def test_import_translation_json_validates_and_upserts_rows():
     survey = make_translation_survey()
     payload = {"language_code": "zh", "translations": filled_translation_entries(survey)}
 
-    result = await import_translation_payload(
-        ImportDB(), survey, payload, payload_format="json"
-    )
+    result = await import_translation_payload(ImportDB(), survey, payload, payload_format="json")
 
     assert result["language_code"] == "zh"
     assert result["translation_rows"] == 3
@@ -315,9 +313,7 @@ async def test_import_translation_csv_validates_and_upserts_rows():
         item["translation"] = entries[item["key"]]
     csv_text = translation_payload_to_csv(payload)
 
-    result = await import_translation_payload(
-        ImportDB(), survey, csv_text, payload_format="csv"
-    )
+    result = await import_translation_payload(ImportDB(), survey, csv_text, payload_format="csv")
 
     assert result["translation_rows"] == 3
     assert survey.posts[0].translations[0].translated_fields["more_info_label"] == (
@@ -345,9 +341,7 @@ async def test_start_survey_returns_translated_posts_questions_and_saves_languag
     survey = make_translation_survey(with_translations=True)
     db = StartSurveyDB(survey)
 
-    response = await start_survey(
-        "phase5-share", StartSurveyRequest(language="zh"), db
-    )
+    response = await start_survey("phase5-share", StartSurveyRequest(language="zh"), db)
 
     created_response = db.added[0]
     post = response.posts[0]
@@ -377,9 +371,7 @@ async def test_start_survey_missing_translation_falls_back_safely(monkeypatch):
     ]
     db = StartSurveyDB(survey)
 
-    response = await start_survey(
-        "phase5-share", StartSurveyRequest(language="zh"), db
-    )
+    response = await start_survey("phase5-share", StartSurveyRequest(language="zh"), db)
 
     post = response.posts[0]
     assert post.display_title == "只有标题"

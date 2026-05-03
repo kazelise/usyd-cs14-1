@@ -85,9 +85,7 @@ async def create_calibration_session(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a calibration session when participant begins webcam calibration."""
-    response = await get_active_response_or_404(
-        body.response_id, body.participant_token, db
-    )
+    response = await get_active_response_or_404(body.response_id, body.participant_token, db)
 
     existing = await db.execute(
         select(CalibrationSession).where(CalibrationSession.response_id == body.response_id)
@@ -113,9 +111,7 @@ async def create_calibration_session(
         await db.flush()
     except IntegrityError as exc:
         await db.rollback()
-        raise HTTPException(
-            status_code=409, detail="Calibration session already exists"
-        ) from exc
+        raise HTTPException(status_code=409, detail="Calibration session already exists") from exc
     await db.refresh(session)
     return CalibrationSessionOut(
         session_id=session.id,
@@ -265,9 +261,7 @@ async def complete_calibration(
 @router.post("/gaze", response_model=GazeBatchOut)
 async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(get_db)):
     """Record a batch of gaze data points. Frontend sends these every 5-10 seconds."""
-    response = await get_active_response_or_404(
-        body.response_id, body.participant_token, db
-    )
+    response = await get_active_response_or_404(body.response_id, body.participant_token, db)
     await validate_post_ids_for_response(
         response, {g.post_id for g in body.data if g.post_id is not None}, db
     )
@@ -295,9 +289,7 @@ async def record_gaze_batch(body: GazeBatchRequest, db: AsyncSession = Depends(g
 @router.post("/clicks", response_model=ClickBatchOut)
 async def record_click_batch(body: ClickBatchRequest, db: AsyncSession = Depends(get_db)):
     """Record a batch of mouse click events."""
-    response = await get_active_response_or_404(
-        body.response_id, body.participant_token, db
-    )
+    response = await get_active_response_or_404(body.response_id, body.participant_token, db)
     await validate_post_ids_for_response(
         response, {c.post_id for c in body.data if c.post_id is not None}, db
     )

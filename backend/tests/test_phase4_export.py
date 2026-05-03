@@ -282,7 +282,9 @@ def test_export_filters_match_condition_language_status_and_calibration():
     failed_calibration = make_response(
         105, group=2, language="zh", status="completed", calibration_passed=False
     )
-    filters = ExportFilters(condition=2, language="zh", response_status="completed", calibration_passed=True)
+    filters = ExportFilters(
+        condition=2, language="zh", response_status="completed", calibration_passed=True
+    )
 
     assert response_matches_filters(matching, filters) is True
     assert response_matches_filters(wrong_group, filters) is False

@@ -7,9 +7,9 @@ Create Date: 2026-04-25 00:00:00.000000
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "20260425_0001"
 down_revision: str | None = None
@@ -58,9 +58,7 @@ def _create_index_if_missing(
         op.create_index(index_name, table_name, columns, unique=unique)
 
 
-def _create_unique_if_missing(
-    constraint_name: str, table_name: str, columns: list[str]
-) -> None:
+def _create_unique_if_missing(constraint_name: str, table_name: str, columns: list[str]) -> None:
     if not _constraint_exists(table_name, constraint_name):
         op.create_unique_constraint(constraint_name, table_name, columns)
 
@@ -118,10 +116,16 @@ def _create_core_tables() -> None:
             sa.Column("share_code_expires_at", sa.DateTime(), nullable=True),
             sa.Column("num_groups", sa.SmallInteger(), server_default="1", nullable=False),
             sa.Column("group_names", sa.JSON(), nullable=True),
-            sa.Column("gaze_tracking_enabled", sa.Boolean(), server_default=sa.true(), nullable=False),
+            sa.Column(
+                "gaze_tracking_enabled", sa.Boolean(), server_default=sa.true(), nullable=False
+            ),
             sa.Column("gaze_interval_ms", sa.Integer(), server_default="1000", nullable=False),
-            sa.Column("click_tracking_enabled", sa.Boolean(), server_default=sa.true(), nullable=False),
-            sa.Column("calibration_enabled", sa.Boolean(), server_default=sa.true(), nullable=False),
+            sa.Column(
+                "click_tracking_enabled", sa.Boolean(), server_default=sa.true(), nullable=False
+            ),
+            sa.Column(
+                "calibration_enabled", sa.Boolean(), server_default=sa.true(), nullable=False
+            ),
             sa.Column("calibration_points", sa.SmallInteger(), server_default="9", nullable=False),
             sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
             sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
@@ -201,7 +205,9 @@ def _create_core_tables() -> None:
             sa.Column("language", sa.String(length=10), nullable=True),
             sa.Column("participant_fingerprint", sa.String(length=128), nullable=True),
             sa.Column("status", sa.String(length=20), server_default="in_progress", nullable=False),
-            sa.Column("is_speed_test_failed", sa.Boolean(), server_default=sa.false(), nullable=False),
+            sa.Column(
+                "is_speed_test_failed", sa.Boolean(), server_default=sa.false(), nullable=False
+            ),
             sa.Column("started_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
             sa.Column("completed_at", sa.DateTime(), nullable=True),
             sa.Column("extra_metadata", sa.JSON(), nullable=True),
@@ -248,7 +254,10 @@ def _create_core_tables() -> None:
                 ondelete="CASCADE",
             ),
             sa.ForeignKeyConstraint(
-                ["post_id"], ["survey_posts.id"], name="fk_participant_likes_post", ondelete="CASCADE"
+                ["post_id"],
+                ["survey_posts.id"],
+                name="fk_participant_likes_post",
+                ondelete="CASCADE",
             ),
             sa.UniqueConstraint("response_id", "post_id", name="uq_participant_like_response_post"),
         )
@@ -294,7 +303,10 @@ def _create_core_tables() -> None:
                 ondelete="CASCADE",
             ),
             sa.ForeignKeyConstraint(
-                ["question_id"], ["questions.id"], name="fk_question_responses_question", ondelete="CASCADE"
+                ["question_id"],
+                ["questions.id"],
+                name="fk_question_responses_question",
+                ondelete="CASCADE",
             ),
         )
 
@@ -430,7 +442,9 @@ def _create_translation_tables() -> None:
                 name="fk_survey_translations_survey",
                 ondelete="CASCADE",
             ),
-            sa.UniqueConstraint("survey_id", "language_code", name="uq_survey_translation_language"),
+            sa.UniqueConstraint(
+                "survey_id", "language_code", name="uq_survey_translation_language"
+            ),
         )
 
     if not _table_exists("post_translations"):

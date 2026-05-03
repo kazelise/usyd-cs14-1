@@ -149,7 +149,9 @@ def build_participant_questions(survey: Survey, language_code: str | None) -> li
         if getattr(question, "post_id", None) is None
     ]
     return [
-        apply_translations_to_question(QuestionOut.model_validate(question), question, language_code)
+        apply_translations_to_question(
+            QuestionOut.model_validate(question), question, language_code
+        )
         for question in sorted(questions, key=lambda item: item.order)
     ]
 
@@ -189,7 +191,7 @@ async def list_surveys(
     if status:
         count_query = count_query.where(Survey.status == status)
     count_result = await db.execute(count_query)
-    
+
     result = await db.execute(query.order_by(Survey.created_at.desc()).limit(limit).offset(offset))
     surveys = result.scalars().all()
     return SurveyListOut(items=surveys, total=count_result.scalar() or 0)
@@ -580,7 +582,7 @@ async def start_survey(
         raise HTTPException(status_code=404, detail="Survey not found or inactive")
     if survey.share_code_expires_at and survey.share_code_expires_at < datetime.utcnow():
         raise HTTPException(status_code=410, detail="Survey link has expired")
-        
+
     language_code = normalize_optional_language(body.language) if body and body.language else None
 
     # Resume path: when the client supplies a token from a prior start_survey
@@ -624,9 +626,7 @@ async def start_survey(
         # so the frontend can re-create cleanly without hitting the
         # "session already exists" 409 from create_calibration_session.
         existing_calib_q = await db.execute(
-            select(CalibrationSession).where(
-                CalibrationSession.response_id == response.id
-            )
+            select(CalibrationSession).where(CalibrationSession.response_id == response.id)
         )
         existing_calib = existing_calib_q.scalar_one_or_none()
         if existing_calib is not None:

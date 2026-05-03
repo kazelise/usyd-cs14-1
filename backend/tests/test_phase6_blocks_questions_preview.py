@@ -177,9 +177,7 @@ def test_phase6_schema_supports_complete_social_blocks_and_survey_questions():
     post_table = SurveyPost.__table__
     question_table = Question.__table__
 
-    assert {"display_description", "source_label", "more_info_label"}.issubset(
-        post_table.c.keys()
-    )
+    assert {"display_description", "source_label", "more_info_label"}.issubset(post_table.c.keys())
     assert "survey_id" in question_table.c
     assert question_table.c.post_id.nullable is True
 
