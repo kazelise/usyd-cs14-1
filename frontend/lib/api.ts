@@ -1,5 +1,23 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
+type SurveyExportFilters = {
+  condition?: number;
+  assigned_group?: number;
+  language?: string;
+  response_status?: string;
+  calibration_passed?: boolean;
+};
+
+function surveyExportPath(id: number, format: "json" | "csv", filters: SurveyExportFilters = {}) {
+  const params = new URLSearchParams({ format });
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      params.set(key, String(value));
+    }
+  });
+  return `/surveys/${id}/export?${params.toString()}`;
+}
+
 async function request(path: string, options: RequestInit = {}) {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const headers: Record<string, string> = {
@@ -64,6 +82,10 @@ export const api = {
     request(`/surveys/${id}/publish`, { method: "POST" }),
   getSurveyAnalytics: (id: number) => request(`/surveys/${id}/analytics-summary`),
   getSurveyParticipantComments: (id: number) => request(`/surveys/${id}/participant-comments`),
+  exportSurveyDataJson: (id: number, filters?: SurveyExportFilters) =>
+    request(surveyExportPath(id, "json", filters)),
+  exportSurveyDataCsv: (id: number, filters?: SurveyExportFilters) =>
+    requestText(surveyExportPath(id, "csv", filters)),
   previewSurvey: (id: number, assignedGroup = 1, language = "en") =>
     request(`/surveys/${id}/preview?assigned_group=${assignedGroup}&language=${encodeURIComponent(language)}`),
   exportTranslationsJson: (id: number, language = "zh") =>

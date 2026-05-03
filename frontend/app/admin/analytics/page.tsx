@@ -41,6 +41,7 @@ type AnalyticsSummary = {
   completion_rate: number;
   avg_completion_minutes: number;
   calibration_success_rate: number;
+  total_gaze_samples: number;
   total_clicks: number;
   total_likes: number;
   total_comments: number;
@@ -92,11 +93,15 @@ export default function AnalyticsPage() {
           title: "分析",
           subtitle: "查看作答质量、互动行为和分组差异。",
           export: "导出摘要",
+          exportCsv: "导出CSV",
+          exportJson: "导出JSON",
+          failedExport: "导出研究数据失败",
           loadingSummary: "正在加载问卷摘要",
           totalResponses: "总作答数",
           completionRate: "完成率",
           avgCompletion: "平均完成时长",
           calibrationOk: "校准通过",
+          gazeSamples: "眼动样本",
           groupComparison: "分组对比",
           participants: "名参与者",
           completed: "已完成",
@@ -111,6 +116,9 @@ export default function AnalyticsPage() {
           topCohortCopy: "该条件下记录了 {clicks} 次点击和 {comments} 条评论。",
           topCohortEmpty: "问卷发布后，这里会显示参与者数据。",
           engagementTotals: "互动总量",
+          evidenceChain: "证据链",
+          evidenceChainCopy: "校准结果、眼动样本和点击记录会一起进入研究数据导出。",
+          totalGazeSamples: "总眼动样本",
           totalClicks: "总点击",
           totalLikes: "总点赞",
           totalComments: "总评论",
@@ -126,11 +134,15 @@ export default function AnalyticsPage() {
           title: "Analytics",
           subtitle: "Review response quality, engagement behaviour, and group-level differences.",
           export: "Export Summary",
+          exportCsv: "Export CSV",
+          exportJson: "Export JSON",
+          failedExport: "Failed to export research data",
           loadingSummary: "Loading survey summary",
           totalResponses: "Total responses",
           completionRate: "Completion rate",
           avgCompletion: "Avg completion",
           calibrationOk: "Calibration ok",
+          gazeSamples: "Gaze samples",
           groupComparison: "Group comparison",
           participants: "participants",
           completed: "completed",
@@ -145,6 +157,9 @@ export default function AnalyticsPage() {
           topCohortCopy: "{clicks} clicks and {comments} comments recorded in this condition.",
           topCohortEmpty: "Participant data will appear here once the survey is live.",
           engagementTotals: "Engagement totals",
+          evidenceChain: "Evidence chain",
+          evidenceChainCopy: "Calibration results, gaze samples, and click records are included in the research export.",
+          totalGazeSamples: "Total gaze samples",
           totalClicks: "Total clicks",
           totalLikes: "Total likes",
           totalComments: "Total comments",
@@ -246,6 +261,36 @@ export default function AnalyticsPage() {
     URL.revokeObjectURL(url);
   }
 
+  function downloadTextFile(filename: string, content: string, type: string) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportResearchData(format: "csv" | "json") {
+    if (!selectedSurvey) return;
+    const filenameBase = selectedSurvey.title.replace(/\s+/g, "-").toLowerCase();
+    try {
+      if (format === "csv") {
+        const csv = await api.exportSurveyDataCsv(selectedSurvey.id);
+        downloadTextFile(`${filenameBase}-research-data.csv`, csv, "text/csv;charset=utf-8");
+        return;
+      }
+      const payload = await api.exportSurveyDataJson(selectedSurvey.id);
+      downloadTextFile(
+        `${filenameBase}-research-data.json`,
+        JSON.stringify(payload, null, 2),
+        "application/json",
+      );
+    } catch (err: any) {
+      setError(err.message || text.failedExport);
+    }
+  }
+
   if (loading) {
     return <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{text.loading}</p>;
   }
@@ -293,6 +338,22 @@ export default function AnalyticsPage() {
           <button type="button" onClick={exportSummary} className="secondary-button min-w-[148px]" disabled={!summary}>
             {text.export}
           </button>
+          <button
+            type="button"
+            onClick={() => exportResearchData("csv")}
+            className="secondary-button min-w-[128px]"
+            disabled={!summary}
+          >
+            {text.exportCsv}
+          </button>
+          <button
+            type="button"
+            onClick={() => exportResearchData("json")}
+            className="secondary-button min-w-[128px]"
+            disabled={!summary}
+          >
+            {text.exportJson}
+          </button>
         </div>
       </section>
 
@@ -302,7 +363,7 @@ export default function AnalyticsPage() {
         <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{text.loadingSummary}</p>
       ) : (
         <>
-          <section className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <div className="metric-panel">
               <p className="section-kicker">{text.totalResponses}</p>
               <p className="metric-value">{summary.total_responses}</p>
@@ -318,6 +379,10 @@ export default function AnalyticsPage() {
             <div className="rounded-[18px] bg-black px-5 py-4 text-white shadow-[0_28px_60px_rgba(17,24,39,0.14)]">
               <p className="section-kicker text-white/55">{text.calibrationOk}</p>
               <p className="metric-value-inverse">{formatPercent(summary.calibration_success_rate)}</p>
+            </div>
+            <div className="metric-panel">
+              <p className="section-kicker">{text.gazeSamples}</p>
+              <p className="metric-value">{summary.total_gaze_samples}</p>
             </div>
           </section>
 
@@ -368,7 +433,7 @@ export default function AnalyticsPage() {
               </h2>
               <p className="mt-3 text-[14px] leading-7 text-slate-500">{summary.summary}</p>
 
-              <div className="mt-6 grid gap-3 md:grid-cols-2">
+              <div className="mt-6 grid gap-3 md:grid-cols-3">
                 <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
                   <p className="section-kicker">{text.topCohort}</p>
                   <p className="mt-2 text-[18px] font-semibold tracking-[-0.03em] text-black">
@@ -383,11 +448,16 @@ export default function AnalyticsPage() {
                 <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
                   <p className="section-kicker">{text.engagementTotals}</p>
                   <div className="mt-3 space-y-2 text-[13px] leading-6 text-slate-500">
+                    <p>{text.totalGazeSamples}: <span className="font-medium text-black">{summary.total_gaze_samples}</span></p>
                     <p>{text.totalClicks}: <span className="font-medium text-black">{summary.total_clicks}</span></p>
                     <p>{text.totalLikes}: <span className="font-medium text-black">{summary.total_likes}</span></p>
                     <p>{text.totalComments}: <span className="font-medium text-black">{summary.total_comments}</span></p>
                     <p>{text.totalShares}: <span className="font-medium text-black">{summary.total_shares}</span></p>
                   </div>
+                </div>
+                <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
+                  <p className="section-kicker">{text.evidenceChain}</p>
+                  <p className="mt-3 text-[13px] leading-6 text-slate-500">{text.evidenceChainCopy}</p>
                 </div>
               </div>
             </div>
@@ -544,7 +614,7 @@ export default function AnalyticsPage() {
                 {[
                   "Open the highest-click post and compare visible groups before publishing the next draft.",
                   "Review low-interaction sessions to confirm your post order and question cadence are working.",
-                  "Export this summary when you need a lightweight dataset handoff for reporting or analysis.",
+                  "Export the CSV or JSON research dataset before the final report and presentation handoff.",
                 ].map((item) => (
                   <div key={item} className="flex items-start gap-3">
                     <CheckCircleIcon className="mt-0.5 h-4 w-4 text-black" />
