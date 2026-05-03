@@ -13,6 +13,7 @@ import {
   SurveyIcon,
   UsersIcon,
 } from "@/components/icons";
+import { ExternalPostImage } from "@/components/external-post-image";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
 
@@ -829,7 +830,7 @@ export default function SurveyEditPage() {
                 <div className="grid gap-5 p-5 md:grid-cols-[200px_minmax(0,1fr)] md:p-6">
                   <div className="overflow-hidden rounded-[18px] bg-stone-100">
                     {imageUrl ? (
-                      <img src={imageUrl} alt="" className="h-full min-h-[170px] w-full object-cover" />
+                      <ExternalPostImage src={imageUrl} className="h-full min-h-[170px] w-full object-cover" />
                     ) : (
                       <div className="flex min-h-[170px] items-center justify-center bg-stone-100 text-slate-400">
                         <SurveyIcon className="h-7 w-7" />
@@ -1324,7 +1325,7 @@ export default function SurveyEditPage() {
                   const previewImage = post.display_image_url || post.fetched_image_url;
                   return (
                     <div key={post.id} className="overflow-hidden rounded-[16px] border bg-white">
-                      {previewImage && <img src={previewImage} alt="" className="h-28 w-full object-cover" />}
+                      {previewImage && <ExternalPostImage src={previewImage} className="h-28 w-full object-cover" />}
                       <div className="px-4 py-4">
                       <p className="section-kicker">{previewSource}</p>
                       <p className="mt-2 text-[14px] font-semibold leading-6 text-black">{previewTitle}</p>

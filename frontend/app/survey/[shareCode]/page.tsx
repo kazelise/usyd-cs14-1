@@ -7,6 +7,7 @@ import { useLocale } from "@/components/locale-provider";
 import { isLocale, t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, LinkIcon, SurveyIcon, UsersIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
+import { ExternalPostImage } from "@/components/external-post-image";
 import { useGazeTracker } from "./useGazeTracker";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
@@ -771,7 +772,7 @@ export default function SurveyParticipantPage() {
                     <div className="cursor-pointer bg-white" data-track="headline" onClick={() => handleClickPost(post.id, post.original_url)}>
                       {imageUrl && (
                         <div data-track="image" className={platform.imageWrapClass}>
-                          <img src={imageUrl} alt="" className={getPostImageClass(platformStyle, platform.imageClass, postIndex)} />
+                          <ExternalPostImage src={imageUrl} className={getPostImageClass(platformStyle, platform.imageClass, postIndex)} />
                         </div>
                       )}
                       <div className={platform.bodyClass}>
