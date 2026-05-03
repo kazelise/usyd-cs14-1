@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useLocale } from "@/components/locale-provider";
@@ -291,75 +291,9 @@ export default function SurveyParticipantPage() {
   const [submittedQuestions, setSubmittedQuestions] = useState<Set<number>>(new Set());
 
   const clickBuffer = useRef<any[]>([]);
+  const initializedShareCodeRef = useRef<string | null>(null);
 
-  // Gaze tracking — runs continuously during survey after calibration
-  const { flush: flushGaze } = useGazeTracker({
-    responseId: session?.response_id ?? 0,
-    participantToken: session?.participant_token ?? "",
-    intervalMs: session?.gaze_interval_ms ?? 1000,
-    enabled: calibrationDone && !!session?.gaze_tracking_enabled,
-  });
-
-  useEffect(() => {
-    setLocale(initialLocale);
-  }, [initialLocale, setLocale]);
-
-  useEffect(() => {
-    let clickListener: ((e: MouseEvent) => void) | null = null;
-    let flushInterval: ReturnType<typeof setInterval> | null = null;
-
-    async function init() {
-      try {
-        // Resume the same response (and A/B group) across tab closes by sending
-        // back the participant_token cached on first visit. Backend ignores
-        // tokens that don't match an in_progress response for this survey.
-        const tokenStorageKey = `pt:${shareCode}`;
-        const cachedToken = localStorage.getItem(tokenStorageKey) || undefined;
-        const result = await api.startSurvey(shareCode, {
-          language: initialLocale,
-          screen_width: window.innerWidth,
-          screen_height: window.innerHeight,
-          user_agent: navigator.userAgent,
-          participant_token: cachedToken,
-        });
-        setSession(result);
-        localStorage.setItem(tokenStorageKey, result.participant_token);
-        // Resume hint from backend: a prior calibration on this response was
-        // already completed, so skip the calibration UI for the user.
-        if (result.calibration_completed) {
-          setCalibrationDone(true);
-        }
-
-        try {
-          const state = await api.getResponseState(result.response_id);
-          setLikedPosts(new Set<number>(state.liked_post_ids || []));
-          setParticipantComments(state.comments_by_post || {});
-        } catch {}
-
-        if (result.click_tracking_enabled) {
-          clickListener = handleClick;
-          document.addEventListener("click", clickListener);
-          flushInterval = setInterval(
-            () => flushClicks(result.response_id, result.participant_token),
-            10000,
-          );
-        }
-      } catch (err: any) {
-        setError(err.message || t(initialLocale, "surveyNotFound"));
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    init();
-
-    return () => {
-      if (clickListener) document.removeEventListener("click", clickListener);
-      if (flushInterval) clearInterval(flushInterval);
-    };
-  }, [initialLocale, shareCode]);
-
-  function handleClick(e: MouseEvent) {
+  const handleTrackedClick = useCallback((e: MouseEvent) => {
     const target = e.target as HTMLElement;
     let targetElement = "other";
 
@@ -379,9 +313,9 @@ export default function SurveyParticipantPage() {
       screen_y: e.clientY,
       target_element: targetElement,
     });
-  }
+  }, []);
 
-  async function flushClicks(responseId: number, participantToken: string) {
+  const flushClicks = useCallback(async (responseId: number, participantToken: string) => {
     if (clickBuffer.current.length === 0) return;
     const batch = [...clickBuffer.current];
     clickBuffer.current = [];
@@ -390,7 +324,83 @@ export default function SurveyParticipantPage() {
     } catch {
       clickBuffer.current = [...batch, ...clickBuffer.current];
     }
-  }
+  }, []);
+
+  // Gaze tracking — runs continuously during survey after calibration
+  const { flush: flushGaze } = useGazeTracker({
+    responseId: session?.response_id ?? 0,
+    participantToken: session?.participant_token ?? "",
+    intervalMs: session?.gaze_interval_ms ?? 1000,
+    enabled: calibrationDone && !!session?.gaze_tracking_enabled,
+  });
+
+  useEffect(() => {
+    setLocale(initialLocale);
+  }, [initialLocale, setLocale]);
+
+  useEffect(() => {
+    if (initializedShareCodeRef.current === shareCode) return;
+    initializedShareCodeRef.current = shareCode;
+
+    async function init() {
+      try {
+        // Resume the same response (and A/B group) across tab closes by sending
+        // back the participant_token cached on first visit. Backend ignores
+        // tokens that don't match an in_progress response for this survey.
+        const tokenStorageKey = `pt:${shareCode}`;
+        const cachedToken = localStorage.getItem(tokenStorageKey) || undefined;
+        const result = await api.startSurvey(shareCode, {
+          language: initialLocale,
+          screen_width: window.innerWidth,
+          screen_height: window.innerHeight,
+          user_agent: navigator.userAgent,
+          participant_token: cachedToken,
+        });
+        setSession(result);
+        localStorage.setItem(tokenStorageKey, result.participant_token);
+        // Resume hint from backend: a prior calibration on this response was
+        // already completed, so skip the calibration UI for the user. If the
+        // researcher disabled calibration, raw gaze/click tracking can start
+        // directly without showing the calibration screen.
+        if (result.calibration_completed || !result.calibration_required) {
+          setCalibrationDone(true);
+        }
+
+        try {
+          const state = await api.getResponseState(result.response_id);
+          setLikedPosts(new Set<number>(state.liked_post_ids || []));
+          setParticipantComments(state.comments_by_post || {});
+        } catch {}
+      } catch (err: any) {
+        setError(err.message || t(initialLocale, "surveyNotFound"));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    init();
+  }, [initialLocale, shareCode]);
+
+  useEffect(() => {
+    if (!session?.click_tracking_enabled) return;
+
+    document.addEventListener("click", handleTrackedClick);
+    const flushInterval = setInterval(() => {
+      void flushClicks(session.response_id, session.participant_token);
+    }, 10000);
+
+    return () => {
+      document.removeEventListener("click", handleTrackedClick);
+      clearInterval(flushInterval);
+      void flushClicks(session.response_id, session.participant_token);
+    };
+  }, [
+    flushClicks,
+    handleTrackedClick,
+    session?.click_tracking_enabled,
+    session?.participant_token,
+    session?.response_id,
+  ]);
 
   async function handleLike(postId: number) {
     if (!session) return;
