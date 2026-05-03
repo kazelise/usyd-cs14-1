@@ -321,6 +321,7 @@ class SurveyAnalyticsOut(BaseModel):
     completion_rate: float
     avg_completion_minutes: float
     calibration_success_rate: float
+    total_gaze_samples: int
     total_clicks: int
     total_likes: int
     total_comments: int

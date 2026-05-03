@@ -32,7 +32,7 @@ from app.models.participant import (
 from app.models.question import Question
 from app.models.researcher import Researcher
 from app.models.survey import PostComment, Survey, SurveyPost
-from app.models.tracking import CalibrationSession, ClickRecord
+from app.models.tracking import CalibrationSession, ClickRecord, GazeRecord
 from app.schemas.survey import (
     CommentIn,
     CommentOut,
@@ -1130,6 +1130,13 @@ async def get_analytics_summary(
         group_clicks_map[group_id] = group_clicks_map.get(group_id, 0) + count
     total_clicks = sum(response_click_totals.values())
 
+    gaze_samples_result = await db.execute(
+        select(func.count(GazeRecord.id))
+        .join(SurveyResponse, GazeRecord.response_id == SurveyResponse.id)
+        .where(SurveyResponse.survey_id == survey_id)
+    )
+    total_gaze_samples = gaze_samples_result.scalar_one() or 0
+
     likes_result = await db.execute(
         select(ParticipantLike.response_id, ParticipantLike.post_id)
         .join(SurveyResponse, ParticipantLike.response_id == SurveyResponse.id)
@@ -1260,6 +1267,10 @@ async def get_analytics_summary(
         summary_parts.append(
             f"Calibration quality is holding at {calibration_success_rate:.0f}% acceptable-or-better sessions."
         )
+    if total_gaze_samples or total_clicks:
+        summary_parts.append(
+            f"The exportable dataset currently includes {total_gaze_samples} gaze samples and {total_clicks} click records."
+        )
     summary = (
         " ".join(summary_parts)
         or "Collect participant responses to unlock engagement and response-quality insights."
@@ -1271,6 +1282,7 @@ async def get_analytics_summary(
         completion_rate=completion_rate,
         avg_completion_minutes=avg_completion_minutes,
         calibration_success_rate=calibration_success_rate,
+        total_gaze_samples=total_gaze_samples,
         total_clicks=total_clicks,
         total_likes=total_likes,
         total_comments=total_comments,
