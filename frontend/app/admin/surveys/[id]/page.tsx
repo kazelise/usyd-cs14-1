@@ -14,6 +14,15 @@ import {
   UsersIcon,
 } from "@/components/icons";
 
+type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
+
+const PLATFORM_OPTIONS: { value: PlatformStyle; label: string; description: string }[] = [
+  { value: "x", label: "X", description: "Compact text-first feed with repost-style interactions." },
+  { value: "facebook", label: "Facebook", description: "Familiar blue social feed with broad engagement controls." },
+  { value: "instagram", label: "Instagram", description: "Image-forward layout for visual post stimuli." },
+  { value: "xiaohongshu", label: "Xiaohongshu", description: "Lifestyle-card style suited to note-like social content." },
+];
+
 async function apiRequest(path: string, options: RequestInit = {}) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -67,6 +76,7 @@ interface Survey {
   description?: string | null;
   status: string;
   share_code: string;
+  platform_style?: PlatformStyle;
   num_groups: number;
   gaze_tracking_enabled?: boolean;
   gaze_interval_ms?: number;
@@ -141,7 +151,7 @@ export default function SurveyEditPage() {
   const [translationBusy, setTranslationBusy] = useState(false);
   const [translationStatus, setTranslationStatus] = useState("");
   const [previewGroup, setPreviewGroup] = useState(1);
-  const [previewData, setPreviewData] = useState<{ posts: Post[]; questions: Question[]; assigned_group: number } | null>(null);
+  const [previewData, setPreviewData] = useState<{ posts: Post[]; questions: Question[]; assigned_group: number; platform_style?: PlatformStyle } | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
   const shouldDiscardDraftRef = useRef(initialUnsavedDraft);
   const discardRequestedRef = useRef(false);
@@ -167,6 +177,8 @@ export default function SurveyEditPage() {
           visibleCards: "可见卡片",
           addPost: "添加帖子",
           addPostTitle: "粘贴新闻文章链接以创建帖子卡片",
+          platformStyle: "参与者信息流样式",
+          platformStyleCopy: "这会改变参与者看到的帖子卡片外观；研究数据结构保持一致。",
           fetching: "抓取中...",
           articleMetadata: "系统会从文章 metadata 中抓取标题、来源和图片。卡片出现后，你可以继续覆盖每组的数值和评论。",
           untitled: "未命名",
@@ -251,6 +263,8 @@ export default function SurveyEditPage() {
           visibleCards: "Visible cards",
           addPost: "Add Post",
           addPostTitle: "Paste a news article URL to create a post card",
+          platformStyle: "Participant feed style",
+          platformStyleCopy: "Changes the post-card look participants see while keeping the research data structure consistent.",
           fetching: "Fetching...",
           articleMetadata: "The platform will fetch the headline, source, and image from the article metadata. You can override numbers and comments for each group after the card appears below.",
           untitled: "Untitled",
@@ -570,11 +584,22 @@ export default function SurveyEditPage() {
 
   async function saveDraft() {
     if (!survey) return;
-    await api.updateSurvey(surveyId, { title: survey.title });
+    await api.updateSurvey(surveyId, { title: survey.title, platform_style: survey.platform_style ?? "x" });
     setIsUnsavedDraft(false);
     shouldDiscardDraftRef.current = false;
     router.replace(`/admin/surveys/${surveyId}`);
     await loadData();
+  }
+
+  async function updatePlatformStyle(nextStyle: PlatformStyle) {
+    if (!survey) return;
+    setSurvey({ ...survey, platform_style: nextStyle });
+    try {
+      const updated = await api.updateSurvey(surveyId, { platform_style: nextStyle });
+      setSurvey(updated);
+    } catch (err: any) {
+      setError(err.message || "Failed to update platform style");
+    }
   }
 
   function saveAsTemplate() {
@@ -1256,6 +1281,25 @@ export default function SurveyEditPage() {
                 <p className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-black">{survey.num_groups}</p>
               </div>
             </div>
+          </div>
+
+          <div className="surface-panel-soft px-6 py-6">
+            <p className="section-kicker">{text.platformStyle}</p>
+            <select
+              value={survey.platform_style ?? "x"}
+              onChange={(event) => updatePlatformStyle(event.target.value as PlatformStyle)}
+              className="field-input mt-5 h-11 text-[13px]"
+            >
+              {PLATFORM_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-3 text-[13px] leading-6 text-slate-500">
+              {PLATFORM_OPTIONS.find((option) => option.value === (survey.platform_style ?? "x"))?.description}
+            </p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-500">{text.platformStyleCopy}</p>
           </div>
 
           <div className="surface-panel-soft px-6 py-6">

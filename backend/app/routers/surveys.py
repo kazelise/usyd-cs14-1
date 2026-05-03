@@ -112,6 +112,10 @@ async def get_survey_or_404(survey_id: int, researcher_id: int, db: AsyncSession
     return survey
 
 
+def get_platform_style(survey: Survey) -> str:
+    return getattr(survey, "platform_style", None) or "x"
+
+
 def build_participant_post(post: SurveyPost, assigned_group: int) -> PostOut:
     """Build participant-visible post data without mutating the ORM model."""
     post_out = PostOut.model_validate(post)
@@ -387,6 +391,7 @@ async def preview_survey(
     return SurveyPreviewResponse(
         survey_id=survey.id,
         assigned_group=assigned_group,
+        platform_style=get_platform_style(survey),
         calibration_required=survey.calibration_enabled,
         calibration_points=survey.calibration_points,
         gaze_tracking_enabled=survey.gaze_tracking_enabled,
@@ -636,6 +641,7 @@ async def start_survey(
         participant_token=response.participant_token,
         survey_id=survey.id,
         assigned_group=assigned_group,
+        platform_style=get_platform_style(survey),
         calibration_required=survey.calibration_enabled,
         calibration_points=survey.calibration_points,
         calibration_completed=calibration_completed,

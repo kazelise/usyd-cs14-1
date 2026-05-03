@@ -7,10 +7,13 @@ from pydantic import BaseModel, Field
 
 # ── Survey ────────────────────────────────────────────
 
+PlatformStyle = Literal["x", "facebook", "instagram", "xiaohongshu"]
+
 
 class CreateSurveyRequest(BaseModel):
     title: str
     description: str | None = None
+    platform_style: PlatformStyle = "x"
     num_groups: int = 1
     group_names: dict | None = None  # {"1": "with_likes", "2": "no_likes"}
     gaze_tracking_enabled: bool = True
@@ -23,6 +26,7 @@ class CreateSurveyRequest(BaseModel):
 class UpdateSurveyRequest(BaseModel):
     title: str | None = None
     description: str | None = None
+    platform_style: PlatformStyle | None = None
     num_groups: int | None = None
     group_names: dict | None = None
     gaze_tracking_enabled: bool | None = None
@@ -38,6 +42,7 @@ class SurveyOut(BaseModel):
     description: str | None
     status: str
     share_code: str
+    platform_style: PlatformStyle = "x"
     num_groups: int
     group_names: dict | None
     gaze_tracking_enabled: bool
@@ -63,6 +68,7 @@ class PublicSurveyOut(BaseModel):
     title: str
     description: str | None = None
     status: str
+    platform_style: PlatformStyle = "x"
     language: str | None = None
     fallback_language: str = "en"
     translation_fallbacks: list[str] = Field(default_factory=list)
@@ -215,6 +221,7 @@ class StartSurveyResponse(BaseModel):
     participant_token: str
     survey_id: int
     assigned_group: int
+    platform_style: PlatformStyle = "x"
     calibration_required: bool
     calibration_points: int
     calibration_completed: bool = False
@@ -230,6 +237,7 @@ class StartSurveyResponse(BaseModel):
 class SurveyPreviewResponse(BaseModel):
     survey_id: int
     assigned_group: int
+    platform_style: PlatformStyle = "x"
     calibration_required: bool
     calibration_points: int
     gaze_tracking_enabled: bool

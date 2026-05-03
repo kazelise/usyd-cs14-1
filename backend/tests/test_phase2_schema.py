@@ -8,6 +8,7 @@ from sqlalchemy import ForeignKeyConstraint, UniqueConstraint
 
 from app import models  # noqa: F401
 from app.models.participant import SurveyResponse
+from app.models.survey import Survey
 from app.models.tracking import CalibrationPoint, CalibrationSession, ClickRecord, GazeRecord
 from app.models.translation import PostTranslation, QuestionTranslation, SurveyTranslation
 
@@ -39,7 +40,14 @@ def test_alembic_head_revision_is_configured():
 
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_current_head() == "20260501_0001"
+    assert script.get_current_head() == "20260503_0001"
+
+
+def test_survey_has_platform_style_default():
+    table = Survey.__table__
+
+    assert "platform_style" in table.c
+    assert table.c.platform_style.default is not None
 
 
 def test_tracking_schema_hardening_columns_and_relationships():

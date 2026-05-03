@@ -616,6 +616,7 @@ def apply_translations_to_public_survey(
             title=survey.title,
             description=survey.description,
             status=survey.status,
+            platform_style=getattr(survey, "platform_style", None) or "x",
             language=language_code,
             fallback_language=DEFAULT_LANGUAGE_CODE,
         )
@@ -628,6 +629,7 @@ def apply_translations_to_public_survey(
         title=title,
         description=description,
         status=survey.status,
+        platform_style=getattr(survey, "platform_style", None) or "x",
         language=language_code,
         fallback_language=DEFAULT_LANGUAGE_CODE,
         translation_fallbacks=fallbacks,

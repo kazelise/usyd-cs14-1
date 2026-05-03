@@ -32,6 +32,7 @@ class Survey(Base):
         String(20), unique=True, default=lambda: secrets.token_urlsafe(12)
     )
     share_code_expires_at: Mapped[datetime | None] = mapped_column(default=None)
+    platform_style: Mapped[str] = mapped_column(String(32), default="x", server_default="x")
 
     # ── A/B Testing Configuration ────────────────────
     num_groups: Mapped[int] = mapped_column(SmallInteger, default=1)  # 1 = no A/B testing
