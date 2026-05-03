@@ -326,9 +326,7 @@ async def test_start_survey_resume_signals_completed_calibration(monkeypatch):
         expected_points=5,
         started_at=datetime.utcnow(),
     )
-    db = ResumeStartSurveyDB(
-        make_survey([make_post(1, order=1)]), existing, completed_calib
-    )
+    db = ResumeStartSurveyDB(make_survey([make_post(1, order=1)]), existing, completed_calib)
 
     response = await start_survey(
         "share-code",
@@ -362,9 +360,7 @@ async def test_start_survey_resume_drops_in_progress_calibration(monkeypatch):
         expected_points=5,
         started_at=datetime.utcnow(),
     )
-    db = ResumeStartSurveyDB(
-        make_survey([make_post(1, order=1)]), existing, abandoned_calib
-    )
+    db = ResumeStartSurveyDB(make_survey([make_post(1, order=1)]), existing, abandoned_calib)
 
     response = await start_survey(
         "share-code",

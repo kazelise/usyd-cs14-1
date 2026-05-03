@@ -56,6 +56,8 @@ class TestSchemaInteroperability:
 
     def test_empty_batch_produces_zero_saved(self):
         gaze_batch = GazeBatchRequest(response_id=1, participant_token="participant-token", data=[])
-        click_batch = ClickBatchRequest(response_id=1, participant_token="participant-token", data=[])
+        click_batch = ClickBatchRequest(
+            response_id=1, participant_token="participant-token", data=[]
+        )
         assert GazeBatchOut(saved=len(gaze_batch.data)).saved == 0
         assert ClickBatchOut(saved=len(click_batch.data)).saved == 0

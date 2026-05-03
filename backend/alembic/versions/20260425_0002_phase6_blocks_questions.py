@@ -7,9 +7,9 @@ Create Date: 2026-04-25 00:00:00.000000
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "20260425_0002"
 down_revision: str | None = "20260425_0001"
@@ -47,19 +47,30 @@ def _create_index_if_missing(index_name: str, table_name: str, columns: list[str
         op.create_index(index_name, table_name, columns)
 
 
-def _foreign_key_exists(table_name: str, constrained_columns: list[str], referred_table: str) -> bool:
+def _foreign_key_exists(
+    table_name: str, constrained_columns: list[str], referred_table: str
+) -> bool:
     if not _table_exists(table_name):
         return False
     for fk in _inspector().get_foreign_keys(table_name):
-        if fk["constrained_columns"] == constrained_columns and fk["referred_table"] == referred_table:
+        if (
+            fk["constrained_columns"] == constrained_columns
+            and fk["referred_table"] == referred_table
+        ):
             return True
     return False
 
 
 def upgrade() -> None:
-    _add_column_if_missing("survey_posts", sa.Column("display_description", sa.Text(), nullable=True))
-    _add_column_if_missing("survey_posts", sa.Column("source_label", sa.String(length=255), nullable=True))
-    _add_column_if_missing("survey_posts", sa.Column("more_info_label", sa.String(length=80), nullable=True))
+    _add_column_if_missing(
+        "survey_posts", sa.Column("display_description", sa.Text(), nullable=True)
+    )
+    _add_column_if_missing(
+        "survey_posts", sa.Column("source_label", sa.String(length=255), nullable=True)
+    )
+    _add_column_if_missing(
+        "survey_posts", sa.Column("more_info_label", sa.String(length=80), nullable=True)
+    )
 
     _add_column_if_missing("questions", sa.Column("survey_id", sa.Integer(), nullable=True))
     if _column_exists("questions", "survey_id"):

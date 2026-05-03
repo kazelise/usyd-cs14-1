@@ -98,7 +98,14 @@ def test_survey_response_indexes_and_cascade_relationship():
 
 
 def test_translation_tables_have_required_fields_and_constraints():
-    expected_common = {"id", "survey_id", "language_code", "translated_fields", "created_at", "updated_at"}
+    expected_common = {
+        "id",
+        "survey_id",
+        "language_code",
+        "translated_fields",
+        "created_at",
+        "updated_at",
+    }
 
     survey_table = SurveyTranslation.__table__
     post_table = PostTranslation.__table__
