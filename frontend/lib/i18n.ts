@@ -116,7 +116,7 @@ export const dict = {
     noteClicks: "Clicks are captured in the background.",
     noteGaze: "Gaze samples may be recorded during the session.",
     noteCalibration: "Calibration is required for complete tracking accuracy.",
-    completionDetails: "Your interactions, click data, and calibration session have been recorded.",
+    completionDetails: "Your responses, interactions, and available tracking data have been recorded.",
   },
   zh: {
     title: "实验参与",
@@ -212,7 +212,7 @@ export const dict = {
     noteClicks: "系统会在后台记录点击行为。",
     noteGaze: "本次会话可能会记录眼动采样数据。",
     noteCalibration: "为获得完整追踪精度，需要完成校准。",
-    completionDetails: "你的交互、点击数据和校准会话都已被记录。",
+    completionDetails: "你的回答、交互行为以及可用的追踪数据已被记录。",
   },
   ar: {
     title: "المشاركة في الدراسة",
@@ -313,7 +313,7 @@ export const dict = {
     noteClicks: "يتم التقاط النقرات في الخلفية.",
     noteGaze: "قد يتم تسجيل عينات النظر خلال الجلسة.",
     noteCalibration: "المعايرة مطلوبة للحصول على دقة تتبع كاملة.",
-    completionDetails: "تم تسجيل تفاعلاتك وبيانات النقر وجلسة المعايرة.",
+    completionDetails: "تم تسجيل إجاباتك وتفاعلاتك وبيانات التتبع المتاحة.",
   },
 } as const;
 
