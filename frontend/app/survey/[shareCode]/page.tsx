@@ -14,12 +14,19 @@ type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
 const PLATFORM_FEED_STYLES: Record<
   PlatformStyle,
   {
-    name: string;
-    pageClass: string;
-    accentTextClass: string;
-    accentBgClass: string;
-    progressClass: string;
-    cardClass: string;
+      name: string;
+      pageClass: string;
+      pageMaxClass: string;
+      contentGridClass: string;
+      leftAsideClass: string;
+      mainClass: string;
+      introClass: string;
+      feedClass: string;
+      rightAsideClass: string;
+      accentTextClass: string;
+      accentBgClass: string;
+      progressClass: string;
+      cardClass: string;
     headerClass: string;
     avatarClass: string;
     badgeClass: string;
@@ -27,39 +34,61 @@ const PLATFORM_FEED_STYLES: Record<
     imageClass: string;
     moreInfoButtonClass: string;
     engagementClass: string;
-    actionGridClass: string;
-    actionButtonClass: string;
-    activeActionClass: string;
-    commentCardClass: string;
-    participantCommentClass: string;
-  }
+      actionGridClass: string;
+      actionButtonClass: string;
+      actionButtonDividerClass: string;
+      activeActionClass: string;
+      bodyClass: string;
+      titleClass: string;
+      descriptionClass: string;
+      commentCardClass: string;
+      participantCommentClass: string;
+    }
 > = {
   x: {
-    name: "X",
-    pageClass: "bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)]",
-    accentTextClass: "text-slate-900",
-    accentBgClass: "bg-slate-900",
-    progressClass: "bg-slate-900",
-    cardClass: "overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm",
-    headerClass: "border-b border-slate-200 bg-white px-6 py-4",
-    avatarClass: "flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-[13px] font-semibold text-white",
-    badgeClass: "inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600",
-    imageWrapClass: "border-b border-slate-200 bg-slate-100",
-    imageClass: "h-72 w-full object-cover",
-    moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-[13px] font-semibold text-slate-700 transition hover:border-slate-900/30 hover:bg-slate-100",
-    engagementClass: "flex flex-wrap items-center gap-6 border-t border-slate-200 bg-white px-6 py-4 text-[13px] text-slate-500",
-    actionGridClass: "grid border-t border-slate-200 text-[13px] md:grid-cols-3",
-    actionButtonClass: "border-slate-200 px-4 py-4 font-semibold text-slate-600 transition hover:bg-slate-50",
-    activeActionClass: "bg-slate-900 text-white hover:bg-slate-800",
-    commentCardClass: "rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4",
-    participantCommentClass: "rounded-[18px] border border-slate-300 bg-white px-4 py-4",
-  },
+      name: "X",
+      pageClass: "bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)]",
+      pageMaxClass: "mx-auto max-w-[1280px] px-4 py-6 lg:px-6 lg:py-8",
+      contentGridClass: "grid gap-6 xl:grid-cols-[240px_minmax(0,640px)_300px] xl:justify-center",
+      leftAsideClass: "space-y-6 xl:sticky xl:top-6 xl:self-start",
+      mainClass: "min-w-0 space-y-4",
+      introClass: "surface-panel-soft flex flex-col gap-3 px-6 py-5 md:flex-row md:items-center md:justify-between",
+      feedClass: "space-y-4",
+      rightAsideClass: "space-y-6 xl:sticky xl:top-6 xl:self-start",
+      accentTextClass: "text-slate-900",
+      accentBgClass: "bg-slate-900",
+      progressClass: "bg-slate-900",
+      cardClass: "overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-sm",
+      headerClass: "border-b border-slate-200 bg-white px-6 py-4",
+      avatarClass: "flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-[13px] font-semibold text-white",
+      badgeClass: "inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600",
+      imageWrapClass: "border-b border-slate-200 bg-slate-100",
+      imageClass: "h-72 w-full object-cover",
+      moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-[13px] font-semibold text-slate-700 transition hover:border-slate-900/30 hover:bg-slate-100",
+      engagementClass: "flex flex-wrap items-center gap-6 border-t border-slate-200 bg-white px-6 py-4 text-[13px] text-slate-500",
+      actionGridClass: "grid border-t border-slate-200 text-[13px] md:grid-cols-3",
+      actionButtonClass: "border-slate-200 px-4 py-4 font-semibold text-slate-600 transition hover:bg-slate-50",
+      actionButtonDividerClass: "border-t md:border-l md:border-t-0",
+      activeActionClass: "bg-slate-900 text-white hover:bg-slate-800",
+      bodyClass: "px-6 py-5",
+      titleClass: "mt-3 text-[19px] font-semibold leading-7 tracking-[-0.03em] text-[#163047]",
+      descriptionClass: "mt-2 text-[14px] leading-7 text-slate-600",
+      commentCardClass: "rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4",
+      participantCommentClass: "rounded-[18px] border border-slate-300 bg-white px-4 py-4",
+    },
   facebook: {
-    name: "Facebook",
-    pageClass: "bg-[linear-gradient(180deg,#f3f7ff_0%,#e9eef7_100%)]",
-    accentTextClass: "text-[#1877f2]",
-    accentBgClass: "bg-[#1877f2]",
-    progressClass: "bg-[#1877f2]",
+      name: "Facebook",
+      pageClass: "bg-[linear-gradient(180deg,#f3f7ff_0%,#e9eef7_100%)]",
+      pageMaxClass: "mx-auto max-w-[1320px] px-4 py-6 lg:px-6 lg:py-8",
+      contentGridClass: "grid gap-6 xl:grid-cols-[260px_minmax(0,680px)_300px] xl:justify-center",
+      leftAsideClass: "space-y-6 xl:sticky xl:top-6 xl:self-start",
+      mainClass: "min-w-0 space-y-6",
+      introClass: "surface-panel-soft flex flex-col gap-3 px-6 py-5 md:flex-row md:items-center md:justify-between",
+      feedClass: "space-y-5",
+      rightAsideClass: "space-y-6 xl:sticky xl:top-6 xl:self-start",
+      accentTextClass: "text-[#1877f2]",
+      accentBgClass: "bg-[#1877f2]",
+      progressClass: "bg-[#1877f2]",
     cardClass: "overflow-hidden rounded-[18px] border border-blue-100 bg-white shadow-[0_16px_42px_rgba(24,119,242,0.10)]",
     headerClass: "border-b border-blue-50 bg-white px-6 py-4",
     avatarClass: "flex h-11 w-11 items-center justify-center rounded-full bg-[#1877f2] text-[13px] font-semibold text-white",
@@ -67,57 +96,89 @@ const PLATFORM_FEED_STYLES: Record<
     imageWrapClass: "border-b border-blue-50 bg-blue-50",
     imageClass: "h-72 w-full object-cover",
     moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-[12px] border border-blue-100 bg-blue-50 px-3 py-2 text-[13px] font-semibold text-[#1877f2] transition hover:bg-blue-100",
-    engagementClass: "flex flex-wrap items-center gap-6 border-t border-blue-50 bg-blue-50/50 px-6 py-4 text-[13px] text-slate-600",
-    actionGridClass: "grid border-t border-blue-50 text-[13px] md:grid-cols-3",
-    actionButtonClass: "border-blue-50 px-4 py-4 font-semibold text-slate-600 transition hover:bg-blue-50",
-    activeActionClass: "bg-[#1877f2] text-white hover:bg-[#1668d8]",
-    commentCardClass: "rounded-[18px] border border-blue-100 bg-blue-50/60 px-4 py-4",
-    participantCommentClass: "rounded-[18px] border border-blue-200 bg-white px-4 py-4",
-  },
+      engagementClass: "flex flex-wrap items-center gap-6 border-t border-blue-50 bg-blue-50/50 px-6 py-4 text-[13px] text-slate-600",
+      actionGridClass: "grid border-t border-blue-50 text-[13px] md:grid-cols-3",
+      actionButtonClass: "border-blue-50 px-4 py-4 font-semibold text-slate-600 transition hover:bg-blue-50",
+      actionButtonDividerClass: "border-t md:border-l md:border-t-0",
+      activeActionClass: "bg-[#1877f2] text-white hover:bg-[#1668d8]",
+      bodyClass: "px-6 py-5",
+      titleClass: "mt-4 text-[22px] font-semibold leading-8 tracking-[-0.03em] text-[#163047]",
+      descriptionClass: "mt-3 text-[14px] leading-7 text-slate-600",
+      commentCardClass: "rounded-[18px] border border-blue-100 bg-blue-50/60 px-4 py-4",
+      participantCommentClass: "rounded-[18px] border border-blue-200 bg-white px-4 py-4",
+    },
   instagram: {
-    name: "Instagram",
-    pageClass: "bg-[linear-gradient(180deg,#fff7fb_0%,#f5f5f7_100%)]",
-    accentTextClass: "text-[#c13584]",
-    accentBgClass: "bg-[#c13584]",
-    progressClass: "bg-[linear-gradient(90deg,#f58529_0%,#dd2a7b_48%,#515bd4_100%)]",
-    cardClass: "overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-[0_18px_46px_rgba(193,53,132,0.10)]",
-    headerClass: "border-b border-slate-100 bg-white px-6 py-4",
-    avatarClass: "flex h-11 w-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f58529,#dd2a7b,#515bd4)] text-[13px] font-semibold text-white",
-    badgeClass: "inline-flex rounded-[8px] bg-pink-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c13584]",
-    imageWrapClass: "bg-black",
-    imageClass: "max-h-[520px] w-full object-cover",
-    moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-[10px] border border-pink-100 bg-pink-50 px-3 py-2 text-[13px] font-semibold text-[#c13584] transition hover:bg-pink-100",
-    engagementClass: "flex flex-wrap items-center gap-6 border-t border-slate-100 bg-white px-6 py-4 text-[13px] text-slate-600",
-    actionGridClass: "grid border-t border-slate-100 text-[13px] md:grid-cols-3",
-    actionButtonClass: "border-slate-100 px-4 py-4 font-semibold text-slate-700 transition hover:bg-pink-50",
-    activeActionClass: "bg-[#c13584] text-white hover:bg-[#a62b70]",
-    commentCardClass: "rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-4",
-    participantCommentClass: "rounded-[12px] border border-pink-200 bg-pink-50/40 px-4 py-4",
-  },
+      name: "Instagram",
+      pageClass: "bg-[linear-gradient(180deg,#fff7fb_0%,#f5f5f7_100%)]",
+      pageMaxClass: "mx-auto max-w-[1120px] px-4 py-6 lg:px-6 lg:py-8",
+      contentGridClass: "grid justify-center gap-6",
+      leftAsideClass: "hidden",
+      mainClass: "w-full max-w-[640px] space-y-6",
+      introClass: "hidden",
+      feedClass: "space-y-8",
+      rightAsideClass: "mx-auto w-full max-w-[640px] space-y-4",
+      accentTextClass: "text-[#c13584]",
+      accentBgClass: "bg-[#c13584]",
+      progressClass: "bg-[linear-gradient(90deg,#f58529_0%,#dd2a7b_48%,#515bd4_100%)]",
+      cardClass: "overflow-hidden rounded-[6px] border border-slate-200 bg-white shadow-[0_12px_32px_rgba(193,53,132,0.08)]",
+      headerClass: "border-b border-slate-100 bg-white px-6 py-4",
+      avatarClass: "flex h-11 w-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f58529,#dd2a7b,#515bd4)] text-[13px] font-semibold text-white",
+      badgeClass: "inline-flex rounded-[8px] bg-pink-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c13584]",
+      imageWrapClass: "bg-black",
+      imageClass: "aspect-[4/5] w-full object-cover",
+      moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-[10px] border border-pink-100 bg-pink-50 px-3 py-2 text-[13px] font-semibold text-[#c13584] transition hover:bg-pink-100",
+      engagementClass: "flex flex-wrap items-center gap-6 border-t border-slate-100 bg-white px-6 py-4 text-[13px] text-slate-600",
+      actionGridClass: "grid border-t border-slate-100 text-[13px] md:grid-cols-3",
+      actionButtonClass: "border-slate-100 px-4 py-4 font-semibold text-slate-700 transition hover:bg-pink-50",
+      actionButtonDividerClass: "border-t md:border-l md:border-t-0",
+      activeActionClass: "bg-[#c13584] text-white hover:bg-[#a62b70]",
+      bodyClass: "px-4 py-4",
+      titleClass: "mt-3 text-[16px] font-semibold leading-6 text-[#262626]",
+      descriptionClass: "mt-2 text-[14px] leading-6 text-slate-700",
+      commentCardClass: "rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-4",
+      participantCommentClass: "rounded-[12px] border border-pink-200 bg-pink-50/40 px-4 py-4",
+    },
   xiaohongshu: {
-    name: "Xiaohongshu",
-    pageClass: "bg-[linear-gradient(180deg,#fff8f8_0%,#f7f2f0_100%)]",
-    accentTextClass: "text-[#ff2442]",
-    accentBgClass: "bg-[#ff2442]",
-    progressClass: "bg-[#ff2442]",
-    cardClass: "overflow-hidden rounded-[20px] border border-rose-100 bg-white shadow-[0_18px_46px_rgba(255,36,66,0.10)]",
-    headerClass: "border-b border-rose-50 bg-white px-5 py-4",
-    avatarClass: "flex h-10 w-10 items-center justify-center rounded-full bg-[#ff2442] text-[13px] font-semibold text-white",
-    badgeClass: "inline-flex rounded-full bg-rose-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#ff2442]",
-    imageWrapClass: "bg-rose-50 px-4 pt-4",
-    imageClass: "max-h-[520px] w-full rounded-[16px] object-cover",
-    moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-rose-100 bg-rose-50 px-3 py-2 text-[13px] font-semibold text-[#ff2442] transition hover:bg-rose-100",
-    engagementClass: "flex flex-wrap items-center gap-6 border-t border-rose-50 bg-rose-50/45 px-6 py-4 text-[13px] text-slate-600",
-    actionGridClass: "grid border-t border-rose-50 text-[13px] md:grid-cols-3",
-    actionButtonClass: "border-rose-50 px-4 py-4 font-semibold text-slate-700 transition hover:bg-rose-50",
-    activeActionClass: "bg-[#ff2442] text-white hover:bg-[#e01f39]",
-    commentCardClass: "rounded-[16px] border border-rose-100 bg-rose-50/50 px-4 py-4",
-    participantCommentClass: "rounded-[16px] border border-rose-200 bg-white px-4 py-4",
-  },
+      name: "Xiaohongshu",
+      pageClass: "bg-[linear-gradient(180deg,#fff8f8_0%,#f7f2f0_100%)]",
+      pageMaxClass: "mx-auto max-w-[1380px] px-4 py-5 lg:px-7 lg:py-8",
+      contentGridClass: "grid gap-5",
+      leftAsideClass: "hidden",
+      mainClass: "min-w-0",
+      introClass: "hidden",
+      feedClass: "columns-1 gap-4 sm:columns-2 xl:columns-3 [column-fill:_balance]",
+      rightAsideClass: "mx-auto w-full max-w-[760px] space-y-4",
+      accentTextClass: "text-[#ff2442]",
+      accentBgClass: "bg-[#ff2442]",
+      progressClass: "bg-[#ff2442]",
+      cardClass: "mb-4 inline-block w-full break-inside-avoid overflow-hidden rounded-[18px] border border-rose-100 bg-white shadow-[0_10px_28px_rgba(255,36,66,0.08)]",
+      headerClass: "hidden",
+      avatarClass: "flex h-10 w-10 items-center justify-center rounded-full bg-[#ff2442] text-[13px] font-semibold text-white",
+      badgeClass: "inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ff2442]",
+      imageWrapClass: "bg-rose-50",
+      imageClass: "w-full object-cover",
+      moreInfoButtonClass: "mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full border border-rose-100 bg-rose-50 px-3 py-1.5 text-[12px] font-semibold text-[#ff2442] transition hover:bg-rose-100",
+      engagementClass: "flex flex-wrap items-center gap-3 px-4 pb-3 pt-1 text-[12px] text-slate-500",
+      actionGridClass: "grid grid-cols-3 gap-2 px-3 pb-3 text-[12px]",
+      actionButtonClass: "rounded-full px-3 py-2 font-semibold text-slate-600 transition hover:bg-rose-50",
+      actionButtonDividerClass: "border-0",
+      activeActionClass: "bg-[#ff2442] text-white hover:bg-[#e01f39]",
+      bodyClass: "px-4 pb-4 pt-3",
+      titleClass: "mt-3 text-[15px] font-semibold leading-6 text-[#1f2933]",
+      descriptionClass: "mt-2 max-h-[72px] overflow-hidden text-[13px] leading-6 text-slate-600",
+      commentCardClass: "rounded-[14px] border border-rose-100 bg-rose-50/50 px-3 py-3",
+      participantCommentClass: "rounded-[14px] border border-rose-200 bg-white px-3 py-3",
+    },
 };
 
 function getPlatformFeedStyle(style?: string | null) {
-  return PLATFORM_FEED_STYLES[(style as PlatformStyle) || "x"] ?? PLATFORM_FEED_STYLES.x;
+    return PLATFORM_FEED_STYLES[(style as PlatformStyle) || "x"] ?? PLATFORM_FEED_STYLES.x;
+}
+
+function getPostImageClass(style: PlatformStyle, baseClass: string, index: number) {
+    if (style !== "xiaohongshu") return baseClass;
+    const ratios = ["aspect-[3/4]", "aspect-square", "aspect-[4/5]", "aspect-[5/4]"];
+    return `${baseClass} ${ratios[index % ratios.length]}`;
 }
 
 function getPlatformActionLabels(style: PlatformStyle, locale: Locale) {
@@ -514,9 +575,9 @@ export default function SurveyParticipantPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1560px] px-4 py-6 lg:px-6 lg:py-8">
-        <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
-          <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+      <div className={platform.pageMaxClass}>
+        <div className={platform.contentGridClass}>
+          <aside className={platform.leftAsideClass}>
             <div className="surface-panel-soft px-6 py-6">
               <div className={`flex h-12 w-12 items-center justify-center rounded-[16px] text-white ${platform.accentBgClass}`}>
                 <SurveyIcon className="h-5 w-5" />
@@ -558,8 +619,8 @@ export default function SurveyParticipantPage() {
             </div>
           </aside>
 
-          <main className="space-y-6">
-            <div className="surface-panel-soft flex flex-col gap-3 px-6 py-5 md:flex-row md:items-center md:justify-between">
+          <main className={platform.mainClass}>
+            <div className={platform.introClass}>
               <div>
                 <p className={`section-kicker ${platform.accentTextClass}`}>{t(locale, "studyInstructions")}</p>
                 <p className="mt-2 text-[14px] leading-7 text-slate-500">{t(locale, "studyInstructionsCopy")}</p>
@@ -682,8 +743,8 @@ export default function SurveyParticipantPage() {
               </div>
             )}
 
-            <div className="space-y-6">
-              {session.posts.map((post) => {
+            <div className={platform.feedClass}>
+              {session.posts.map((post, postIndex) => {
                 const title = post.display_title || post.fetched_title || "Untitled";
                 const imageUrl = post.display_image_url || post.fetched_image_url;
                 const source = post.source_label || post.fetched_source || new URL(post.original_url).hostname;
@@ -710,16 +771,16 @@ export default function SurveyParticipantPage() {
                     <div className="cursor-pointer bg-white" data-track="headline" onClick={() => handleClickPost(post.id, post.original_url)}>
                       {imageUrl && (
                         <div data-track="image" className={platform.imageWrapClass}>
-                          <img src={imageUrl} alt="" className={platform.imageClass} />
+                          <img src={imageUrl} alt="" className={getPostImageClass(platformStyle, platform.imageClass, postIndex)} />
                         </div>
                       )}
-                      <div className="px-6 py-6">
+                      <div className={platform.bodyClass}>
                         <div className={platform.badgeClass}>
                           {platform.name} · {t(locale, "externalContent")}
                         </div>
-                        <h2 className="mt-4 text-[24px] font-semibold leading-tight tracking-[-0.05em] text-[#163047] md:text-[28px]">{title}</h2>
+                        <h2 className={platform.titleClass}>{title}</h2>
                         {description && (
-                          <p className="mt-3 max-w-3xl text-[14px] leading-7 text-slate-600">
+                          <p className={platform.descriptionClass}>
                             {description}
                           </p>
                         )}
@@ -756,7 +817,7 @@ export default function SurveyParticipantPage() {
                       <button
                         data-track="comment"
                         onClick={() => setShowCommentInput(showCommentInput === post.id ? null : post.id)}
-                        className={`${platform.actionButtonClass} border-t md:border-l md:border-t-0`}
+                        className={`${platform.actionButtonClass} ${platform.actionButtonDividerClass}`}
                       >
                         {platformActionLabels.comment}
                       </button>
@@ -768,7 +829,7 @@ export default function SurveyParticipantPage() {
                             .recordInteraction(session.response_id, { post_id: post.id, action_type: "share" })
                             .catch((err: any) => setActionError(err.message || t(locale, "networkRequestFailed")));
                         }}
-                        className={`${platform.actionButtonClass} border-t md:border-l md:border-t-0`}
+                        className={`${platform.actionButtonClass} ${platform.actionButtonDividerClass}`}
                       >
                         {platformActionLabels.share}
                       </button>
@@ -988,7 +1049,7 @@ export default function SurveyParticipantPage() {
             </div>
           </main>
 
-          <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+          <aside className={platform.rightAsideClass}>
             <div className="surface-panel-soft px-6 py-6">
               <p className={`section-kicker ${platform.accentTextClass}`}>{t(locale, "progress")}</p>
               <p className="mt-3 text-[32px] font-semibold tracking-[-0.06em] text-[#163047]">
