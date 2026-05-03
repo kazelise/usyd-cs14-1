@@ -288,6 +288,7 @@ export default function NewSurveyPage() {
             <a
               href="/demo-tracking"
               target="_blank"
+              rel="noopener noreferrer"
               className="flex w-full items-center gap-3 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">👁</span>

@@ -374,12 +374,13 @@ export default function SurveyParticipantPage() {
   async function handleClickPost(postId: number, url: string) {
     if (!session) return;
     setActionError("");
+    const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
+    if (openedWindow) openedWindow.opener = null;
     try {
       await api.recordInteraction(session.response_id, { post_id: postId, action_type: "click" });
     } catch (err: any) {
       setActionError(err.message || t(locale, "networkRequestFailed"));
     }
-    window.open(url, "_blank");
   }
 
   async function handleComplete() {
