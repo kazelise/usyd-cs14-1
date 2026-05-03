@@ -36,7 +36,7 @@ services:
   frontend:
     build: ./frontend
     restart: unless-stopped
-    command: sh -c "mkdir -p .next && find .next -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true; npm run dev"
+    command: sh -c "npm ci && mkdir -p .next && find .next -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true; npm run dev"
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     volumes:
