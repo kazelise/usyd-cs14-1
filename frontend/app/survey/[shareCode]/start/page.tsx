@@ -130,7 +130,10 @@ export default function StartScreen() {
 
             <button
               className="primary-button mt-8 w-full py-3.5 text-[14px]"
-              onClick={() => router.push(`/survey/${shareCode}?lang=${locale}`)}
+              onClick={() => {
+                localStorage.removeItem(`completed:${shareCode}`);
+                router.push(`/survey/${shareCode}?lang=${locale}`);
+              }}
             >
               {t(locale, "start")}
             </button>

@@ -348,6 +348,11 @@ export default function SurveyParticipantPage() {
         // back the participant_token cached on first visit. Backend ignores
         // tokens that don't match an in_progress response for this survey.
         const tokenStorageKey = `pt:${shareCode}`;
+        const completionStorageKey = `completed:${shareCode}`;
+        if (localStorage.getItem(completionStorageKey)) {
+          setCompleted(true);
+          return;
+        }
         const cachedToken = localStorage.getItem(tokenStorageKey) || undefined;
         const result = await api.startSurvey(shareCode, {
           language: initialLocale,
@@ -465,7 +470,9 @@ export default function SurveyParticipantPage() {
       await flushGaze();
       await api.completeSurvey(session.response_id);
       // Drop the cached token so a fresh visit to the same share link starts
-      // a new response instead of trying to resume a completed one.
+      // a new response from the start screen, while a refresh of this completed
+      // page keeps showing completion instead of opening an orphan response.
+      localStorage.setItem(`completed:${shareCode}`, new Date().toISOString());
       localStorage.removeItem(`pt:${shareCode}`);
       setCompleted(true);
     } catch (err: any) {
