@@ -16,7 +16,7 @@ import {
 import { ExternalPostImage } from "@/components/external-post-image";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
-type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "truth_social" | "bluesky";
+type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky";
 
 const PLATFORM_OPTIONS: { value: PlatformStyle; label: string; description: string }[] = [
   { value: "x", label: "X", description: "Compact text-first feed with repost-style interactions." },
@@ -29,6 +29,7 @@ const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
   { value: "twitter", label: "Twitter/X" },
   { value: "facebook", label: "Facebook" },
   { value: "instagram", label: "Instagram" },
+  { value: "xiaohongshu", label: "Xiaohongshu" },
   { value: "truth_social", label: "Truth Social" },
   { value: "bluesky", label: "Bluesky" },
 ];

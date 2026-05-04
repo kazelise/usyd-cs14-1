@@ -11,7 +11,7 @@ import { ExternalPostImage } from "@/components/external-post-image";
 import { useGazeTracker } from "./useGazeTracker";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
-type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "truth_social" | "bluesky";
+type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky";
 
 const PLATFORM_FEED_STYLES: Record<
   PlatformStyle,
@@ -175,6 +175,13 @@ const PLATFORM_FEED_STYLES: Record<
 
 function getPlatformFeedStyle(style?: string | null) {
     return PLATFORM_FEED_STYLES[(style as PlatformStyle) || "x"] ?? PLATFORM_FEED_STYLES.x;
+}
+
+function platformUiStyleToFeedStyle(style?: PlatformUiStyle | null): PlatformStyle | null {
+  if (!style) return null;
+  if (style === "twitter") return "x";
+  if (style === "facebook" || style === "instagram" || style === "xiaohongshu") return style;
+  return "x";
 }
 
 function getPostImageClass(style: PlatformStyle, baseClass: string, index: number) {
@@ -535,7 +542,7 @@ export default function SurveyParticipantPage() {
     locale === "zh"
       ? `已记录交互标记，覆盖 ${totalPosts} 条帖子`
       : `Interaction markers recorded across ${totalPosts} posts`;
-  const platformStyle = (session.platform_style || "x") as PlatformStyle;
+  const platformStyle = platformUiStyleToFeedStyle(session.platform_ui_style) || ((session.platform_style || "x") as PlatformStyle);
   const platform = getPlatformFeedStyle(platformStyle);
   const platformActionLabels = getPlatformActionLabels(platformStyle, locale);
 
