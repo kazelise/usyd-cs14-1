@@ -16,12 +16,21 @@ import {
 import { ExternalPostImage } from "@/components/external-post-image";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
+type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "truth_social" | "bluesky";
 
 const PLATFORM_OPTIONS: { value: PlatformStyle; label: string; description: string }[] = [
   { value: "x", label: "X", description: "Compact text-first feed with repost-style interactions." },
   { value: "facebook", label: "Facebook", description: "Familiar blue social feed with broad engagement controls." },
   { value: "instagram", label: "Instagram", description: "Image-forward layout for visual post stimuli." },
   { value: "xiaohongshu", label: "Xiaohongshu", description: "Lifestyle-card style suited to note-like social content." },
+];
+
+const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
+  { value: "twitter", label: "Twitter/X" },
+  { value: "facebook", label: "Facebook" },
+  { value: "instagram", label: "Instagram" },
+  { value: "truth_social", label: "Truth Social" },
+  { value: "bluesky", label: "Bluesky" },
 ];
 
 async function apiRequest(path: string, options: RequestInit = {}) {
@@ -78,6 +87,7 @@ interface Survey {
   status: string;
   share_code: string;
   platform_style?: PlatformStyle;
+  platform_ui_style?: PlatformUiStyle;
   num_groups: number;
   gaze_tracking_enabled?: boolean;
   gaze_interval_ms?: number;
@@ -585,7 +595,11 @@ export default function SurveyEditPage() {
 
   async function saveDraft() {
     if (!survey) return;
-    await api.updateSurvey(surveyId, { title: survey.title, platform_style: survey.platform_style ?? "x" });
+    await api.updateSurvey(surveyId, {
+      title: survey.title,
+      platform_style: survey.platform_style ?? "x",
+      platform_ui_style: survey.platform_ui_style ?? "twitter",
+    });
     setIsUnsavedDraft(false);
     shouldDiscardDraftRef.current = false;
     router.replace(`/admin/surveys/${surveyId}`);
@@ -600,6 +614,17 @@ export default function SurveyEditPage() {
       setSurvey(updated);
     } catch (err: any) {
       setError(err.message || "Failed to update platform style");
+    }
+  }
+
+  async function updatePlatformUiStyle(nextStyle: PlatformUiStyle) {
+    if (!survey) return;
+    setSurvey({ ...survey, platform_ui_style: nextStyle });
+    try {
+      const updated = await api.updateSurvey(surveyId, { platform_ui_style: nextStyle });
+      setSurvey(updated);
+    } catch (err: any) {
+      setError(err.message || "Failed to update platform UI style");
     }
   }
 
@@ -1301,6 +1326,25 @@ export default function SurveyEditPage() {
               {PLATFORM_OPTIONS.find((option) => option.value === (survey.platform_style ?? "x"))?.description}
             </p>
             <p className="mt-2 text-[13px] leading-6 text-slate-500">{text.platformStyleCopy}</p>
+          </div>
+
+          <div className="surface-panel-soft px-6 py-6">
+            <p className="section-kicker">Platform UI</p>
+            <select
+              value={survey.platform_ui_style ?? "twitter"}
+              onChange={(event) => updatePlatformUiStyle(event.target.value as PlatformUiStyle)}
+              className="field-input mt-5 h-11 text-[13px]"
+              disabled={survey.status !== "draft"}
+            >
+              {PLATFORM_UI_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-3 text-[13px] leading-6 text-slate-500">
+              Choose the social platform skin participants will see in the feed.
+            </p>
           </div>
 
           <div className="surface-panel-soft px-6 py-6">
