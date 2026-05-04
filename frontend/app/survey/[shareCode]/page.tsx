@@ -177,13 +177,6 @@ function getPlatformFeedStyle(style?: string | null) {
     return PLATFORM_FEED_STYLES[(style as PlatformStyle) || "x"] ?? PLATFORM_FEED_STYLES.x;
 }
 
-function platformUiStyleToFeedStyle(style?: PlatformUiStyle | null): PlatformStyle | null {
-  if (!style) return null;
-  if (style === "twitter") return "x";
-  if (style === "facebook" || style === "instagram") return style;
-  return "x";
-}
-
 function getPostImageClass(style: PlatformStyle, baseClass: string, index: number) {
     if (style !== "xiaohongshu") return baseClass;
     const ratios = ["aspect-[3/4]", "aspect-square", "aspect-[4/5]", "aspect-[5/4]"];
@@ -525,7 +518,7 @@ export default function SurveyParticipantPage() {
     locale === "zh"
       ? `已记录交互标记，覆盖 ${totalPosts} 条帖子`
       : `Interaction markers recorded across ${totalPosts} posts`;
-  const platformStyle = platformUiStyleToFeedStyle(session.platform_ui_style) || ((session.platform_style || "x") as PlatformStyle);
+  const platformStyle = (session.platform_style || "x") as PlatformStyle;
   const platform = getPlatformFeedStyle(platformStyle);
   const platformActionLabels = getPlatformActionLabels(platformStyle, locale);
 
