@@ -25,6 +25,11 @@ const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
   { value: "bluesky", label: "Bluesky" },
 ];
 
+function platformUiStyleToFeedStyle(style: PlatformUiStyle): PlatformStyle {
+  if (style === "facebook" || style === "instagram") return style;
+  return "x";
+}
+
 export default function NewSurveyPage() {
   const router = useRouter();
   const locale: string = "en";
@@ -223,7 +228,11 @@ export default function NewSurveyPage() {
               <label className="mb-2 block text-[14px] font-medium text-slate-600">Platform UI style</label>
               <select
                 value={platformUiStyle}
-                onChange={(e) => setPlatformUiStyle(e.target.value as PlatformUiStyle)}
+                onChange={(e) => {
+                  const nextStyle = e.target.value as PlatformUiStyle;
+                  setPlatformUiStyle(nextStyle);
+                  setPlatformStyle(platformUiStyleToFeedStyle(nextStyle));
+                }}
                 className="field-input h-12"
               >
                 {PLATFORM_UI_OPTIONS.map((option) => (

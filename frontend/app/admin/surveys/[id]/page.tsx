@@ -33,6 +33,11 @@ const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
   { value: "bluesky", label: "Bluesky" },
 ];
 
+function platformUiStyleToFeedStyle(style: PlatformUiStyle): PlatformStyle {
+  if (style === "facebook" || style === "instagram") return style;
+  return "x";
+}
+
 async function apiRequest(path: string, options: RequestInit = {}) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -619,9 +624,13 @@ export default function SurveyEditPage() {
 
   async function updatePlatformUiStyle(nextStyle: PlatformUiStyle) {
     if (!survey) return;
-    setSurvey({ ...survey, platform_ui_style: nextStyle });
+    const nextFeedStyle = platformUiStyleToFeedStyle(nextStyle);
+    setSurvey({ ...survey, platform_ui_style: nextStyle, platform_style: nextFeedStyle });
     try {
-      const updated = await api.updateSurvey(surveyId, { platform_ui_style: nextStyle });
+      const updated = await api.updateSurvey(surveyId, {
+        platform_ui_style: nextStyle,
+        platform_style: nextFeedStyle,
+      });
       setSurvey(updated);
     } catch (err: any) {
       setError(err.message || "Failed to update platform UI style");
