@@ -8,7 +8,9 @@ from pydantic import BaseModel, Field
 # ── Survey ────────────────────────────────────────────
 
 PlatformStyle = Literal["x", "facebook", "instagram", "xiaohongshu"]
-PlatformUiStyle = Literal["twitter", "facebook", "instagram", "truth_social", "bluesky"]
+PlatformUiStyle = Literal[
+    "twitter", "facebook", "instagram", "xiaohongshu", "truth_social", "bluesky"
+]
 
 
 class CreateSurveyRequest(BaseModel):
