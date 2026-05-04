@@ -7,9 +7,9 @@ Create Date: 2026-05-04 00:00:00.000000
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "20260504_0002"
 down_revision: str | None = "20260503_0001"
@@ -34,12 +34,16 @@ def upgrade() -> None:
     if not _column_exists("survey_responses", "is_speed_test_failed"):
         op.add_column(
             "survey_responses",
-            sa.Column("is_speed_test_failed", sa.Boolean(), server_default=sa.false(), nullable=False),
+            sa.Column(
+                "is_speed_test_failed", sa.Boolean(), server_default=sa.false(), nullable=False
+            ),
         )
         op.alter_column("survey_responses", "is_speed_test_failed", server_default=None)
 
     if not _column_exists("participant_interactions", "dwell_time_ms"):
-        op.add_column("participant_interactions", sa.Column("dwell_time_ms", sa.Integer(), nullable=True))
+        op.add_column(
+            "participant_interactions", sa.Column("dwell_time_ms", sa.Integer(), nullable=True)
+        )
 
     if not _column_exists("participant_interactions", "click_x"):
         op.add_column("participant_interactions", sa.Column("click_x", sa.Float(), nullable=True))
