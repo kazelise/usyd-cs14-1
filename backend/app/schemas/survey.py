@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 # ── Survey ────────────────────────────────────────────
 
 PlatformStyle = Literal["x", "facebook", "instagram", "xiaohongshu"]
+PlatformUiStyle = Literal["twitter", "facebook", "instagram", "truth_social", "bluesky"]
 
 
 class CreateSurveyRequest(BaseModel):
@@ -21,6 +22,7 @@ class CreateSurveyRequest(BaseModel):
     click_tracking_enabled: bool = True
     calibration_enabled: bool = True
     calibration_points: int = 9
+    platform_ui_style: PlatformUiStyle = "twitter"
 
 
 class UpdateSurveyRequest(BaseModel):
@@ -34,6 +36,7 @@ class UpdateSurveyRequest(BaseModel):
     click_tracking_enabled: bool | None = None
     calibration_enabled: bool | None = None
     calibration_points: int | None = None
+    platform_ui_style: PlatformUiStyle | None = None
 
 
 class SurveyOut(BaseModel):
@@ -50,6 +53,7 @@ class SurveyOut(BaseModel):
     click_tracking_enabled: bool
     calibration_enabled: bool
     calibration_points: int
+    platform_ui_style: PlatformUiStyle = "twitter"
     share_code_expires_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
@@ -222,6 +226,7 @@ class StartSurveyResponse(BaseModel):
     survey_id: int
     assigned_group: int
     platform_style: PlatformStyle = "x"
+    platform_ui_style: PlatformUiStyle = "twitter"
     calibration_required: bool
     calibration_points: int
     calibration_completed: bool = False
@@ -238,6 +243,7 @@ class SurveyPreviewResponse(BaseModel):
     survey_id: int
     assigned_group: int
     platform_style: PlatformStyle = "x"
+    platform_ui_style: PlatformUiStyle = "twitter"
     calibration_required: bool
     calibration_points: int
     gaze_tracking_enabled: bool

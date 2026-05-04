@@ -8,6 +8,7 @@ import { CheckCircleIcon, SurveyIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
+type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "truth_social" | "bluesky";
 
 const PLATFORM_OPTIONS: { value: PlatformStyle; label: string }[] = [
   { value: "x", label: "X" },
@@ -16,12 +17,21 @@ const PLATFORM_OPTIONS: { value: PlatformStyle; label: string }[] = [
   { value: "xiaohongshu", label: "Xiaohongshu" },
 ];
 
+const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
+  { value: "twitter", label: "Twitter/X" },
+  { value: "facebook", label: "Facebook" },
+  { value: "instagram", label: "Instagram" },
+  { value: "truth_social", label: "Truth Social" },
+  { value: "bluesky", label: "Bluesky" },
+];
+
 export default function NewSurveyPage() {
   const router = useRouter();
   const locale: string = "en";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [platformStyle, setPlatformStyle] = useState<PlatformStyle>("x");
+  const [platformUiStyle, setPlatformUiStyle] = useState<PlatformUiStyle>("twitter");
   const [numGroups, setNumGroups] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -125,6 +135,7 @@ export default function NewSurveyPage() {
           title,
           description: description || null,
           platform_style: platformStyle,
+          platform_ui_style: platformUiStyle,
           num_groups: numGroups,
         gaze_tracking_enabled: true,
         click_tracking_enabled: true,
@@ -206,6 +217,24 @@ export default function NewSurveyPage() {
                 ))}
               </select>
               <p className="mt-2 text-[13px] leading-6 text-slate-500">{text.platformStyleCopy}</p>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[14px] font-medium text-slate-600">Platform UI style</label>
+              <select
+                value={platformUiStyle}
+                onChange={(e) => setPlatformUiStyle(e.target.value as PlatformUiStyle)}
+                className="field-input h-12"
+              >
+                {PLATFORM_UI_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-[13px] leading-6 text-slate-500">
+                Choose the social platform skin participants will see in the feed.
+              </p>
             </div>
 
             <div>
