@@ -7,9 +7,9 @@ Create Date: 2026-05-04 00:00:00.000000
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "20260504_0004"
 down_revision: str | None = "20260504_0003"
@@ -28,7 +28,9 @@ def upgrade() -> None:
     if not _column_exists("surveys", "platform_ui_style"):
         op.add_column(
             "surveys",
-            sa.Column("platform_ui_style", sa.String(length=40), server_default="twitter", nullable=False),
+            sa.Column(
+                "platform_ui_style", sa.String(length=40), server_default="twitter", nullable=False
+            ),
         )
         op.alter_column("surveys", "platform_ui_style", server_default=None)
 
