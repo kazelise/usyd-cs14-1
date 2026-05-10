@@ -232,11 +232,35 @@ async def test_start_survey_returns_social_card_questions_and_condition_values(m
     response = await start_survey("phase6-share", StartSurveyRequest(language="en"), db)
 
     assert response.participant_token == "phase6-token"
+    assert response.assigned_group == 2
+    assert response.randomization_seed
+    assert response.shown_post_order == [31]
+    assert response.is_preview is False
     assert response.posts[0].display_likes == 99
     assert response.posts[0].display_description == "Variant description"
     assert response.posts[0].source_label == "Variant source"
     assert response.posts[0].questions[0].question_type == "single_choice"
     assert response.questions[0].question_type == "rating"
+
+
+@pytest.mark.asyncio
+async def test_preview_start_can_pin_condition_without_random_assignment(monkeypatch):
+    def fail_random_assignment(_start, _end):
+        raise AssertionError("preview sessions with a pinned group should not randomize")
+
+    monkeypatch.setattr(surveys.random, "randint", fail_random_assignment)
+    survey = make_phase6_survey()
+    db = Phase6DB(survey)
+
+    response = await start_survey(
+        "phase6-share",
+        StartSurveyRequest(language="en", is_preview=True, preview_assigned_group=2),
+        db,
+    )
+
+    assert response.assigned_group == 2
+    assert response.is_preview is True
+    assert response.posts[0].display_likes == 99
 
 
 @pytest.mark.asyncio

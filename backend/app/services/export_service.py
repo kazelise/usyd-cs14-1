@@ -41,6 +41,9 @@ CSV_HEADERS = [
     "response_id",
     "participant_id",
     "assigned_group",
+    "randomization_seed",
+    "shown_post_order",
+    "is_preview",
     "language",
     "response_status",
     "started_at",
@@ -64,6 +67,7 @@ class ExportFilters:
     language: str | None = None
     response_status: str | None = None
     calibration_passed: bool | None = None
+    include_preview: bool = False
 
     @property
     def group_value(self) -> int | None:
@@ -76,6 +80,7 @@ class ExportFilters:
             "language": self.language,
             "response_status": self.response_status,
             "calibration_passed": self.calibration_passed,
+            "include_preview": self.include_preview,
         }
 
 
@@ -96,6 +101,8 @@ def response_matches_filters(response: SurveyResponse, filters: ExportFilters) -
     if filters.language is not None and response.language != filters.language:
         return False
     if filters.response_status is not None and response.status != filters.response_status:
+        return False
+    if not filters.include_preview and response.is_preview:
         return False
     if filters.calibration_passed is not None:
         calibration = response.calibration_session
@@ -216,6 +223,9 @@ def build_export_payload(
                 "response_id": response.id,
                 "participant_id": anonymous_participant_id(response.participant_token, response.id),
                 "assigned_group": response.assigned_group,
+                "randomization_seed": response.randomization_seed,
+                "shown_post_order": response.shown_post_order or [],
+                "is_preview": response.is_preview,
                 "language": response.language,
                 "response_status": response.status,
                 "started_at": isoformat(response.started_at),
@@ -330,6 +340,9 @@ def export_payload_to_csv(payload: dict[str, Any]) -> str:
                 "response_id": response["response_id"],
                 "participant_id": response["participant_id"],
                 "assigned_group": response["assigned_group"],
+                "randomization_seed": response["randomization_seed"],
+                "shown_post_order": json.dumps(response["shown_post_order"], ensure_ascii=False),
+                "is_preview": response["is_preview"],
                 "language": response["language"],
                 "response_status": response["response_status"],
                 "started_at": response["started_at"],

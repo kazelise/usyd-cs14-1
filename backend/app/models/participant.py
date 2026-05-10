@@ -40,6 +40,8 @@ class SurveyResponse(Base):
 
     # ── A/B Group Assignment ─────────────────────────
     assigned_group: Mapped[int] = mapped_column(SmallInteger, default=1, index=True)
+    randomization_seed: Mapped[str | None] = mapped_column(String(64))
+    shown_post_order: Mapped[list[int] | None] = mapped_column(JSON)
 
     # ── Participant Metadata ─────────────────────────
     user_agent: Mapped[str | None] = mapped_column(Text)
@@ -51,6 +53,9 @@ class SurveyResponse(Base):
     participant_fingerprint: Mapped[str | None] = mapped_column(String(128))
 
     status: Mapped[str] = mapped_column(String(20), default="in_progress", index=True)
+    is_preview: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", index=True
+    )
     is_speed_test_failed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     started_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)

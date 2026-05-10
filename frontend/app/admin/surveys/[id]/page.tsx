@@ -7,6 +7,7 @@ import { buildTemplateFromSurvey, persistTemplate } from "@/lib/template-library
 import {
   ChartIcon,
   CheckCircleIcon,
+  ChevronLeftIcon,
   LinkIcon,
   PlusIcon,
   SearchIcon,
@@ -34,8 +35,14 @@ const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
   { value: "bluesky", label: "Bluesky" },
 ];
 
+const LANGUAGE_OPTIONS = [
+  { value: "en", label: "English" },
+  { value: "ar", label: "العربية" },
+  { value: "zh", label: "中文" },
+];
+
 function platformUiStyleToFeedStyle(style: PlatformUiStyle): PlatformStyle {
-  if (style === "facebook" || style === "instagram") return style;
+  if (style === "facebook" || style === "instagram" || style === "xiaohongshu") return style;
   return "x";
 }
 
@@ -100,6 +107,8 @@ interface Survey {
   click_tracking_enabled?: boolean;
   calibration_enabled?: boolean;
   calibration_points?: number;
+  default_language?: string | null;
+  supported_languages?: string[] | null;
 }
 
 function statusClasses(status: string) {
@@ -164,11 +173,14 @@ export default function SurveyEditPage() {
   const [isUnsavedDraft, setIsUnsavedDraft] = useState(initialUnsavedDraft);
   const [templateSaved, setTemplateSaved] = useState(false);
   const [translationLanguage, setTranslationLanguage] = useState("zh");
+  const [defaultLanguage, setDefaultLanguage] = useState("en");
+  const [supportedLanguages, setSupportedLanguages] = useState<string[]>(["en", "ar", "zh"]);
   const [translationFile, setTranslationFile] = useState<File | null>(null);
   const [translationBusy, setTranslationBusy] = useState(false);
   const [translationStatus, setTranslationStatus] = useState("");
   const [previewGroup, setPreviewGroup] = useState(1);
-  const [previewData, setPreviewData] = useState<{ posts: Post[]; questions: Question[]; assigned_group: number; platform_style?: PlatformStyle } | null>(null);
+  const [previewLanguage, setPreviewLanguage] = useState("en");
+  const [previewData, setPreviewData] = useState<{ posts: Post[]; questions: Question[]; assigned_group: number; platform_style?: PlatformStyle; language?: string | null } | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
   const shouldDiscardDraftRef = useRef(initialUnsavedDraft);
   const discardRequestedRef = useRef(false);
@@ -229,10 +241,22 @@ export default function SurveyEditPage() {
           preview: "预览",
           previewParticipant: "参与者预览",
           previewGroup: "预览分组",
+          previewLanguage: "预览语言",
+          openTestSession: "打开测试会话",
+          testSessionCopy: "使用预览参数打开参与者流程；这些测试回答默认不会进入正式分析导出。",
+          previewMode: "预览模式",
           loadPreview: "加载预览",
+          languageSettings: "参与者语言",
+          defaultLanguage: "默认语言",
+          supportedLanguages: "可用语言",
+          languageCopy: "英文和阿拉伯语会保持可用；中文如果已在问卷中使用也会保留。",
+          saveLanguages: "保存语言",
+          languagesSaved: "语言设置已保存",
           abGroups: "A/B 分组",
           groupVisibility: "分组可见性",
           saveGroups: "保存分组",
+          moveUp: "上移",
+          moveDown: "下移",
           commenterName: "评论者姓名",
           commentText: "评论内容",
           add: "添加",
@@ -315,10 +339,22 @@ export default function SurveyEditPage() {
           preview: "Preview",
           previewParticipant: "Participant preview",
           previewGroup: "Preview group",
+          previewLanguage: "Preview language",
+          openTestSession: "Open test session",
+          testSessionCopy: "Launches the participant flow with preview parameters; these test responses are excluded from formal analytics exports by default.",
+          previewMode: "Preview mode",
           loadPreview: "Load preview",
+          languageSettings: "Participant languages",
+          defaultLanguage: "Default language",
+          supportedLanguages: "Supported languages",
+          languageCopy: "English and Arabic remain available. Chinese stays enabled for surveys that already use it.",
+          saveLanguages: "Save languages",
+          languagesSaved: "Language settings saved",
           abGroups: "A/B groups",
           groupVisibility: "Group visibility",
           saveGroups: "Save groups",
+          moveUp: "Move up",
+          moveDown: "Move down",
           commenterName: "Commenter name",
           commentText: "Comment text",
           add: "Add",
@@ -351,6 +387,15 @@ export default function SurveyEditPage() {
     try {
       const [nextSurvey, nextPosts] = await Promise.all([api.getSurvey(surveyId), api.listPosts(surveyId)]);
       setSurvey(nextSurvey);
+      const nextDefaultLanguage = nextSurvey.default_language || "en";
+      const nextSupportedLanguages =
+        Array.isArray(nextSurvey.supported_languages) && nextSurvey.supported_languages.length
+          ? nextSurvey.supported_languages
+          : ["en", "ar", "zh"];
+      const normalizedLanguages = Array.from(new Set([nextDefaultLanguage, "en", "ar", ...nextSupportedLanguages]));
+      setDefaultLanguage(nextDefaultLanguage);
+      setSupportedLanguages(normalizedLanguages);
+      setPreviewLanguage((current) => (normalizedLanguages.includes(current) ? current : nextDefaultLanguage));
       setPosts(nextPosts);
     } catch (err: any) {
       const message = String(err?.message || "").toLowerCase();
@@ -470,6 +515,19 @@ export default function SurveyEditPage() {
       display_shares: editShares,
     });
     setEditingPost(null);
+    await loadData();
+  }
+
+  async function movePost(postId: number, direction: "up" | "down") {
+    const currentIndex = posts.findIndex((post) => post.id === postId);
+    const swapIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (currentIndex < 0 || swapIndex < 0 || swapIndex >= posts.length) return;
+    const current = posts[currentIndex];
+    const swap = posts[swapIndex];
+    await Promise.all([
+      api.updatePost(surveyId, current.id, { order: swap.order }),
+      api.updatePost(surveyId, swap.id, { order: current.order }),
+    ]);
     await loadData();
   }
 
@@ -605,6 +663,8 @@ export default function SurveyEditPage() {
       title: survey.title,
       platform_style: survey.platform_style ?? "x",
       platform_ui_style: survey.platform_ui_style ?? "twitter",
+      default_language: defaultLanguage,
+      supported_languages: Array.from(new Set([defaultLanguage, ...supportedLanguages])),
     });
     setIsUnsavedDraft(false);
     shouldDiscardDraftRef.current = false;
@@ -635,6 +695,26 @@ export default function SurveyEditPage() {
       setSurvey(updated);
     } catch (err: any) {
       setError(err.message || "Failed to update platform UI style");
+    }
+  }
+
+  async function updateLanguageSettings() {
+    if (!survey) return;
+    const languages = Array.from(new Set([defaultLanguage, "en", "ar", ...supportedLanguages]));
+    setSupportedLanguages(languages);
+    try {
+      const updated = await api.updateSurvey(surveyId, {
+        default_language: defaultLanguage,
+        supported_languages: languages,
+      });
+      setSurvey({
+        ...updated,
+        default_language: updated.default_language ?? defaultLanguage,
+        supported_languages: updated.supported_languages ?? languages,
+      });
+      setTranslationStatus(text.languagesSaved);
+    } catch (err: any) {
+      setTranslationStatus(err.message || "Failed to save language settings");
     }
   }
 
@@ -728,7 +808,7 @@ export default function SurveyEditPage() {
   async function loadPreview() {
     setPreviewBusy(true);
     try {
-      const preview = await api.previewSurvey(surveyId, previewGroup, locale);
+      const preview = await api.previewSurvey(surveyId, previewGroup, previewLanguage);
       setPreviewData(preview);
     } catch (err: any) {
       setTranslationStatus(err.message || "Preview failed");
@@ -743,6 +823,10 @@ export default function SurveyEditPage() {
 
   const shareUrl =
     typeof window !== "undefined" ? `${window.location.origin}/survey/${survey.share_code}/start` : "";
+  const previewSessionUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/survey/${survey.share_code}/start?preview=1&group=${previewGroup}&lang=${previewLanguage}`
+      : "";
   const publishedPosts = posts.filter((post) => !post.visible_to_groups || post.visible_to_groups.length > 0).length;
   const totalComments = posts.reduce(
     (sum, post) =>
@@ -849,7 +933,7 @@ export default function SurveyEditPage() {
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-6">
-          {posts.map((post) => {
+          {posts.map((post, postIndex) => {
             const stat = stats?.find((item) => item.post_id === post.id);
             const totalLikes = (post.display_likes || 0) + (stat?.likes || 0);
             const totalCountComments = (post.display_comments_count || 0) + (stat?.participant_comments || 0);
@@ -893,12 +977,34 @@ export default function SurveyEditPage() {
                       </div>
 
                       {survey.status === "draft" && (
-                        <button
-                          onClick={() => deletePost(post.id)}
-                          className="rounded-full border px-4 py-2 text-[13px] font-medium text-slate-500 transition hover:bg-black/[0.03] hover:text-black"
-                        >
-                          {text.delete}
-                        </button>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button
+                            type="button"
+                            title={text.moveUp}
+                            aria-label={text.moveUp}
+                            disabled={postIndex === 0}
+                            onClick={() => movePost(post.id, "up")}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition hover:bg-black/[0.03] hover:text-black disabled:cursor-not-allowed disabled:opacity-35"
+                          >
+                            <ChevronLeftIcon className="h-4 w-4 rotate-90" />
+                          </button>
+                          <button
+                            type="button"
+                            title={text.moveDown}
+                            aria-label={text.moveDown}
+                            disabled={postIndex === posts.length - 1}
+                            onClick={() => movePost(post.id, "down")}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition hover:bg-black/[0.03] hover:text-black disabled:cursor-not-allowed disabled:opacity-35"
+                          >
+                            <ChevronLeftIcon className="h-4 w-4 -rotate-90" />
+                          </button>
+                          <button
+                            onClick={() => deletePost(post.id)}
+                            className="rounded-full border px-4 py-2 text-[13px] font-medium text-slate-500 transition hover:bg-black/[0.03] hover:text-black"
+                          >
+                            {text.delete}
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -1358,6 +1464,66 @@ export default function SurveyEditPage() {
           </div>
 
           <div className="surface-panel-soft px-6 py-6">
+            <p className="section-kicker">{text.languageSettings}</p>
+            <label className="mt-5 block space-y-2 text-[13px] text-slate-500">
+              <span>{text.defaultLanguage}</span>
+              <select
+                value={defaultLanguage}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setDefaultLanguage(next);
+                  setSupportedLanguages((prev) => Array.from(new Set([...prev, next])));
+                }}
+                className="field-input h-11 text-[13px]"
+                disabled={survey.status !== "draft"}
+              >
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="mt-4">
+              <span className="block text-[13px] text-slate-500">{text.supportedLanguages}</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {LANGUAGE_OPTIONS.map((option) => {
+                  const checked = supportedLanguages.includes(option.value);
+                  const locked = option.value === defaultLanguage || option.value === "en" || option.value === "ar";
+                  return (
+                    <label
+                      key={option.value}
+                      className={`flex items-center gap-2 rounded-full border px-3 py-2 text-[13px] ${
+                        checked ? "border-[#9ddfd8] bg-white text-[#0f3146]" : "border-slate-200 bg-white/70 text-slate-500"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={locked || survey.status !== "draft"}
+                        onChange={(event) => {
+                          setSupportedLanguages((prev) =>
+                            event.target.checked
+                              ? Array.from(new Set([...prev, option.value]))
+                              : prev.filter((item) => item !== option.value),
+                          );
+                        }}
+                      />
+                      {option.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <p className="mt-3 text-[13px] leading-6 text-slate-500">{text.languageCopy}</p>
+            {survey.status === "draft" && (
+              <button type="button" onClick={updateLanguageSettings} className="secondary-button mt-4 w-full justify-center">
+                {text.saveLanguages}
+              </button>
+            )}
+          </div>
+
+          <div className="surface-panel-soft px-6 py-6">
             <p className="section-kicker">{text.previewParticipant}</p>
             <label className="mt-5 block space-y-2 text-[13px] text-slate-500">
               <span>{text.previewGroup}</span>
@@ -1367,11 +1533,35 @@ export default function SurveyEditPage() {
                 ))}
               </select>
             </label>
+            <label className="mt-4 block space-y-2 text-[13px] text-slate-500">
+              <span>{text.previewLanguage}</span>
+              <select value={previewLanguage} onChange={(event) => setPreviewLanguage(event.target.value)} className="field-input h-11 text-[13px]">
+                {LANGUAGE_OPTIONS.filter((option) => supportedLanguages.includes(option.value)).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button type="button" onClick={loadPreview} disabled={previewBusy} className="primary-button mt-4 w-full justify-center">
               {previewBusy ? text.fetching : text.loadPreview}
             </button>
+            {previewSessionUrl && (
+              <a
+                href={previewSessionUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="secondary-button mt-3 w-full justify-center text-center"
+              >
+                {text.openTestSession}
+              </a>
+            )}
+            <p className="mt-3 text-[12px] leading-5 text-slate-500">{text.testSessionCopy}</p>
             {previewData && (
               <div className="mt-5 space-y-3">
+                <div className="rounded-[16px] border border-[#9ddfd8] bg-[#effcfb] px-4 py-3 text-[12px] font-medium text-[#0f3146]">
+                  {text.previewMode}: Group {previewData.assigned_group} · {previewData.language || previewLanguage}
+                </div>
                 {previewData.posts.slice(0, 3).map((post) => {
                   const previewTitle = post.display_title || post.fetched_title || text.untitled;
                   const previewSource = post.source_label || post.fetched_source || "";

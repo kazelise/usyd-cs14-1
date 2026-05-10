@@ -1,0 +1,195 @@
+:root {
+  --vp-c-brand-1: #00847f;
+  --vp-c-brand-2: #00a7a0;
+  --vp-c-brand-3: #73d4cf;
+  --vp-c-bg: #eef2f7;
+  --vp-c-bg-alt: #f7f9fc;
+  --vp-c-bg-soft: #ffffff;
+  --vp-c-text-1: #163047;
+  --vp-c-text-2: #4b6074;
+  --vp-c-text-3: #718096;
+  --vp-c-divider: rgba(93, 111, 133, 0.18);
+  --vp-c-border: rgba(93, 111, 133, 0.22);
+  --vp-font-family-base: "Avenir Next", "Helvetica Neue", "Segoe UI", sans-serif;
+  --vp-code-bg: rgba(0, 132, 127, 0.1);
+  --vp-code-color: #0f5e5b;
+  --vp-code-block-bg: #f8fafc;
+  --vp-code-block-color: #1e293b;
+  --vp-code-lang-color: #64748b;
+  --vp-code-line-highlight-color: rgba(0, 167, 160, 0.09);
+  --vp-code-line-number-color: #94a3b8;
+  --vp-code-copy-code-bg: #e2e8f0;
+  --vp-code-copy-code-hover-bg: #cbd5e1;
+  --vp-home-hero-name-color: #163047;
+  --vp-home-hero-image-background-image: none;
+}
+
+.dark {
+  --vp-c-bg: #0f1d29;
+  --vp-c-bg-alt: #122535;
+  --vp-c-bg-soft: #172e40;
+  --vp-c-text-1: #eff7fb;
+  --vp-c-text-2: #c3d3df;
+  --vp-c-text-3: #93a9b8;
+  --vp-c-divider: rgba(207, 224, 236, 0.16);
+  --vp-c-border: rgba(207, 224, 236, 0.2);
+  --vp-code-bg: rgba(115, 212, 207, 0.16);
+  --vp-code-color: #b8efeb;
+  --vp-code-block-bg: #0b1724;
+  --vp-code-block-color: #dbeafe;
+  --vp-code-lang-color: #9fb4c4;
+  --vp-code-line-highlight-color: rgba(115, 212, 207, 0.1);
+  --vp-code-line-number-color: #6f8798;
+  --vp-code-copy-code-bg: #172e40;
+  --vp-code-copy-code-hover-bg: #21435d;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.78), transparent 26%),
+    linear-gradient(180deg, #f6f9fc 0%, #eef2f7 54%, #e9eef5 100%);
+}
+
+.dark body {
+  background: linear-gradient(180deg, #102130 0%, #0f1d29 100%);
+}
+
+.VPNav {
+  border-bottom: 1px solid var(--vp-c-divider);
+  backdrop-filter: blur(16px);
+}
+
+.VPHome .main {
+  padding-top: 32px;
+}
+
+.VPHomeHero .name,
+.VPHomeHero .text {
+  letter-spacing: 0;
+}
+
+.VPHomeHero .tagline {
+  max-width: 650px;
+  color: var(--vp-c-text-2);
+}
+
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3 {
+  letter-spacing: 0;
+}
+
+.vp-doc table {
+  display: table;
+  width: 100%;
+  font-size: 14px;
+}
+
+.vp-doc th,
+.vp-doc td {
+  vertical-align: top;
+}
+
+.vp-doc :not(pre) > code {
+  border: 1px solid rgba(0, 132, 127, 0.16);
+  border-radius: 6px;
+  background: var(--vp-code-bg);
+  color: var(--vp-code-color);
+  font-size: 0.88em;
+  font-weight: 650;
+  padding: 2px 6px;
+}
+
+.vp-doc div[class*='language-'] {
+  border: 1px solid rgba(93, 111, 133, 0.22);
+  border-radius: 8px;
+  background: var(--vp-code-block-bg) !important;
+  box-shadow: 0 10px 26px rgba(14, 37, 63, 0.08);
+}
+
+.dark .vp-doc div[class*='language-'] {
+  border-color: rgba(207, 224, 236, 0.16);
+  box-shadow: none;
+}
+
+.vp-doc div[class*='language-'] pre,
+.vp-doc div[class*='language-'] code {
+  color: var(--vp-code-block-color);
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.vp-doc div[class*='language-'] .lang {
+  color: var(--vp-code-lang-color);
+}
+
+.vp-doc th {
+  color: var(--vp-c-text-1);
+  background: rgba(0, 167, 160, 0.08);
+}
+
+.vp-doc tr:nth-child(2n) {
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.dark .vp-doc tr:nth-child(2n) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.doc-panel {
+  border: 1px solid var(--vp-c-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 14px 36px rgba(14, 37, 63, 0.06);
+  padding: 18px;
+}
+
+.dark .doc-panel {
+  background: rgba(23, 46, 64, 0.72);
+  box-shadow: none;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.status-tile {
+  border: 1px solid var(--vp-c-border);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
+  padding: 16px;
+}
+
+.status-tile strong {
+  display: block;
+  color: var(--vp-c-text-1);
+  font-size: 22px;
+}
+
+.status-tile span {
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+}
+
+.tagline-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.tagline-row span {
+  border: 1px solid rgba(0, 167, 160, 0.22);
+  border-radius: 999px;
+  color: #0f5e5b;
+  background: rgba(0, 167, 160, 0.08);
+  padding: 5px 10px;
+  font-size: 13px;
+}
+
+.dark .tagline-row span {
+  color: #b8efeb;
+}

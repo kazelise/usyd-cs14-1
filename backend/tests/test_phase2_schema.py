@@ -40,7 +40,7 @@ def test_alembic_head_revision_is_configured():
 
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_current_head() == "20260504_0006"
+    assert script.get_current_head() == "20260504_0008"
 
 
 def test_survey_has_platform_style_default():
@@ -48,6 +48,23 @@ def test_survey_has_platform_style_default():
 
     assert "platform_style" in table.c
     assert table.c.platform_style.default is not None
+
+
+def test_survey_language_and_publish_columns_are_configured():
+    table = Survey.__table__
+
+    assert table.c.default_language.default is not None
+    assert table.c.supported_languages.default is not None
+    assert "published_at" in table.c
+
+
+def test_response_preview_randomization_columns_are_configured():
+    table = SurveyResponse.__table__
+
+    assert "is_preview" in table.c
+    assert "ix_survey_responses_is_preview" in _index_names(table)
+    assert "randomization_seed" in table.c
+    assert "shown_post_order" in table.c
 
 
 def test_tracking_schema_hardening_columns_and_relationships():

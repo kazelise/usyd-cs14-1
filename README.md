@@ -49,11 +49,12 @@ cd frontend && npm install && npm run dev
 - **Translations** at `/admin/surveys/{id}` — every post / comment / question block can carry per-language overrides. Bulk import / export via CSV or JSON (`GET/POST /surveys/{id}/translations`).
 - **Preview** without publishing — `GET /surveys/{id}/preview` renders the participant feed for a chosen group + language so you can test before sending the share link.
 - **Analytics** at `/admin/analytics` — completion rate, median session time, A/B-broken-down likes / comments / clicks, calibration pass rate, suspicious-session flags (sub-30s completion, all-empty interactions, duplicate comment text).
-- **Export** — `GET /surveys/{id}/export?format=csv|json` with filters by group / language / date. Each row is keyed by an anonymous participant ID derived from the per-session token; raw tokens never leave the database.
+- **Export** — `GET /surveys/{id}/export?format=csv|json` with filters by group / language / response status / calibration outcome. Each row is keyed by an anonymous participant ID derived from the per-session token; raw tokens never leave the database.
+- **Researcher guide** — see [`docs/researcher-user-guide.md`](docs/researcher-user-guide.md) for the survey-building, translation, publishing, testing, and export workflow.
 
 ### Participant flow
 
-1. **Start screen** — survey title + estimated duration + consent + language picker (EN / 中文 / العربية).
+1. **Start screen** — survey title + estimated duration + explicit consent checkbox + language picker (EN / 中文 / العربية).
 2. **Webcam calibration** (when enabled on the survey) — camera permission, face-detection presence check, 9-point dot sequence using MediaPipe Face Mesh, quality score with pass / acceptable / poor verdict. See [`docs/tracking-design-decisions.md`](docs/tracking-design-decisions.md) for the scoring model.
 3. **Social feed** — each post rendered with the look of a real platform card: source badge, headline, hero image, like / comment / share counters. Inline question blocks below each post for survey responses.
 4. **Continuous capture** — gaze samples (1 Hz default, configurable per survey), click coordinates with `data-track` element labels (`headline` / `image` / `like_button` / `share_count`), interaction events (like, comment, share, click-through to the original article).

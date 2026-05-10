@@ -6,6 +6,7 @@ type SurveyExportFilters = {
   language?: string;
   response_status?: string;
   calibration_passed?: boolean;
+  include_preview?: boolean;
 };
 
 function surveyExportPath(id: number, format: "json" | "csv", filters: SurveyExportFilters = {}) {
@@ -87,7 +88,7 @@ export const api = {
   exportSurveyDataCsv: (id: number, filters?: SurveyExportFilters) =>
     requestText(surveyExportPath(id, "csv", filters)),
   previewSurvey: (id: number, assignedGroup = 1, language = "en") =>
-    request(`/surveys/${id}/preview?assigned_group=${assignedGroup}&language=${encodeURIComponent(language)}`),
+    request(`/surveys/${id}/preview?assigned_group=${assignedGroup}&language=${encodeURIComponent(language)}&is_preview=true`),
   exportTranslationsJson: (id: number, language = "zh") =>
     request(`/surveys/${id}/translations/export?format=json&language=${encodeURIComponent(language)}`),
   exportTranslationsCsv: (id: number, language = "zh") =>
@@ -136,6 +137,8 @@ export const api = {
       screen_height?: number;
       user_agent?: string;
       participant_token?: string;
+      is_preview?: boolean;
+      preview_assigned_group?: number;
     },
   ) => request(`/surveys/${shareCode}/start`, { method: "POST", body: JSON.stringify(data || {}) }),
   getPublicSurvey: (shareCode: string, language?: string) =>

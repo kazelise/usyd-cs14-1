@@ -95,6 +95,8 @@ def make_survey() -> Survey:
         click_tracking_enabled=True,
         calibration_enabled=True,
         calibration_points=9,
+        default_language="en",
+        supported_languages=["en", "ar", "zh"],
         created_at=now,
         updated_at=now,
     )
@@ -132,6 +134,7 @@ def make_response(
     language: str = "en",
     status: str = "completed",
     calibration_passed: bool = True,
+    is_preview: bool = False,
 ) -> SurveyResponse:
     started_at = datetime(2026, 4, 25, 10, 5, 0)
     response = SurveyResponse(
@@ -139,8 +142,11 @@ def make_response(
         survey_id=7,
         participant_token=f"secret-token-{response_id}",
         assigned_group=group,
+        randomization_seed=f"seed-{response_id}",
+        shown_post_order=[11],
         language=language,
         status=status,
+        is_preview=is_preview,
         started_at=started_at,
         completed_at=started_at + timedelta(minutes=4),
     )
@@ -293,6 +299,15 @@ def test_export_filters_match_condition_language_status_and_calibration():
     assert response_matches_filters(failed_calibration, filters) is False
 
 
+def test_export_filters_exclude_preview_responses_by_default():
+    preview_response = make_response(106, is_preview=True)
+
+    assert response_matches_filters(preview_response, ExportFilters()) is False
+    assert response_matches_filters(
+        preview_response, ExportFilters(include_preview=True)
+    ) is True
+
+
 def test_json_export_shape_tracking_summary_and_anonymization():
     payload = make_payload()
     exported = payload["responses"][0]
@@ -304,6 +319,9 @@ def test_json_export_shape_tracking_summary_and_anonymization():
     assert exported["participant_id"] != "secret-token-101"
     assert "secret-token-101" not in json.dumps(payload)
     assert exported["assigned_group"] == 2
+    assert exported["randomization_seed"] == "seed-101"
+    assert exported["shown_post_order"] == [11]
+    assert exported["is_preview"] is False
     assert exported["language"] == "en"
     assert exported["response_status"] == "completed"
     assert exported["calibration"]["status"] == "completed"
@@ -326,6 +344,9 @@ def test_csv_export_headers_and_flattened_summary_fields():
     assert reader.fieldnames == CSV_HEADERS
     assert len(rows) == 1
     assert rows[0]["participant_id"].startswith("anon_")
+    assert rows[0]["randomization_seed"] == "seed-101"
+    assert json.loads(rows[0]["shown_post_order"]) == [11]
+    assert rows[0]["is_preview"] == "False"
     assert rows[0]["calibration_quality"] == "good"
     assert rows[0]["calibration_quality_score"] == "92.5"
     assert rows[0]["calibration_passed"] == "True"

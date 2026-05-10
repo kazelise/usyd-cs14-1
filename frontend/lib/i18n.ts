@@ -23,6 +23,9 @@ export const dict = {
     subtitle: "Please read the info below before starting.",
     estTime: "Estimated duration",
     consent: "By clicking Start, you consent to participate and agree to anonymized data collection for research purposes.",
+    consentCheckbox:
+      "I understand that my anonymous survey responses, interactions, and optional camera-calibration quality signals may be collected for this research study.",
+    consentRequired: "Please confirm consent before starting the study.",
     start: "Start",
     minutes: "minutes",
     language: "Language",
@@ -123,6 +126,8 @@ export const dict = {
     subtitle: "开始前请阅读以下信息。",
     estTime: "预计时长",
     consent: "点击开始即表示您同意参与本研究，并同意我们以匿名方式收集数据用于科研。",
+    consentCheckbox: "我已理解本研究可能会匿名收集我的问卷回答、交互行为以及可选摄像头校准质量信号。",
+    consentRequired: "开始前请先确认同意参与。",
     start: "开始",
     minutes: "分钟",
     language: "语言",
@@ -220,6 +225,9 @@ export const dict = {
     estTime: "المدة التقديرية",
     consent:
       "بالنقر على ابدأ، فإنك توافق على المشاركة وعلى جمع بيانات مجهولة الهوية لأغراض البحث.",
+    consentCheckbox:
+      "أفهم أنه قد يتم جمع إجاباتي وتفاعلاتي المجهولة ومؤشرات جودة معايرة الكاميرا الاختيارية لأغراض هذه الدراسة.",
+    consentRequired: "يرجى تأكيد الموافقة قبل بدء الدراسة.",
     start: "ابدأ",
     minutes: "دقائق",
     language: "اللغة",

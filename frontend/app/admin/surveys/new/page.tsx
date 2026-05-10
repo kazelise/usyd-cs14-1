@@ -26,8 +26,14 @@ const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
   { value: "bluesky", label: "Bluesky" },
 ];
 
+const LANGUAGE_OPTIONS = [
+  { value: "en", label: "English" },
+  { value: "ar", label: "العربية" },
+  { value: "zh", label: "中文" },
+];
+
 function platformUiStyleToFeedStyle(style: PlatformUiStyle): PlatformStyle {
-  if (style === "facebook" || style === "instagram") return style;
+  if (style === "facebook" || style === "instagram" || style === "xiaohongshu") return style;
   return "x";
 }
 
@@ -38,6 +44,8 @@ export default function NewSurveyPage() {
   const [description, setDescription] = useState("");
   const [platformStyle, setPlatformStyle] = useState<PlatformStyle>("x");
   const [platformUiStyle, setPlatformUiStyle] = useState<PlatformUiStyle>("twitter");
+  const [defaultLanguage, setDefaultLanguage] = useState("en");
+  const [supportedLanguages, setSupportedLanguages] = useState<string[]>(["en", "ar", "zh"]);
   const [numGroups, setNumGroups] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -57,6 +65,10 @@ export default function NewSurveyPage() {
           numGroups: "A/B 分组数量",
           platformStyle: "参与者信息流样式",
           platformStyleCopy: "选择参与者看到的信息流外观；后续还可以在问卷工作台修改。",
+          languageSettings: "参与者语言",
+          defaultLanguage: "默认语言",
+          supportedLanguages: "可用语言",
+          languageCopy: "默认会提供英文和阿拉伯语；如果项目已有中文翻译，也会继续保留中文入口。",
           oneGroup: "1 组 · 不做 A/B 测试",
           assignedRandomly: "参与者打开实验链接时会被随机分配到已配置分组。",
           sameFeed: "所有参与者都会看到相同的帖子信息流和互动数值。",
@@ -93,6 +105,10 @@ export default function NewSurveyPage() {
           numGroups: "Number of A/B groups",
           platformStyle: "Participant feed style",
           platformStyleCopy: "Choose the social-feed look participants will see. You can change it later in the survey workspace.",
+          languageSettings: "Participant languages",
+          defaultLanguage: "Default language",
+          supportedLanguages: "Supported languages",
+          languageCopy: "English and Arabic stay available for the participant flow; Chinese remains enabled when translation work is present.",
           oneGroup: "1 group · no A/B testing",
           assignedRandomly: "Participants will be randomly assigned to a configured group when they open the study link.",
           sameFeed: "All participants will view the same post feed and engagement values.",
@@ -142,6 +158,8 @@ export default function NewSurveyPage() {
           description: description || null,
           platform_style: platformStyle,
           platform_ui_style: platformUiStyle,
+          default_language: defaultLanguage,
+          supported_languages: Array.from(new Set([defaultLanguage, ...supportedLanguages])),
           num_groups: numGroups,
         gaze_tracking_enabled: true,
         click_tracking_enabled: true,
@@ -245,6 +263,62 @@ export default function NewSurveyPage() {
               <p className="mt-2 text-[13px] leading-6 text-slate-500">
                 Choose the social platform skin participants will see in the feed.
               </p>
+            </div>
+
+            <div className="rounded-[18px] border border-slate-200 bg-slate-50/60 px-4 py-4">
+              <p className="text-[14px] font-medium text-slate-700">{text.languageSettings}</p>
+              <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
+                <label className="block space-y-2 text-[13px] text-slate-500">
+                  <span>{text.defaultLanguage}</span>
+                  <select
+                    value={defaultLanguage}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setDefaultLanguage(next);
+                      setSupportedLanguages((prev) => Array.from(new Set([...prev, next])));
+                    }}
+                    className="field-input h-12"
+                  >
+                    {LANGUAGE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div>
+                  <span className="block text-[13px] text-slate-500">{text.supportedLanguages}</span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {LANGUAGE_OPTIONS.map((option) => {
+                      const checked = supportedLanguages.includes(option.value);
+                      const locked = option.value === defaultLanguage || option.value === "en" || option.value === "ar";
+                      return (
+                        <label
+                          key={option.value}
+                          className={`flex items-center gap-2 rounded-full border px-3 py-2 text-[13px] ${
+                            checked ? "border-[#9ddfd8] bg-white text-[#0f3146]" : "border-slate-200 bg-white/70 text-slate-500"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={locked}
+                            onChange={(event) => {
+                              setSupportedLanguages((prev) =>
+                                event.target.checked
+                                  ? Array.from(new Set([...prev, option.value]))
+                                  : prev.filter((item) => item !== option.value),
+                              );
+                            }}
+                          />
+                          {option.label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <p className="mt-3 text-[13px] leading-6 text-slate-500">{text.languageCopy}</p>
             </div>
 
             <div>
