@@ -276,6 +276,9 @@ export default function SurveyParticipantPage() {
   const search = useSearchParams();
   const { locale, setLocale } = useLocale();
   const requestedLocale = search.get("lang");
+  const isPreviewSession = search.get("preview") === "1";
+  const previewAssignedGroup = Number(search.get("group") || "");
+  const previewScope = Number.isFinite(previewAssignedGroup) ? previewAssignedGroup : "auto";
   const savedLocale = typeof window !== "undefined" ? localStorage.getItem("locale") : null;
   const initialLocale: Locale = isLocale(requestedLocale)
     ? requestedLocale
@@ -298,7 +301,7 @@ export default function SurveyParticipantPage() {
   const [submittedQuestions, setSubmittedQuestions] = useState<Set<number>>(new Set());
 
   const clickBuffer = useRef<any[]>([]);
-  const initializedShareCodeRef = useRef<string | null>(null);
+  const initializedSessionRef = useRef<string | null>(null);
 
   const handleTrackedClick = useCallback((e: MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -346,16 +349,21 @@ export default function SurveyParticipantPage() {
   }, [initialLocale, setLocale]);
 
   useEffect(() => {
-    if (initializedShareCodeRef.current === shareCode) return;
-    initializedShareCodeRef.current = shareCode;
+    const sessionScope = `${shareCode}:${isPreviewSession ? `preview:${previewScope}:${initialLocale}` : "live"}`;
+    if (initializedSessionRef.current === sessionScope) return;
+    initializedSessionRef.current = sessionScope;
 
     async function init() {
       try {
         // Resume the same response (and A/B group) across tab closes by sending
         // back the participant_token cached on first visit. Backend ignores
         // tokens that don't match an in_progress response for this survey.
-        const tokenStorageKey = `pt:${shareCode}`;
-        const completionStorageKey = `completed:${shareCode}`;
+        const tokenStorageKey = isPreviewSession
+          ? `pt:${shareCode}:preview:${previewScope}:${initialLocale}`
+          : `pt:${shareCode}`;
+        const completionStorageKey = isPreviewSession
+          ? `completed:${shareCode}:preview:${previewScope}:${initialLocale}`
+          : `completed:${shareCode}`;
         if (localStorage.getItem(completionStorageKey)) {
           setCompleted(true);
           return;
@@ -367,6 +375,8 @@ export default function SurveyParticipantPage() {
           screen_height: window.innerHeight,
           user_agent: navigator.userAgent,
           participant_token: cachedToken,
+          is_preview: isPreviewSession,
+          preview_assigned_group: Number.isFinite(previewAssignedGroup) ? previewAssignedGroup : undefined,
         });
         setSession(result);
         localStorage.setItem(tokenStorageKey, result.participant_token);
@@ -391,7 +401,7 @@ export default function SurveyParticipantPage() {
     }
 
     init();
-  }, [initialLocale, shareCode]);
+  }, [initialLocale, isPreviewSession, previewAssignedGroup, previewScope, shareCode]);
 
   useEffect(() => {
     if (!session?.click_tracking_enabled) return;
@@ -479,8 +489,17 @@ export default function SurveyParticipantPage() {
       // Drop the cached token so a fresh visit to the same share link starts
       // a new response from the start screen, while a refresh of this completed
       // page keeps showing completion instead of opening an orphan response.
-      localStorage.setItem(`completed:${shareCode}`, new Date().toISOString());
-      localStorage.removeItem(`pt:${shareCode}`);
+      localStorage.setItem(
+        isPreviewSession
+          ? `completed:${shareCode}:preview:${previewScope}:${initialLocale}`
+          : `completed:${shareCode}`,
+        new Date().toISOString(),
+      );
+      localStorage.removeItem(
+        isPreviewSession
+          ? `pt:${shareCode}:preview:${previewScope}:${initialLocale}`
+          : `pt:${shareCode}`,
+      );
       setCompleted(true);
     } catch (err: any) {
       setActionError(err.message || t(locale, "networkRequestFailed"));
@@ -548,6 +567,11 @@ export default function SurveyParticipantPage() {
 
   return (
     <div className={`min-h-screen ${platform.pageClass}`}>
+      {isPreviewSession && (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-[12px] font-semibold uppercase tracking-[0.18em] text-amber-800">
+          Preview test session · excluded from analytics exports by default
+        </div>
+      )}
       <div className="border-b border-slate-200 bg-white/85 backdrop-blur">
         <div className="mx-auto flex max-w-[1560px] flex-col gap-4 px-4 py-4 lg:px-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">

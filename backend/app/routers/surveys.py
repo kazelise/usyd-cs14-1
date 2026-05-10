@@ -11,6 +11,7 @@ Core flow:
 """
 
 import random
+import secrets
 from datetime import datetime
 from typing import Literal
 
@@ -156,6 +157,38 @@ def build_participant_questions(survey: Survey, language_code: str | None) -> li
     ]
 
 
+def supported_languages_for_survey(survey: Survey) -> list[str]:
+    languages = list(getattr(survey, "supported_languages", None) or ["en", "ar", "zh"])
+    if "en" not in languages:
+        languages.insert(0, "en")
+    if "ar" not in languages:
+        languages.append("ar")
+    return languages
+
+
+def default_language_for_survey(survey: Survey) -> str:
+    default_language = getattr(survey, "default_language", None) or "en"
+    if default_language in supported_languages_for_survey(survey):
+        return default_language
+    return "en"
+
+
+def normalize_survey_language(survey: Survey, language: str | None) -> str:
+    if not language:
+        return default_language_for_survey(survey)
+    language_code = normalize_optional_language(language)
+    if language_code in supported_languages_for_survey(survey):
+        return language_code
+    return default_language_for_survey(survey)
+
+
+def response_scope(survey_id: int, include_preview: bool = False):
+    conditions = [SurveyResponse.survey_id == survey_id]
+    if not include_preview:
+        conditions.append(SurveyResponse.is_preview.is_(False))
+    return conditions
+
+
 # ══════════════════════════════════════════════════════
 #  RESEARCHER ENDPOINTS (require auth)
 # ══════════════════════════════════════════════════════
@@ -264,6 +297,8 @@ async def publish_survey(
     if survey.status != "draft":
         raise HTTPException(status_code=409, detail="Only draft surveys can be published")
     survey.status = "published"
+    if survey.published_at is None:
+        survey.published_at = datetime.utcnow()
     survey.updated_at = datetime.utcnow()
     await db.flush()
     await db.refresh(survey)
@@ -279,6 +314,7 @@ async def export_survey_data(
     language: str | None = None,
     response_status: str | None = None,
     calibration_passed: bool | None = None,
+    include_preview: bool = False,
     researcher: Researcher = Depends(get_current_researcher),
     db: AsyncSession = Depends(get_db),
 ):
@@ -293,6 +329,7 @@ async def export_survey_data(
             language=language,
             response_status=response_status,
             calibration_passed=calibration_passed,
+            include_preview=include_preview,
         ),
     )
     if export_format == "json":
@@ -389,7 +426,7 @@ async def preview_survey(
     if assigned_group > survey.num_groups:
         raise HTTPException(status_code=400, detail="assigned_group exceeds survey group count")
 
-    language_code = normalize_optional_language(language)
+    language_code = normalize_survey_language(survey, language)
     return SurveyPreviewResponse(
         survey_id=survey.id,
         assigned_group=assigned_group,
@@ -401,6 +438,8 @@ async def preview_survey(
         gaze_interval_ms=survey.gaze_interval_ms,
         click_tracking_enabled=survey.click_tracking_enabled,
         language=language_code,
+        default_language=default_language_for_survey(survey),
+        supported_languages=supported_languages_for_survey(survey),
         posts=build_participant_posts(survey, assigned_group, language_code),
         questions=build_participant_questions(survey, language_code),
     )
@@ -584,7 +623,7 @@ async def start_survey(
     if survey.share_code_expires_at and survey.share_code_expires_at < datetime.utcnow():
         raise HTTPException(status_code=410, detail="Survey link has expired")
 
-    language_code = normalize_optional_language(body.language) if body and body.language else None
+    language_code = normalize_survey_language(survey, body.language if body else None)
 
     # Resume path: when the client supplies a token from a prior start_survey
     # call and it matches an in_progress response for THIS survey, reuse that
@@ -604,14 +643,26 @@ async def start_survey(
 
     calibration_completed = False
     if response is None:
-        assigned_group = random.randint(1, survey.num_groups)
+        randomization_seed = secrets.token_hex(16)
+        if body and body.is_preview and body.preview_assigned_group is not None:
+            if body.preview_assigned_group > survey.num_groups:
+                raise HTTPException(
+                    status_code=400, detail="preview_assigned_group exceeds survey group count"
+                )
+            assigned_group = body.preview_assigned_group
+        else:
+            assigned_group = random.randint(1, survey.num_groups)
+        shown_posts = build_participant_posts(survey, assigned_group, language_code)
         response = SurveyResponse(
             survey_id=survey.id,
             assigned_group=assigned_group,
+            randomization_seed=randomization_seed,
+            shown_post_order=[post.id for post in shown_posts],
             language=language_code,
             screen_width=body.screen_width if body else None,
             screen_height=body.screen_height if body else None,
             user_agent=body.user_agent if body else None,
+            is_preview=body.is_preview if body else False,
             status="in_progress",
             started_at=datetime.utcnow(),
         )
@@ -621,6 +672,11 @@ async def start_survey(
     else:
         assigned_group = response.assigned_group
         language_code = response.language
+        if response.is_preview is None:
+            response.is_preview = False
+        shown_posts = build_participant_posts(survey, assigned_group, language_code)
+        if response.shown_post_order is None:
+            response.shown_post_order = [post.id for post in shown_posts]
         # On resume, look at any prior CalibrationSession attached to this
         # response. If it was completed, signal the frontend to skip the
         # calibration UI. If it was abandoned mid-way (in_progress), drop it
@@ -636,12 +692,17 @@ async def start_survey(
             else:
                 await db.delete(existing_calib)
                 await db.flush()
+    if "shown_posts" not in locals():
+        shown_posts = build_participant_posts(survey, assigned_group, language_code)
 
     return StartSurveyResponse(
         response_id=response.id,
         participant_token=response.participant_token,
         survey_id=survey.id,
         assigned_group=assigned_group,
+        randomization_seed=response.randomization_seed,
+        shown_post_order=response.shown_post_order or [post.id for post in shown_posts],
+        is_preview=response.is_preview,
         platform_style=get_platform_style(survey),
         platform_ui_style=survey.platform_ui_style or "twitter",
         calibration_required=survey.calibration_enabled,
@@ -651,7 +712,9 @@ async def start_survey(
         gaze_interval_ms=survey.gaze_interval_ms,
         click_tracking_enabled=survey.click_tracking_enabled,
         language=response.language,
-        posts=build_participant_posts(survey, assigned_group, language_code),
+        default_language=default_language_for_survey(survey),
+        supported_languages=supported_languages_for_survey(survey),
+        posts=shown_posts,
         questions=build_participant_questions(survey, language_code),
     )
 
@@ -673,7 +736,12 @@ async def get_public_survey(
         raise HTTPException(status_code=404, detail="Survey not found or not published")
     if survey.share_code_expires_at and survey.share_code_expires_at < datetime.utcnow():
         raise HTTPException(status_code=410, detail="Survey link has expired")
-    return apply_translations_to_public_survey(survey, language)
+    public_survey = apply_translations_to_public_survey(
+        survey, normalize_survey_language(survey, language)
+    )
+    public_survey.default_language = default_language_for_survey(survey)
+    public_survey.supported_languages = supported_languages_for_survey(survey)
+    return public_survey
 
 
 @router.post("/responses/{response_id}/interact", response_model=InteractionOut)
@@ -897,6 +965,7 @@ async def delete_participant_comment(
 @router.get("/{survey_id}/engagement-stats", response_model=SurveyEngagementStats)
 async def get_engagement_stats(
     survey_id: int,
+    include_preview: bool = False,
     researcher: Researcher = Depends(get_current_researcher),
     db: AsyncSession = Depends(get_db),
 ):
@@ -918,7 +987,7 @@ async def get_engagement_stats(
     likes_counts_result = await db.execute(
         select(ParticipantLike.post_id, func.count(ParticipantLike.id))
         .join(SurveyResponse, ParticipantLike.response_id == SurveyResponse.id)
-        .where(SurveyResponse.survey_id == survey_id)
+        .where(*response_scope(survey_id, include_preview))
         .group_by(ParticipantLike.post_id)
     )
     likes_map = {pid: cnt for pid, cnt in likes_counts_result.all()}
@@ -928,7 +997,7 @@ async def get_engagement_stats(
     pc_rows_result = await db.execute(
         select(ParticipantComment)
         .join(SurveyResponse, ParticipantComment.response_id == SurveyResponse.id)
-        .where(SurveyResponse.survey_id == survey_id)
+        .where(*response_scope(survey_id, include_preview))
     )
     pc_rows = pc_rows_result.scalars().all()
     comments_map: dict[int, int] = {}
@@ -950,7 +1019,7 @@ async def get_engagement_stats(
         )
         .join(SurveyResponse, ParticipantInteraction.response_id == SurveyResponse.id)
         .where(
-            SurveyResponse.survey_id == survey_id,
+            *response_scope(survey_id, include_preview),
             ParticipantInteraction.action_type.in_(["like", "unlike"]),
         )
         .group_by(ParticipantInteraction.response_id, ParticipantInteraction.post_id)
@@ -977,7 +1046,7 @@ async def get_engagement_stats(
         select(ParticipantInteraction)
         .join(SurveyResponse, ParticipantInteraction.response_id == SurveyResponse.id)
         .where(
-            SurveyResponse.survey_id == survey_id,
+            *response_scope(survey_id, include_preview),
             ParticipantInteraction.action_type == "comment",
             ParticipantInteraction.comment_text.is_not(None),
         )
@@ -995,7 +1064,7 @@ async def get_engagement_stats(
         select(ParticipantInteraction.post_id, func.count(ParticipantInteraction.id))
         .join(SurveyResponse, ParticipantInteraction.response_id == SurveyResponse.id)
         .where(
-            SurveyResponse.survey_id == survey_id,
+            *response_scope(survey_id, include_preview),
             ParticipantInteraction.action_type == "share",
         )
         .group_by(ParticipantInteraction.post_id)
@@ -1017,6 +1086,7 @@ async def get_engagement_stats(
 @router.get("/{survey_id}/participant-comments", response_model=SurveyParticipantCommentsOut)
 async def get_participant_comments(
     survey_id: int,
+    include_preview: bool = False,
     researcher: Researcher = Depends(get_current_researcher),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1031,7 +1101,7 @@ async def get_participant_comments(
     pc_result = await db.execute(
         select(ParticipantComment)
         .join(SurveyResponse, ParticipantComment.response_id == SurveyResponse.id)
-        .where(SurveyResponse.survey_id == survey_id)
+        .where(*response_scope(survey_id, include_preview))
     )
     by_post: dict[int, list[ParticipantCommentOut]] = {}
     pc_keys: set[tuple[int, int, str]] = set()
@@ -1044,7 +1114,7 @@ async def get_participant_comments(
         select(ParticipantInteraction)
         .join(SurveyResponse, ParticipantInteraction.response_id == SurveyResponse.id)
         .where(
-            SurveyResponse.survey_id == survey_id,
+            *response_scope(survey_id, include_preview),
             ParticipantInteraction.action_type == "comment",
             ParticipantInteraction.comment_text.is_not(None),
         )
@@ -1074,6 +1144,7 @@ async def get_participant_comments(
 @router.get("/{survey_id}/analytics-summary", response_model=SurveyAnalyticsOut)
 async def get_analytics_summary(
     survey_id: int,
+    include_preview: bool = False,
     researcher: Researcher = Depends(get_current_researcher),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1085,7 +1156,7 @@ async def get_analytics_summary(
         raise HTTPException(status_code=404, detail="Survey not found")
 
     responses_result = await db.execute(
-        select(SurveyResponse).where(SurveyResponse.survey_id == survey_id)
+        select(SurveyResponse).where(*response_scope(survey_id, include_preview))
     )
     responses = responses_result.scalars().all()
     total_responses = len(responses)
@@ -1105,7 +1176,7 @@ async def get_analytics_summary(
     calibration_result = await db.execute(
         select(CalibrationSession)
         .join(SurveyResponse, CalibrationSession.response_id == SurveyResponse.id)
-        .where(SurveyResponse.survey_id == survey_id)
+        .where(*response_scope(survey_id, include_preview))
     )
     calibration_sessions = calibration_result.scalars().all()
     successful_calibrations = [
@@ -1122,7 +1193,7 @@ async def get_analytics_summary(
     click_rows_result = await db.execute(
         select(ClickRecord.response_id, ClickRecord.post_id, func.count(ClickRecord.id))
         .join(SurveyResponse, ClickRecord.response_id == SurveyResponse.id)
-        .where(SurveyResponse.survey_id == survey_id)
+        .where(*response_scope(survey_id, include_preview))
         .group_by(ClickRecord.response_id, ClickRecord.post_id)
     )
     click_rows = click_rows_result.all()
@@ -1141,14 +1212,14 @@ async def get_analytics_summary(
     gaze_samples_result = await db.execute(
         select(func.count(GazeRecord.id))
         .join(SurveyResponse, GazeRecord.response_id == SurveyResponse.id)
-        .where(SurveyResponse.survey_id == survey_id)
+        .where(*response_scope(survey_id, include_preview))
     )
     total_gaze_samples = gaze_samples_result.scalar_one() or 0
 
     likes_result = await db.execute(
         select(ParticipantLike.response_id, ParticipantLike.post_id)
         .join(SurveyResponse, ParticipantLike.response_id == SurveyResponse.id)
-        .where(SurveyResponse.survey_id == survey_id)
+        .where(*response_scope(survey_id, include_preview))
     )
     like_rows = likes_result.all()
     response_like_totals: dict[int, int] = {}
@@ -1164,7 +1235,7 @@ async def get_analytics_summary(
     comments_result = await db.execute(
         select(ParticipantComment)
         .join(SurveyResponse, ParticipantComment.response_id == SurveyResponse.id)
-        .where(SurveyResponse.survey_id == survey_id)
+        .where(*response_scope(survey_id, include_preview))
     )
     participant_comments = comments_result.scalars().all()
     response_comment_totals: dict[int, int] = {}
@@ -1187,7 +1258,7 @@ async def get_analytics_summary(
         select(ParticipantInteraction.response_id, ParticipantInteraction.post_id)
         .join(SurveyResponse, ParticipantInteraction.response_id == SurveyResponse.id)
         .where(
-            SurveyResponse.survey_id == survey_id,
+            *response_scope(survey_id, include_preview),
             ParticipantInteraction.action_type == "share",
         )
     )

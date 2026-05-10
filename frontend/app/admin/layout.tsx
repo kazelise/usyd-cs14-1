@@ -201,9 +201,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="h-screen overflow-hidden">
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden">
       <header className="relative z-[220] border-b border-slate-200 bg-[rgba(255,255,255,0.92)] backdrop-blur">
-        <div className="mx-auto flex h-[68px] max-w-[1560px] items-center gap-7 px-4 md:px-5">
+        <div className="mx-auto flex min-h-[68px] max-w-[1560px] items-center gap-7 px-4 py-3 md:px-5 lg:py-0">
           <Link
             href="/admin/surveys"
             className="shrink-0 text-[14px] font-semibold uppercase tracking-[0.14em] text-[#0f3146] md:text-[15px]"
@@ -324,11 +324,50 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </div>
         </div>
+        <nav className="mx-auto flex max-w-[1560px] gap-2 overflow-x-auto px-4 pb-3 text-[13px] lg:hidden">
+          <Link
+            href="/admin/surveys"
+            className={`shrink-0 rounded-full border px-4 py-2 font-medium ${
+              pathname.startsWith("/admin/surveys")
+                ? "border-[#9ddfd8] bg-[#effcfb] text-[#0f3146]"
+                : "border-slate-200 bg-white text-slate-500"
+            }`}
+          >
+            {text.surveys}
+          </Link>
+          <Link
+            href="/admin/templates"
+            className={`shrink-0 rounded-full border px-4 py-2 font-medium ${
+              pathname.startsWith("/admin/templates")
+                ? "border-[#9ddfd8] bg-[#effcfb] text-[#0f3146]"
+                : "border-slate-200 bg-white text-slate-500"
+            }`}
+          >
+            {text.templates}
+          </Link>
+          <Link
+            href="/admin/analytics"
+            className={`shrink-0 rounded-full border px-4 py-2 font-medium ${
+              pathname.startsWith("/admin/analytics")
+                ? "border-[#9ddfd8] bg-[#effcfb] text-[#0f3146]"
+                : "border-slate-200 bg-white text-slate-500"
+            }`}
+          >
+            {text.analytics}
+          </Link>
+          <Link
+            href="/admin/surveys/new"
+            className="ml-auto inline-flex shrink-0 items-center gap-2 rounded-full border border-[#9ddfd8] bg-[#0f3146] px-4 py-2 font-medium text-white"
+          >
+            <PlusIcon className="h-4 w-4" />
+            {text.createSurvey}
+          </Link>
+        </nav>
       </header>
 
-      <div className="mx-auto grid h-[calc(100vh-68px)] max-w-[1560px] grid-cols-[auto_minmax(0,1fr)]">
+      <div className="mx-auto grid max-w-[1560px] lg:h-[calc(100vh-68px)] lg:grid-cols-[auto_minmax(0,1fr)]">
         <aside
-          className={`flex h-full flex-col border-r border-slate-200 bg-[rgba(250,252,254,0.72)] px-4 py-5 transition-[width] duration-200 ${
+          className={`hidden h-full flex-col border-r border-slate-200 bg-[rgba(250,252,254,0.72)] px-4 py-5 transition-[width] duration-200 lg:flex ${
             collapsed ? "w-[78px]" : "w-[212px]"
           }`}
         >
@@ -404,7 +443,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="mt-auto" />
         </aside>
 
-        <main className="h-full overflow-y-auto px-4 py-5 md:px-7 md:py-6">
+        <main className="min-h-[calc(100vh-122px)] px-4 py-5 md:px-7 md:py-6 lg:h-full lg:min-h-0 lg:overflow-y-auto">
           <div className="mx-auto w-full max-w-[1240px]">{children}</div>
         </main>
       </div>

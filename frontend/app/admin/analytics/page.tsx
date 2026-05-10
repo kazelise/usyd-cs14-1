@@ -81,6 +81,11 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState("");
+  const [exportGroup, setExportGroup] = useState("");
+  const [exportLanguage, setExportLanguage] = useState("");
+  const [exportStatus, setExportStatus] = useState("");
+  const [exportCalibration, setExportCalibration] = useState("");
+  const [includePreview, setIncludePreview] = useState(false);
   const text =
     locale === "zh"
       ? {
@@ -95,6 +100,18 @@ export default function AnalyticsPage() {
           export: "导出摘要",
           exportCsv: "导出CSV",
           exportJson: "导出JSON",
+          exportFilters: "导出过滤",
+          allGroups: "全部分组",
+          allLanguages: "全部语言",
+          anyStatus: "全部状态",
+          anyCalibration: "全部校准结果",
+          completedOnly: "仅已完成",
+          inProgressOnly: "仅进行中",
+          flaggedOnly: "仅已标记",
+          calibrationPassed: "校准通过",
+          calibrationFailed: "校准未通过",
+          previewResponses: "预览作答",
+          excludePreview: "默认排除预览/测试作答",
           failedExport: "导出研究数据失败",
           loadingSummary: "正在加载问卷摘要",
           totalResponses: "总作答数",
@@ -136,6 +153,18 @@ export default function AnalyticsPage() {
           export: "Export Summary",
           exportCsv: "Export CSV",
           exportJson: "Export JSON",
+          exportFilters: "Export filters",
+          allGroups: "All groups",
+          allLanguages: "All languages",
+          anyStatus: "Any status",
+          anyCalibration: "Any calibration",
+          completedOnly: "Completed only",
+          inProgressOnly: "In progress only",
+          flaggedOnly: "Flagged only",
+          calibrationPassed: "Calibration passed",
+          calibrationFailed: "Calibration failed",
+          previewResponses: "Preview responses",
+          excludePreview: "Preview/test responses are excluded by default",
           failedExport: "Failed to export research data",
           loadingSummary: "Loading survey summary",
           totalResponses: "Total responses",
@@ -235,6 +264,33 @@ export default function AnalyticsPage() {
     [selectedSurveyId, surveys],
   );
 
+  const exportFilters = useMemo(
+    () => ({
+      assigned_group: exportGroup ? Number(exportGroup) : undefined,
+      language: exportLanguage || undefined,
+      response_status: exportStatus || undefined,
+      calibration_passed:
+        exportCalibration === "passed"
+          ? true
+          : exportCalibration === "failed"
+            ? false
+            : undefined,
+      include_preview: includePreview ? true : undefined,
+    }),
+    [exportCalibration, exportGroup, exportLanguage, exportStatus, includePreview],
+  );
+
+  const exportFilenameSuffix = useMemo(() => {
+    const parts = [
+      exportGroup ? `group-${exportGroup}` : null,
+      exportLanguage || null,
+      exportStatus || null,
+      exportCalibration || null,
+      includePreview ? "with-preview" : null,
+    ].filter(Boolean);
+    return parts.length ? `-${parts.join("-")}` : "";
+  }, [exportCalibration, exportGroup, exportLanguage, exportStatus, includePreview]);
+
   const topGroup = useMemo(() => {
     if (!summary?.group_breakdown?.length) return null;
     return [...summary.group_breakdown].sort((a, b) => b.clicks - a.clicks)[0];
@@ -276,13 +332,13 @@ export default function AnalyticsPage() {
     const filenameBase = selectedSurvey.title.replace(/\s+/g, "-").toLowerCase();
     try {
       if (format === "csv") {
-        const csv = await api.exportSurveyDataCsv(selectedSurvey.id);
-        downloadTextFile(`${filenameBase}-research-data.csv`, csv, "text/csv;charset=utf-8");
+        const csv = await api.exportSurveyDataCsv(selectedSurvey.id, exportFilters);
+        downloadTextFile(`${filenameBase}-research-data${exportFilenameSuffix}.csv`, csv, "text/csv;charset=utf-8");
         return;
       }
-      const payload = await api.exportSurveyDataJson(selectedSurvey.id);
+      const payload = await api.exportSurveyDataJson(selectedSurvey.id, exportFilters);
       downloadTextFile(
-        `${filenameBase}-research-data.json`,
+        `${filenameBase}-research-data${exportFilenameSuffix}.json`,
         JSON.stringify(payload, null, 2),
         "application/json",
       );
@@ -356,6 +412,62 @@ export default function AnalyticsPage() {
           </button>
         </div>
       </section>
+
+      {summary && (
+        <section className="mt-4 rounded-[18px] border border-slate-200 bg-white px-4 py-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+            <div className="min-w-[150px] flex-1">
+              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{text.exportFilters}</label>
+              <select value={exportGroup} onChange={(event) => setExportGroup(event.target.value)} className="field-input h-11 text-[13px]">
+                <option value="">{text.allGroups}</option>
+                {summary.group_breakdown.map((group) => (
+                  <option key={group.group_id} value={group.group_id}>
+                    Group {group.group_id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-[150px] flex-1">
+              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Language</label>
+              <select value={exportLanguage} onChange={(event) => setExportLanguage(event.target.value)} className="field-input h-11 text-[13px]">
+                <option value="">{text.allLanguages}</option>
+                <option value="en">English</option>
+                <option value="zh">中文</option>
+                <option value="ar">العربية</option>
+              </select>
+            </div>
+            <div className="min-w-[150px] flex-1">
+              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Status</label>
+              <select value={exportStatus} onChange={(event) => setExportStatus(event.target.value)} className="field-input h-11 text-[13px]">
+                <option value="">{text.anyStatus}</option>
+                <option value="completed">{text.completedOnly}</option>
+                <option value="in_progress">{text.inProgressOnly}</option>
+                <option value="flagged">{text.flaggedOnly}</option>
+              </select>
+            </div>
+            <div className="min-w-[170px] flex-1">
+              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Calibration</label>
+              <select value={exportCalibration} onChange={(event) => setExportCalibration(event.target.value)} className="field-input h-11 text-[13px]">
+                <option value="">{text.anyCalibration}</option>
+                <option value="passed">{text.calibrationPassed}</option>
+                <option value="failed">{text.calibrationFailed}</option>
+              </select>
+            </div>
+            <label className="flex min-h-11 min-w-[210px] items-center gap-3 rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-slate-600">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[#00a7a0]"
+                checked={includePreview}
+                onChange={(event) => setIncludePreview(event.target.checked)}
+              />
+              <span>
+                <span className="block font-medium text-slate-700">{text.previewResponses}</span>
+                <span className="block text-[11px] leading-5 text-slate-400">{text.excludePreview}</span>
+              </span>
+            </label>
+          </div>
+        </section>
+      )}
 
       {error && <p className="mt-4 rounded-[16px] border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 

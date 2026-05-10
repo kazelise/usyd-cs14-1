@@ -1,7 +1,7 @@
 """Backfill platform UI style from existing platform style.
 
-Revision ID: 20260504_0006
-Revises: 20260504_0005
+Revision ID: 20260504_0007
+Revises: 20260504_0006
 Create Date: 2026-05-04 00:00:00.000000
 """
 
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "20260504_0006"
-down_revision: str | None = "20260504_0005"
+revision: str = "20260504_0007"
+down_revision: str | None = "20260504_0006"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

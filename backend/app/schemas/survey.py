@@ -11,6 +11,7 @@ PlatformStyle = Literal["x", "facebook", "instagram", "xiaohongshu"]
 PlatformUiStyle = Literal[
     "twitter", "facebook", "instagram", "xiaohongshu", "truth_social", "bluesky"
 ]
+DEFAULT_SUPPORTED_LANGUAGES = ["en", "ar", "zh"]
 
 
 class CreateSurveyRequest(BaseModel):
@@ -25,6 +26,8 @@ class CreateSurveyRequest(BaseModel):
     calibration_enabled: bool = True
     calibration_points: int = 9
     platform_ui_style: PlatformUiStyle = "twitter"
+    default_language: str = "en"
+    supported_languages: list[str] = Field(default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy())
 
 
 class UpdateSurveyRequest(BaseModel):
@@ -39,6 +42,8 @@ class UpdateSurveyRequest(BaseModel):
     calibration_enabled: bool | None = None
     calibration_points: int | None = None
     platform_ui_style: PlatformUiStyle | None = None
+    default_language: str | None = None
+    supported_languages: list[str] | None = None
 
 
 class SurveyOut(BaseModel):
@@ -56,7 +61,10 @@ class SurveyOut(BaseModel):
     calibration_enabled: bool
     calibration_points: int
     platform_ui_style: PlatformUiStyle = "twitter"
+    default_language: str = "en"
+    supported_languages: list[str] = Field(default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy())
     share_code_expires_at: datetime | None = None
+    published_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     model_config = {"from_attributes": True}
@@ -77,6 +85,8 @@ class PublicSurveyOut(BaseModel):
     platform_style: PlatformStyle = "x"
     language: str | None = None
     fallback_language: str = "en"
+    default_language: str = "en"
+    supported_languages: list[str] = Field(default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy())
     translation_fallbacks: list[str] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
@@ -220,6 +230,12 @@ class StartSurveyRequest(BaseModel):
             "re-randomized."
         ),
     )
+    is_preview: bool = False
+    preview_assigned_group: int | None = Field(
+        default=None,
+        ge=1,
+        description="Optional fixed condition/group used only for researcher preview sessions.",
+    )
 
 
 class StartSurveyResponse(BaseModel):
@@ -227,6 +243,9 @@ class StartSurveyResponse(BaseModel):
     participant_token: str
     survey_id: int
     assigned_group: int
+    randomization_seed: str | None = None
+    shown_post_order: list[int] = Field(default_factory=list)
+    is_preview: bool = False
     platform_style: PlatformStyle = "x"
     platform_ui_style: PlatformUiStyle = "twitter"
     calibration_required: bool
@@ -237,6 +256,8 @@ class StartSurveyResponse(BaseModel):
     click_tracking_enabled: bool
     language: str | None = None
     fallback_language: str = "en"
+    default_language: str = "en"
+    supported_languages: list[str] = Field(default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy())
     posts: list[PostOut]
     questions: list[QuestionOut] = Field(default_factory=list)
 
@@ -253,6 +274,8 @@ class SurveyPreviewResponse(BaseModel):
     click_tracking_enabled: bool
     language: str | None = None
     fallback_language: str = "en"
+    default_language: str = "en"
+    supported_languages: list[str] = Field(default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy())
     posts: list[PostOut]
     questions: list[QuestionOut] = Field(default_factory=list)
 

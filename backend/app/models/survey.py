@@ -12,7 +12,7 @@ Design notes (from client meeting):
 import secrets
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, ForeignKey, SmallInteger, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, SmallInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -36,6 +36,10 @@ class Survey(Base):
         String(40), default="twitter", server_default="twitter"
     )
     platform_style: Mapped[str] = mapped_column(String(32), default="x", server_default="x")
+    default_language: Mapped[str] = mapped_column(String(10), default="en", server_default="en")
+    supported_languages: Mapped[list[str]] = mapped_column(
+        JSON, default=lambda: ["en", "ar", "zh"]
+    )
 
     # ── A/B Testing Configuration ────────────────────
     num_groups: Mapped[int] = mapped_column(SmallInteger, default=1)  # 1 = no A/B testing
@@ -52,6 +56,7 @@ class Survey(Base):
 
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
     researcher: Mapped["Researcher"] = relationship(back_populates="surveys")  # noqa: F821
     posts: Mapped[list["SurveyPost"]] = relationship(

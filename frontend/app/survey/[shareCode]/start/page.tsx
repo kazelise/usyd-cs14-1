@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useLocale } from "@/components/locale-provider";
 import { isLocale, t, type Locale } from "@/lib/i18n";
@@ -10,15 +10,24 @@ import { CheckCircleIcon, GlobeIcon, SurveyIcon } from "@/components/icons";
 export default function StartScreen() {
   const { shareCode } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { locale, setLocale } = useLocale();
+  const isPreview = searchParams.get("preview") === "1";
+  const previewGroup = searchParams.get("group") || "";
+  const queryLocale = searchParams.get("lang");
+  const previewCompletionKey =
+    isPreview ? `completed:${shareCode}:preview:${previewGroup || "auto"}:${locale}` : null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [consentError, setConsentError] = useState("");
   const [meta, setMeta] = useState<{ title: string; description?: string } | null>(null);
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? (localStorage.getItem("locale") as Locale | null) : null;
-    if (isLocale(saved)) setLocale(saved);
-  }, [setLocale]);
+    if (isLocale(queryLocale)) setLocale(queryLocale);
+    else if (isLocale(saved)) setLocale(saved);
+  }, [queryLocale, setLocale]);
 
   useEffect(() => {
     (async () => {
@@ -128,11 +137,33 @@ export default function StartScreen() {
               <p className="mt-2 text-[14px] leading-7 text-slate-600">{t(locale, "expectedSessionCopy")}</p>
             </div>
 
+            <label className="mt-5 grid cursor-pointer grid-cols-[20px_minmax(0,1fr)] items-start gap-3 rounded-[18px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(14,37,63,0.04)]">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 accent-[#00a7a0]"
+                checked={consentAccepted}
+                onChange={(event) => {
+                  setConsentAccepted(event.target.checked);
+                  if (event.target.checked) setConsentError("");
+                }}
+              />
+              <span className="text-[14px] leading-7 text-slate-600">{t(locale, "consentCheckbox")}</span>
+            </label>
+            {consentError && <p className="mt-3 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-[13px] text-red-600">{consentError}</p>}
+
             <button
-              className="primary-button mt-8 w-full py-3.5 text-[14px]"
+              className={`primary-button mt-5 w-full py-3.5 text-[14px] ${consentAccepted ? "" : "opacity-60"}`}
               onClick={() => {
-                localStorage.removeItem(`completed:${shareCode}`);
-                router.push(`/survey/${shareCode}?lang=${locale}`);
+                if (!consentAccepted) {
+                  setConsentError(t(locale, "consentRequired"));
+                  return;
+                }
+                if (previewCompletionKey) localStorage.removeItem(previewCompletionKey);
+                else localStorage.removeItem(`completed:${shareCode}`);
+                const params = new URLSearchParams({ lang: locale });
+                if (isPreview) params.set("preview", "1");
+                if (previewGroup) params.set("group", previewGroup);
+                router.push(`/survey/${shareCode}?${params.toString()}`);
               }}
             >
               {t(locale, "start")}

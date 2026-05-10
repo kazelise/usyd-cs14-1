@@ -11,10 +11,16 @@ type CalibrationResult = {
   status: string;
   quality: {
     total_points: number;
+    expected_points?: number;
     valid_points: number;
+    missing_points?: number;
     avg_samples_per_point: number;
     face_detection_rate: number;
+    stability_score?: number;
+    quality_score?: number;
+    passed?: boolean;
     overall_quality: string;
+    quality_reason?: string;
   };
   completed_at: string;
 };
@@ -363,9 +369,17 @@ export function CalibrationExperience({
               quality: {
                 total_points: points.length,
                 valid_points: points.length,
+                expected_points: points.length,
+                missing_points: 0,
                 avg_samples_per_point: 12,
                 face_detection_rate: faceDetected ? 1 : 0,
+                stability_score: faceDetected ? 100 : 0,
+                quality_score: faceDetected ? 92 : 45,
+                passed: faceDetected,
                 overall_quality: faceDetected ? "good" : "poor",
+                quality_reason: faceDetected
+                  ? "Calibration passed in local preview mode."
+                  : "Calibration failed because no stable face lock was detected.",
               },
               completed_at: new Date().toISOString(),
             };
@@ -388,6 +402,11 @@ export function CalibrationExperience({
       : result?.quality.overall_quality === "acceptable"
         ? "text-amber-600"
         : "text-rose-600";
+  const resultScore = Math.round(result?.quality.quality_score ?? qualityScore);
+  const resultPassed = result?.quality.passed ?? result?.quality.overall_quality !== "poor";
+  const resultPanelTone = resultPassed
+    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+    : "border-rose-200 bg-rose-50 text-rose-800";
 
   return (
     <div className="min-h-screen text-[var(--app-text)]">
@@ -573,9 +592,20 @@ export function CalibrationExperience({
                     <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
                       <div className="w-full max-w-xl rounded-[20px] border bg-white p-8 shadow-2xl">
                         <p className={`text-xs uppercase tracking-[0.28em] ${qualityTone}`}>Overall quality</p>
-                        <h3 className="mt-3 text-4xl font-semibold capitalize text-[var(--app-text)]">
-                          {result.quality.overall_quality}
-                        </h3>
+                        <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                          <div>
+                            <h3 className="text-4xl font-semibold capitalize text-[var(--app-text)]">
+                              {result.quality.overall_quality}
+                            </h3>
+                            <p className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${resultPanelTone}`}>
+                              {resultPassed ? "Passed" : "Not passed"}
+                            </p>
+                          </div>
+                          <div className="rounded-[18px] border bg-slate-50 px-4 py-3 text-right">
+                            <p className="text-xs uppercase tracking-[0.2em] text-[var(--app-muted)]">Quality score</p>
+                            <p className="mt-1 text-4xl font-semibold text-[var(--app-text)]">{resultScore}</p>
+                          </div>
+                        </div>
                         <div className="mt-6 grid gap-4 sm:grid-cols-2">
                           <div className="metric-panel">
                             <p className="text-sm text-[var(--app-muted)]">Face detection rate</p>
@@ -594,6 +624,11 @@ export function CalibrationExperience({
                           {result.quality.valid_points} of {result.quality.total_points} points reached the required
                           sample threshold.
                         </div>
+                        {result.quality.quality_reason && (
+                          <div className={`mt-4 rounded-[16px] border p-4 text-sm ${resultPanelTone}`}>
+                            {result.quality.quality_reason}
+                          </div>
+                        )}
                         {result.quality.overall_quality === "poor" && (
                           <div className="mt-4 rounded-[16px] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                             Low quality detected. Please ensure your face is visible and well-lit, then retry.
