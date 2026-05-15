@@ -132,7 +132,7 @@ export default function DemoTrackingPage() {
     const rRatioY = (rightC.y - lm[386].y) / (lm[374].y - lm[386].y);
     const gazeX = (lRatioX + rRatioX) / 2;
     const gazeY = (lRatioY + rRatioY) / 2;
-    const screenX = Math.round((1 - gazeX) * window.innerWidth);
+    const screenX = Math.round(gazeX * window.innerWidth);
     const screenY = Math.round(gazeY * window.innerHeight);
 
     setMetrics({
@@ -192,8 +192,8 @@ export default function DemoTrackingPage() {
       </div>
 
       <div className="surface-panel relative overflow-hidden bg-slate-950">
-        <video ref={videoRef} width={640} height={480} autoPlay playsInline className="block" style={{ transform: "scaleX(-1)" }} />
-        <canvas ref={canvasRef} width={640} height={480} className="absolute top-0 left-0" style={{ transform: "scaleX(-1)" }} />
+        <video ref={videoRef} width={640} height={480} autoPlay playsInline className="block" />
+        <canvas ref={canvasRef} width={640} height={480} className="absolute top-0 left-0" />
       </div>
 
       <div ref={gazeDotRef} className="pointer-events-none fixed z-[9999] h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--app-accent)] bg-[rgba(0,167,160,0.22)] shadow-[0_0_28px_rgba(0,167,160,0.5)]" style={{ display: "none" }} />

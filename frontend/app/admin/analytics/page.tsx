@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { ChartIcon, CheckCircleIcon, SearchIcon, UsersIcon } from "@/components/icons";
+import { ChartIcon, CheckCircleIcon, ChevronDownIcon } from "@/components/icons";
 
 type SurveyListItem = {
   id: number;
@@ -86,6 +86,9 @@ export default function AnalyticsPage() {
   const [exportStatus, setExportStatus] = useState("");
   const [exportCalibration, setExportCalibration] = useState("");
   const [includePreview, setIncludePreview] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
   const text =
     locale === "zh"
       ? {
@@ -100,7 +103,17 @@ export default function AnalyticsPage() {
           export: "导出摘要",
           exportCsv: "导出CSV",
           exportJson: "导出JSON",
-          exportFilters: "导出过滤",
+          exportLabel: "导出",
+          exportMenuHeading: "下载内容",
+          exportSummaryDesc: "面板快照（JSON）",
+          exportCsvDesc: "完整研究数据（CSV）",
+          exportJsonDesc: "完整研究数据（JSON）",
+          filters: "数据过滤",
+          filtersShow: "显示过滤器",
+          filtersHide: "收起过滤器",
+          filtersActive: "项已应用",
+          filtersClear: "清除",
+          surveyLabel: "问卷",
           allGroups: "全部分组",
           allLanguages: "全部语言",
           anyStatus: "全部状态",
@@ -110,7 +123,7 @@ export default function AnalyticsPage() {
           flaggedOnly: "仅已标记",
           calibrationPassed: "校准通过",
           calibrationFailed: "校准未通过",
-          previewResponses: "预览作答",
+          previewResponses: "包含预览作答",
           excludePreview: "默认排除预览/测试作答",
           failedExport: "导出研究数据失败",
           loadingSummary: "正在加载问卷摘要",
@@ -119,6 +132,7 @@ export default function AnalyticsPage() {
           avgCompletion: "平均完成时长",
           calibrationOk: "校准通过",
           gazeSamples: "眼动样本",
+          calibrationOkChip: "通过",
           groupComparison: "分组对比",
           participants: "名参与者",
           completed: "已完成",
@@ -127,19 +141,24 @@ export default function AnalyticsPage() {
           comments: "评论",
           shares: "分享",
           summary: "摘要",
+          insights: "洞察",
           surveyOverview: "问卷概览",
           topCohort: "最活跃组别",
           noGroupData: "暂无分组数据",
-          topCohortCopy: "该条件下记录了 {clicks} 次点击和 {comments} 条评论。",
+          topCohortCopy: "{clicks} 次点击 · {comments} 条评论",
           topCohortEmpty: "问卷发布后，这里会显示参与者数据。",
           engagementTotals: "互动总量",
-          evidenceChain: "证据链",
-          evidenceChainCopy: "校准结果、眼动样本和点击记录会一起进入研究数据导出。",
-          totalGazeSamples: "总眼动样本",
-          totalClicks: "总点击",
-          totalLikes: "总点赞",
-          totalComments: "总评论",
-          totalShares: "总分享",
+          engagementTotalsLine: "{clicks} 点击 · {likes} 点赞 · {comments} 评论 · {shares} 分享 · {gaze} 眼动",
+          exportReadiness: "导出就绪度",
+          exportReadinessCopy: "校准 {calibration}% · 已完成 {completed} 份可导出",
+          fullSummaryToggle: "查看完整文字摘要",
+          tableHeadGroup: "分组",
+          tableHeadParticipants: "参与者",
+          tableHeadCompletion: "完成率",
+          tableHeadClicks: "点击",
+          tableHeadLikes: "点赞",
+          tableHeadComments: "评论",
+          tableHeadShares: "分享",
         }
       : {
           failed: "Failed to load analytics",
@@ -153,7 +172,17 @@ export default function AnalyticsPage() {
           export: "Export Summary",
           exportCsv: "Export CSV",
           exportJson: "Export JSON",
-          exportFilters: "Export filters",
+          exportLabel: "Export",
+          exportMenuHeading: "Download",
+          exportSummaryDesc: "Dashboard snapshot (JSON)",
+          exportCsvDesc: "Full research data (CSV)",
+          exportJsonDesc: "Full research data (JSON)",
+          filters: "Filters",
+          filtersShow: "Show filters",
+          filtersHide: "Hide filters",
+          filtersActive: "applied",
+          filtersClear: "Clear",
+          surveyLabel: "Survey",
           allGroups: "All groups",
           allLanguages: "All languages",
           anyStatus: "Any status",
@@ -163,7 +192,7 @@ export default function AnalyticsPage() {
           flaggedOnly: "Flagged only",
           calibrationPassed: "Calibration passed",
           calibrationFailed: "Calibration failed",
-          previewResponses: "Preview responses",
+          previewResponses: "Include preview responses",
           excludePreview: "Preview/test responses are excluded by default",
           failedExport: "Failed to export research data",
           loadingSummary: "Loading survey summary",
@@ -172,6 +201,7 @@ export default function AnalyticsPage() {
           avgCompletion: "Avg completion",
           calibrationOk: "Calibration ok",
           gazeSamples: "Gaze samples",
+          calibrationOkChip: "OK",
           groupComparison: "Group comparison",
           participants: "participants",
           completed: "completed",
@@ -180,19 +210,24 @@ export default function AnalyticsPage() {
           comments: "Comments",
           shares: "Shares",
           summary: "Summary",
+          insights: "Insights",
           surveyOverview: "Survey overview",
           topCohort: "Top cohort",
-          noGroupData: "No group data",
-          topCohortCopy: "{clicks} clicks and {comments} comments recorded in this condition.",
+          noGroupData: "No group data yet",
+          topCohortCopy: "{clicks} clicks · {comments} comments",
           topCohortEmpty: "Participant data will appear here once the survey is live.",
           engagementTotals: "Engagement totals",
-          evidenceChain: "Evidence chain",
-          evidenceChainCopy: "Calibration results, gaze samples, and click records are included in the research export.",
-          totalGazeSamples: "Total gaze samples",
-          totalClicks: "Total clicks",
-          totalLikes: "Total likes",
-          totalComments: "Total comments",
-          totalShares: "Total shares",
+          engagementTotalsLine: "{clicks} clicks · {likes} likes · {comments} comments · {shares} shares · {gaze} gaze",
+          exportReadiness: "Export readiness",
+          exportReadinessCopy: "Calibration {calibration}% · {completed} completed responses ready to download",
+          fullSummaryToggle: "View full text summary",
+          tableHeadGroup: "Group",
+          tableHeadParticipants: "Participants",
+          tableHeadCompletion: "Completion",
+          tableHeadClicks: "Clicks",
+          tableHeadLikes: "Likes",
+          tableHeadComments: "Comments",
+          tableHeadShares: "Shares",
         };
 
   useEffect(() => {
@@ -219,16 +254,37 @@ export default function AnalyticsPage() {
     };
   }, [router, text.failed]);
 
+  const exportFilters = useMemo(
+    () => ({
+      assigned_group: exportGroup ? Number(exportGroup) : undefined,
+      language: exportLanguage || undefined,
+      response_status: exportStatus || undefined,
+      calibration_passed:
+        exportCalibration === "passed"
+          ? true
+          : exportCalibration === "failed"
+            ? false
+            : undefined,
+      include_preview: includePreview ? true : undefined,
+    }),
+    [exportCalibration, exportGroup, exportLanguage, exportStatus, includePreview],
+  );
+
   useEffect(() => {
     if (!selectedSurveyId) return;
     let active = true;
     setLoadingSummary(true);
-    api.getSurveyAnalytics(selectedSurveyId)
+    api.getSurveyAnalytics(selectedSurveyId, exportFilters)
       .then((res) => {
         if (!active) return;
         const nextSummary = res as AnalyticsSummary;
         setSummary(nextSummary);
-        setSelectedPostId(nextSummary.posts[0]?.post_id ?? null);
+        setSelectedPostId((current) => {
+          if (current && nextSummary.posts.some((post) => post.post_id === current)) {
+            return current;
+          }
+          return nextSummary.posts[0]?.post_id ?? null;
+        });
       })
       .catch((err: any) => {
         if (!active) return;
@@ -240,7 +296,7 @@ export default function AnalyticsPage() {
     return () => {
       active = false;
     };
-  }, [selectedSurveyId, text.failedSummary]);
+  }, [selectedSurveyId, exportFilters, text.failedSummary]);
 
   useEffect(() => {
     if (!selectedSurveyId) return;
@@ -259,26 +315,47 @@ export default function AnalyticsPage() {
     };
   }, [selectedSurveyId]);
 
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    function onDocClick(event: MouseEvent) {
+      if (!exportMenuRef.current) return;
+      if (!exportMenuRef.current.contains(event.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setExportMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [exportMenuOpen]);
+
   const selectedSurvey = useMemo(
     () => surveys.find((survey) => survey.id === selectedSurveyId) ?? null,
     [selectedSurveyId, surveys],
   );
 
-  const exportFilters = useMemo(
-    () => ({
-      assigned_group: exportGroup ? Number(exportGroup) : undefined,
-      language: exportLanguage || undefined,
-      response_status: exportStatus || undefined,
-      calibration_passed:
-        exportCalibration === "passed"
-          ? true
-          : exportCalibration === "failed"
-            ? false
-            : undefined,
-      include_preview: includePreview ? true : undefined,
-    }),
-    [exportCalibration, exportGroup, exportLanguage, exportStatus, includePreview],
-  );
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (exportGroup) count += 1;
+    if (exportLanguage) count += 1;
+    if (exportStatus) count += 1;
+    if (exportCalibration) count += 1;
+    if (includePreview) count += 1;
+    return count;
+  }, [exportCalibration, exportGroup, exportLanguage, exportStatus, includePreview]);
+
+  function clearAllFilters() {
+    setExportGroup("");
+    setExportLanguage("");
+    setExportStatus("");
+    setExportCalibration("");
+    setIncludePreview(false);
+  }
 
   const exportFilenameSuffix = useMemo(() => {
     const parts = [
@@ -368,21 +445,37 @@ export default function AnalyticsPage() {
     );
   }
 
+  const calibrationPercent = summary ? Math.round(summary.calibration_success_rate) : 0;
+  const completedResponses = summary
+    ? Math.round((summary.completion_rate / 100) * summary.total_responses)
+    : 0;
+  const calibrationPass = summary ? summary.calibration_success_rate >= 80 : false;
+  const exportReadinessLine = text.exportReadinessCopy
+    .replace("{calibration}", String(calibrationPercent))
+    .replace("{completed}", String(completedResponses));
+  const engagementLine = summary
+    ? text.engagementTotalsLine
+        .replace("{clicks}", String(summary.total_clicks))
+        .replace("{likes}", String(summary.total_likes))
+        .replace("{comments}", String(summary.total_comments))
+        .replace("{shares}", String(summary.total_shares))
+        .replace("{gaze}", String(summary.total_gaze_samples))
+    : "";
+
   return (
     <div className="flex min-h-[calc(100vh-118px)] flex-col">
-      <section className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
+      <section className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
           <h1 className="page-title">{text.title}</h1>
-          <p className="page-subtitle">{text.subtitle}</p>
-        </div>
-
-        <div className="flex w-full flex-col gap-3 md:flex-row xl:w-auto">
-          <div className="relative min-w-[280px]">
-            <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <div className="relative inline-flex">
+            <label htmlFor="analytics-survey-select" className="sr-only">
+              {text.surveyLabel}
+            </label>
             <select
+              id="analytics-survey-select"
               value={selectedSurveyId ?? ""}
               onChange={(e) => setSelectedSurveyId(Number(e.target.value))}
-              className="field-input appearance-none bg-white py-2 pl-11 pr-10"
+              className="appearance-none rounded-full border border-slate-200 bg-white py-2 pl-4 pr-9 text-[13px] font-medium text-slate-700 outline-none transition hover:border-slate-300 focus:border-[rgba(0,167,160,0.42)] focus:shadow-[0_0_0_4px_rgba(0,167,160,0.12)]"
             >
               {surveys.map((survey) => (
                 <option key={survey.id} value={survey.id}>
@@ -390,35 +483,158 @@ export default function AnalyticsPage() {
                 </option>
               ))}
             </select>
+            <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           </div>
-          <button type="button" onClick={exportSummary} className="secondary-button min-w-[148px]" disabled={!summary}>
-            {text.export}
-          </button>
+        </div>
+
+        <div ref={exportMenuRef} className="relative inline-flex self-start lg:self-auto">
           <button
             type="button"
-            onClick={() => exportResearchData("csv")}
-            className="secondary-button min-w-[128px]"
+            onClick={() => setExportMenuOpen((open) => !open)}
+            className="primary-button min-w-[148px] gap-1.5"
             disabled={!summary}
+            aria-haspopup="menu"
+            aria-expanded={exportMenuOpen}
           >
-            {text.exportCsv}
+            <span>{text.exportLabel}</span>
+            <span className="text-[11px] font-medium opacity-70">CSV · JSON</span>
+            <ChevronDownIcon className={`h-3.5 w-3.5 transition ${exportMenuOpen ? "rotate-180" : ""}`} />
           </button>
-          <button
-            type="button"
-            onClick={() => exportResearchData("json")}
-            className="secondary-button min-w-[128px]"
-            disabled={!summary}
-          >
-            {text.exportJson}
-          </button>
+          {exportMenuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_22px_44px_rgba(15,49,70,0.12)]"
+            >
+              <p className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                {text.exportMenuHeading}
+              </p>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setExportMenuOpen(false);
+                  exportSummary();
+                }}
+                className="flex w-full items-start gap-3 px-4 py-3 text-left text-[13px] transition hover:bg-stone-50"
+              >
+                <span className="mt-0.5 inline-flex h-6 min-w-[44px] items-center justify-center rounded-full bg-stone-100 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+                  JSON
+                </span>
+                <span className="flex flex-col">
+                  <span className="font-semibold text-black">{text.export}</span>
+                  <span className="text-[12px] leading-5 text-slate-500">{text.exportSummaryDesc}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setExportMenuOpen(false);
+                  exportResearchData("csv");
+                }}
+                className="flex w-full items-start gap-3 border-t border-slate-100 px-4 py-3 text-left text-[13px] transition hover:bg-stone-50"
+              >
+                <span className="mt-0.5 inline-flex h-6 min-w-[44px] items-center justify-center rounded-full bg-stone-100 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+                  CSV
+                </span>
+                <span className="flex flex-col">
+                  <span className="font-semibold text-black">{text.exportCsv}</span>
+                  <span className="text-[12px] leading-5 text-slate-500">{text.exportCsvDesc}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setExportMenuOpen(false);
+                  exportResearchData("json");
+                }}
+                className="flex w-full items-start gap-3 border-t border-slate-100 px-4 py-3 text-left text-[13px] transition hover:bg-stone-50"
+              >
+                <span className="mt-0.5 inline-flex h-6 min-w-[44px] items-center justify-center rounded-full bg-stone-100 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+                  JSON
+                </span>
+                <span className="flex flex-col">
+                  <span className="font-semibold text-black">{text.exportJson}</span>
+                  <span className="text-[12px] leading-5 text-slate-500">{text.exportJsonDesc}</span>
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
       {summary && (
-        <section className="mt-4 rounded-[18px] border border-slate-200 bg-white px-4 py-4">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
-            <div className="min-w-[150px] flex-1">
-              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{text.exportFilters}</label>
-              <select value={exportGroup} onChange={(event) => setExportGroup(event.target.value)} className="field-input h-11 text-[13px]">
+        <section className="mt-4 rounded-[14px] border border-slate-200 bg-white px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFiltersExpanded((open) => !open)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-600 transition hover:border-slate-300"
+              aria-expanded={filtersExpanded}
+            >
+              <span>{text.filters}</span>
+              {activeFilterCount > 0 && (
+                <span className="inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-black px-1 text-[10px] font-semibold text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDownIcon className={`h-3.5 w-3.5 transition ${filtersExpanded ? "rotate-180" : ""}`} />
+            </button>
+
+            {!filtersExpanded && activeFilterCount === 0 && (
+              <span className="text-[12px] text-slate-400">{text.filtersShow}</span>
+            )}
+
+            {!filtersExpanded && activeFilterCount > 0 && (
+              <>
+                {exportGroup && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                    Group {exportGroup}
+                  </span>
+                )}
+                {exportLanguage && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                    {exportLanguage.toUpperCase()}
+                  </span>
+                )}
+                {exportStatus && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                    {exportStatus === "completed"
+                      ? text.completedOnly
+                      : exportStatus === "in_progress"
+                        ? text.inProgressOnly
+                        : text.flaggedOnly}
+                  </span>
+                )}
+                {exportCalibration && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                    {exportCalibration === "passed" ? text.calibrationPassed : text.calibrationFailed}
+                  </span>
+                )}
+                {includePreview && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                    {text.previewResponses}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="ml-auto text-[11px] font-medium text-slate-500 underline-offset-2 hover:underline"
+                >
+                  {text.filtersClear}
+                </button>
+              </>
+            )}
+          </div>
+
+          {filtersExpanded && (
+            <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 lg:flex-row lg:flex-wrap lg:items-center">
+              <select
+                value={exportGroup}
+                onChange={(event) => setExportGroup(event.target.value)}
+                className="h-9 min-w-[130px] flex-1 rounded-full border border-slate-200 bg-white px-3 text-[12px] outline-none transition hover:border-slate-300 lg:flex-none"
+              >
                 <option value="">{text.allGroups}</option>
                 {summary.group_breakdown.map((group) => (
                   <option key={group.group_id} value={group.group_id}>
@@ -426,56 +642,65 @@ export default function AnalyticsPage() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="min-w-[150px] flex-1">
-              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Language</label>
-              <select value={exportLanguage} onChange={(event) => setExportLanguage(event.target.value)} className="field-input h-11 text-[13px]">
+              <select
+                value={exportLanguage}
+                onChange={(event) => setExportLanguage(event.target.value)}
+                className="h-9 min-w-[130px] flex-1 rounded-full border border-slate-200 bg-white px-3 text-[12px] outline-none transition hover:border-slate-300 lg:flex-none"
+              >
                 <option value="">{text.allLanguages}</option>
                 <option value="en">English</option>
                 <option value="zh">中文</option>
                 <option value="ar">العربية</option>
               </select>
-            </div>
-            <div className="min-w-[150px] flex-1">
-              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Status</label>
-              <select value={exportStatus} onChange={(event) => setExportStatus(event.target.value)} className="field-input h-11 text-[13px]">
+              <select
+                value={exportStatus}
+                onChange={(event) => setExportStatus(event.target.value)}
+                className="h-9 min-w-[140px] flex-1 rounded-full border border-slate-200 bg-white px-3 text-[12px] outline-none transition hover:border-slate-300 lg:flex-none"
+              >
                 <option value="">{text.anyStatus}</option>
                 <option value="completed">{text.completedOnly}</option>
                 <option value="in_progress">{text.inProgressOnly}</option>
                 <option value="flagged">{text.flaggedOnly}</option>
               </select>
-            </div>
-            <div className="min-w-[170px] flex-1">
-              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Calibration</label>
-              <select value={exportCalibration} onChange={(event) => setExportCalibration(event.target.value)} className="field-input h-11 text-[13px]">
+              <select
+                value={exportCalibration}
+                onChange={(event) => setExportCalibration(event.target.value)}
+                className="h-9 min-w-[150px] flex-1 rounded-full border border-slate-200 bg-white px-3 text-[12px] outline-none transition hover:border-slate-300 lg:flex-none"
+              >
                 <option value="">{text.anyCalibration}</option>
                 <option value="passed">{text.calibrationPassed}</option>
                 <option value="failed">{text.calibrationFailed}</option>
               </select>
+              <label className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-[12px] text-slate-600">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 accent-[#00a7a0]"
+                  checked={includePreview}
+                  onChange={(event) => setIncludePreview(event.target.checked)}
+                />
+                <span>{text.previewResponses}</span>
+              </label>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="ml-auto text-[12px] font-medium text-slate-500 underline-offset-2 hover:underline"
+                >
+                  {text.filtersClear}
+                </button>
+              )}
             </div>
-            <label className="flex min-h-11 min-w-[210px] items-center gap-3 rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-slate-600">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-[#00a7a0]"
-                checked={includePreview}
-                onChange={(event) => setIncludePreview(event.target.checked)}
-              />
-              <span>
-                <span className="block font-medium text-slate-700">{text.previewResponses}</span>
-                <span className="block text-[11px] leading-5 text-slate-400">{text.excludePreview}</span>
-              </span>
-            </label>
-          </div>
+          )}
         </section>
       )}
 
-      {error && <p className="mt-4 rounded-[16px] border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-4 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
       {loadingSummary || !summary ? (
-        <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{text.loadingSummary}</p>
+        <p className="pt-14 text-sm uppercase tracking-[0.14em] text-slate-400">{text.loadingSummary}</p>
       ) : (
         <>
-          <section className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <section className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="metric-panel">
               <p className="section-kicker">{text.totalResponses}</p>
               <p className="metric-value">{summary.total_responses}</p>
@@ -488,117 +713,131 @@ export default function AnalyticsPage() {
               <p className="section-kicker">{text.avgCompletion}</p>
               <p className="metric-value">{formatMinutes(summary.avg_completion_minutes)}</p>
             </div>
-            <div className="rounded-[18px] bg-black px-5 py-4 text-white shadow-[0_28px_60px_rgba(17,24,39,0.14)]">
-              <p className="section-kicker text-white/55">{text.calibrationOk}</p>
-              <p className="metric-value-inverse">{formatPercent(summary.calibration_success_rate)}</p>
-            </div>
             <div className="metric-panel">
-              <p className="section-kicker">{text.gazeSamples}</p>
-              <p className="metric-value">{summary.total_gaze_samples}</p>
+              <div className="flex items-center gap-2">
+                <p className="section-kicker">{text.calibrationOk}</p>
+                {calibrationPass && (
+                  <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-700">
+                    {text.calibrationOkChip}
+                  </span>
+                )}
+              </div>
+              <p className="metric-value">{formatPercent(summary.calibration_success_rate)}</p>
             </div>
           </section>
 
-          <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-            <div className="surface-panel px-6 py-6">
-              <p className="section-kicker">{text.groupComparison}</p>
-              <div className="mt-5 space-y-4">
-                {summary.group_breakdown.map((group) => (
-                  <div key={group.group_id} className="rounded-[18px] border bg-stone-50 px-4 py-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-[16px] font-semibold tracking-[-0.03em] text-black">Group {group.group_id}</p>
-                        <p className="mt-1 text-[13px] leading-6 text-slate-500">
-                          {group.participants} {text.participants} · {formatPercent(group.completion_rate)} {text.completed}
-                        </p>
-                      </div>
-                      <div className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        {group.clicks} {text.clicks}
-                      </div>
-                    </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-4">
-                      <div>
-                        <p className="section-kicker">{text.likes}</p>
-                        <p className="mt-2 text-[22px] font-semibold tracking-[-0.04em] text-black">{group.likes}</p>
-                      </div>
-                      <div>
-                        <p className="section-kicker">{text.comments}</p>
-                        <p className="mt-2 text-[22px] font-semibold tracking-[-0.04em] text-black">{group.comments}</p>
-                      </div>
-                      <div>
-                        <p className="section-kicker">{text.shares}</p>
-                        <p className="mt-2 text-[22px] font-semibold tracking-[-0.04em] text-black">{group.shares}</p>
-                      </div>
-                      <div>
-                        <p className="section-kicker">{text.completed}</p>
-                        <p className="mt-2 text-[22px] font-semibold tracking-[-0.04em] text-black">{group.completed}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="surface-panel px-6 py-6">
-              <p className="section-kicker">{text.summary}</p>
-              <h2 className="mt-3 text-[22px] font-semibold tracking-[-0.04em] text-black">
-                {selectedSurvey?.title ?? text.surveyOverview}
-              </h2>
-              <p className="mt-3 text-[14px] leading-7 text-slate-500">{summary.summary}</p>
-
-              <div className="mt-6 grid gap-3 md:grid-cols-3">
-                <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
-                  <p className="section-kicker">{text.topCohort}</p>
-                  <p className="mt-2 text-[18px] font-semibold tracking-[-0.03em] text-black">
+          <section className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+            <div className="surface-panel px-5 py-4">
+              <p className="section-kicker">{text.insights}</p>
+              <ul className="mt-3 space-y-3">
+                <li className="flex flex-col gap-0.5 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                  <span className="section-kicker">{text.topCohort}</span>
+                  <span className="text-[15px] font-semibold tracking-[-0.02em] text-black">
                     {topGroup ? `Group ${topGroup.group_id}` : text.noGroupData}
-                  </p>
-                  <p className="mt-2 text-[13px] leading-6 text-slate-500">
+                  </span>
+                  <span className="text-[12px] leading-5 text-slate-500">
                     {topGroup
                       ? text.topCohortCopy.replace("{clicks}", String(topGroup.clicks)).replace("{comments}", String(topGroup.comments))
                       : text.topCohortEmpty}
-                  </p>
-                </div>
-                <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
-                  <p className="section-kicker">{text.engagementTotals}</p>
-                  <div className="mt-3 space-y-2 text-[13px] leading-6 text-slate-500">
-                    <p>{text.totalGazeSamples}: <span className="font-medium text-black">{summary.total_gaze_samples}</span></p>
-                    <p>{text.totalClicks}: <span className="font-medium text-black">{summary.total_clicks}</span></p>
-                    <p>{text.totalLikes}: <span className="font-medium text-black">{summary.total_likes}</span></p>
-                    <p>{text.totalComments}: <span className="font-medium text-black">{summary.total_comments}</span></p>
-                    <p>{text.totalShares}: <span className="font-medium text-black">{summary.total_shares}</span></p>
-                  </div>
-                </div>
-                <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
-                  <p className="section-kicker">{text.evidenceChain}</p>
-                  <p className="mt-3 text-[13px] leading-6 text-slate-500">{text.evidenceChainCopy}</p>
-                </div>
+                  </span>
+                </li>
+                <li className="flex flex-col gap-0.5 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                  <span className="section-kicker">{text.engagementTotals}</span>
+                  <span className="text-[13px] leading-6 text-slate-700">{engagementLine}</span>
+                </li>
+                <li className="flex flex-col gap-0.5">
+                  <span className="section-kicker">{text.exportReadiness}</span>
+                  <span className="text-[13px] leading-6 text-slate-700">{exportReadinessLine}</span>
+                </li>
+              </ul>
+
+              {summary.summary && (
+                <details className="mt-4 group">
+                  <summary className="cursor-pointer list-none text-[12px] font-medium text-slate-500 hover:text-slate-700">
+                    <span className="inline-flex items-center gap-1">
+                      <ChevronDownIcon className="h-3.5 w-3.5 transition group-open:rotate-180" />
+                      {text.fullSummaryToggle}
+                    </span>
+                  </summary>
+                  <p className="mt-3 text-[13px] leading-6 text-slate-500">{summary.summary}</p>
+                </details>
+              )}
+            </div>
+
+            <div className="surface-panel overflow-hidden">
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                <p className="section-kicker">{text.groupComparison}</p>
+                {topGroup && (
+                  <span className="text-[11px] font-medium text-slate-400">
+                    {summary.group_breakdown.length} groups
+                  </span>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-[13px]">
+                  <thead>
+                    <tr className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                      <th className="px-5 py-2.5 font-semibold">{text.tableHeadGroup}</th>
+                      <th className="px-3 py-2.5 font-semibold">{text.tableHeadParticipants}</th>
+                      <th className="px-3 py-2.5 font-semibold">{text.tableHeadCompletion}</th>
+                      <th className="px-3 py-2.5 font-semibold">{text.tableHeadClicks}</th>
+                      <th className="px-3 py-2.5 font-semibold">{text.tableHeadLikes}</th>
+                      <th className="px-3 py-2.5 font-semibold">{text.tableHeadComments}</th>
+                      <th className="px-3 py-2.5 pr-5 font-semibold">{text.tableHeadShares}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {summary.group_breakdown.map((group) => {
+                      const isTop = topGroup?.group_id === group.group_id;
+                      return (
+                        <tr
+                          key={group.group_id}
+                          className={`border-t border-slate-100 text-slate-600 ${
+                            isTop ? "bg-stone-50" : ""
+                          }`}
+                        >
+                          <td className={`px-5 py-3 font-semibold text-black ${isTop ? "border-l-2 border-black pl-[18px]" : ""}`}>
+                            Group {group.group_id}
+                          </td>
+                          <td className="px-3 py-3">{group.participants}</td>
+                          <td className="px-3 py-3">{formatPercent(group.completion_rate)}</td>
+                          <td className="px-3 py-3 font-medium text-black">{group.clicks}</td>
+                          <td className="px-3 py-3">{group.likes}</td>
+                          <td className="px-3 py-3">{group.comments}</td>
+                          <td className="px-3 py-3 pr-5">{group.shares}</td>
+                        </tr>
+                      );
+                    })}
+                    {!summary.group_breakdown.length && (
+                      <tr>
+                        <td colSpan={7} className="px-5 py-6 text-center text-[12px] text-slate-400">
+                          {text.noGroupData}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </section>
 
-          <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_320px]">
+          <section className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.25fr)_320px]">
             <div className="surface-panel overflow-hidden">
-              <div className="flex flex-col gap-3 border-b px-6 py-5 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="section-kicker">Post performance</p>
-                  <p className="mt-2 text-[14px] leading-7 text-slate-500">
-                    Compare engagement totals across each configured post card in the current survey.
-                  </p>
-                </div>
-                <div className="rounded-full bg-stone-100 px-4 py-2 text-[13px] text-slate-600">
-                  {summary.posts.length} configured posts
-                </div>
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                <p className="section-kicker">Post performance</p>
+                <span className="text-[11px] font-medium text-slate-400">{summary.posts.length} posts</span>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full text-left">
-                  <thead className="bg-stone-50">
-                    <tr className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                      <th className="px-6 py-4">Post</th>
-                      <th className="px-4 py-4">Clicks</th>
-                      <th className="px-4 py-4">Likes</th>
-                      <th className="px-4 py-4">Comments</th>
-                      <th className="px-4 py-4">Shares</th>
-                      <th className="px-4 py-4">Groups</th>
+                <table className="min-w-full text-left text-[13px]">
+                  <thead>
+                    <tr className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                      <th className="px-5 py-2.5 font-semibold">Post</th>
+                      <th className="px-3 py-2.5 font-semibold">Clicks</th>
+                      <th className="px-3 py-2.5 font-semibold">Likes</th>
+                      <th className="px-3 py-2.5 font-semibold">Comments</th>
+                      <th className="px-3 py-2.5 font-semibold">Shares</th>
+                      <th className="px-3 py-2.5 pr-5 font-semibold">Groups</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -607,24 +846,22 @@ export default function AnalyticsPage() {
                       return (
                         <tr
                           key={post.post_id}
-                          className={`cursor-pointer border-t text-[13px] text-slate-600 transition hover:bg-stone-50 ${
+                          className={`cursor-pointer border-t border-slate-100 text-slate-600 transition hover:bg-stone-50 ${
                             active ? "bg-stone-50" : ""
                           }`}
                           onClick={() => setSelectedPostId(post.post_id)}
                         >
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="font-semibold text-black">{post.title}</p>
-                              <p className="mt-1 text-[12px] uppercase tracking-[0.16em] text-slate-400">
-                                {post.source || "Unknown source"}
-                              </p>
-                            </div>
+                          <td className={`px-5 py-3 ${active ? "border-l-2 border-black pl-[18px]" : ""}`}>
+                            <p className="font-semibold text-black">{post.title}</p>
+                            <p className="mt-0.5 text-[11px] uppercase tracking-[0.12em] text-slate-400">
+                              {post.source || "Unknown source"}
+                            </p>
                           </td>
-                          <td className="px-4 py-4">{post.clicks}</td>
-                          <td className="px-4 py-4">{post.likes}</td>
-                          <td className="px-4 py-4">{post.comments}</td>
-                          <td className="px-4 py-4">{post.shares}</td>
-                          <td className="px-4 py-4">
+                          <td className="px-3 py-3 font-medium text-black">{post.clicks}</td>
+                          <td className="px-3 py-3">{post.likes}</td>
+                          <td className="px-3 py-3">{post.comments}</td>
+                          <td className="px-3 py-3">{post.shares}</td>
+                          <td className="px-3 py-3 pr-5">
                             {post.visible_groups?.length ? post.visible_groups.join(", ") : "All"}
                           </td>
                         </tr>
@@ -635,54 +872,54 @@ export default function AnalyticsPage() {
               </div>
             </div>
 
-            <aside className="surface-panel px-6 py-6">
+            <aside className="surface-panel px-5 py-4">
               <p className="section-kicker">Post drill-down</p>
               {selectedPost ? (
                 <>
-                  <h2 className="mt-3 text-[20px] font-semibold tracking-[-0.04em] text-black">{selectedPost.title}</h2>
-                  <p className="mt-2 text-[12px] uppercase tracking-[0.16em] text-slate-400">
+                  <h2 className="mt-2 text-[18px] font-semibold tracking-[-0.03em] text-black">{selectedPost.title}</h2>
+                  <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-slate-400">
                     {selectedPost.source || "Unknown source"}
                   </p>
 
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-[16px] border bg-stone-50 px-4 py-3">
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
                       <p className="section-kicker">Clicks</p>
-                      <p className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-black">{selectedPost.clicks}</p>
+                      <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{selectedPost.clicks}</p>
                     </div>
-                    <div className="rounded-[16px] border bg-stone-50 px-4 py-3">
+                    <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
                       <p className="section-kicker">Likes</p>
-                      <p className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-black">{selectedPost.likes}</p>
+                      <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{selectedPost.likes}</p>
                     </div>
-                    <div className="rounded-[16px] border bg-stone-50 px-4 py-3">
+                    <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
                       <p className="section-kicker">Comments</p>
-                      <p className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-black">{selectedPost.comments}</p>
+                      <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{selectedPost.comments}</p>
                     </div>
-                    <div className="rounded-[16px] border bg-stone-50 px-4 py-3">
+                    <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
                       <p className="section-kicker">Shares</p>
-                      <p className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-black">{selectedPost.shares}</p>
+                      <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{selectedPost.shares}</p>
                     </div>
                   </div>
 
-                  <div className="mt-5 rounded-[18px] border bg-stone-50 px-4 py-4">
+                  <div className="mt-4 rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-3">
                     <p className="section-kicker">Visibility</p>
-                    <p className="mt-2 text-[14px] leading-7 text-slate-600">
+                    <p className="mt-1 text-[13px] leading-6 text-slate-600">
                       {selectedPost.visible_groups?.length
                         ? `Visible to groups ${selectedPost.visible_groups.join(", ")}`
                         : "Visible to all participant groups"}
                     </p>
                   </div>
 
-                  <div className="mt-5">
+                  <div className="mt-4">
                     <p className="section-kicker">Participant comments</p>
-                    <div className="mt-3 space-y-3">
+                    <div className="mt-2 space-y-2">
                       {(commentsByPost[selectedPost.post_id] || []).slice(0, 3).map((comment) => (
-                        <div key={comment.id} className="rounded-[18px] border bg-white px-4 py-4">
-                          <p className="text-[13px] font-semibold text-black">Participant response</p>
+                        <div key={comment.id} className="rounded-[14px] border border-slate-100 bg-white px-3 py-3">
+                          <p className="text-[12px] font-semibold text-black">Participant response</p>
                           <p className="mt-1 text-[13px] leading-6 text-slate-600">{comment.text}</p>
                         </div>
                       ))}
                       {!(commentsByPost[selectedPost.post_id] || []).length && (
-                        <div className="rounded-[18px] border bg-stone-50 px-4 py-4 text-[13px] leading-6 text-slate-500">
+                        <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-3 text-[13px] leading-6 text-slate-500">
                           No participant comments captured for this post yet.
                         </div>
                       )}
@@ -690,39 +927,39 @@ export default function AnalyticsPage() {
                   </div>
                 </>
               ) : (
-                <p className="mt-3 text-[14px] leading-7 text-slate-500">
+                <p className="mt-3 text-[13px] leading-6 text-slate-500">
                   Select a post row to inspect its engagement mix and comment sample.
                 </p>
               )}
             </aside>
           </section>
 
-          <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-            <div className="surface-panel px-6 py-6">
+          <section className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <div className="surface-panel px-5 py-4">
               <p className="section-kicker">Response quality</p>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
                   <p className="section-kicker">Fast completions</p>
-                  <p className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-black">{summary.fast_completions}</p>
+                  <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{summary.fast_completions}</p>
                 </div>
-                <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
+                <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
                   <p className="section-kicker">Low interaction</p>
-                  <p className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-black">{summary.low_interaction_responses}</p>
+                  <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{summary.low_interaction_responses}</p>
                 </div>
-                <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
+                <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
                   <p className="section-kicker">Duplicate comments</p>
-                  <p className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-black">{summary.duplicate_comment_sessions}</p>
+                  <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{summary.duplicate_comment_sessions}</p>
                 </div>
-                <div className="rounded-[18px] border bg-stone-50 px-4 py-4">
-                  <p className="section-kicker">Calibration pass</p>
-                  <p className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-black">{formatPercent(summary.calibration_success_rate)}</p>
+                <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
+                  <p className="section-kicker">Gaze samples</p>
+                  <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{summary.total_gaze_samples}</p>
                 </div>
               </div>
             </div>
 
-            <div className="surface-panel-soft px-6 py-6">
+            <div className="surface-panel-soft px-5 py-4">
               <p className="section-kicker">Recommended next checks</p>
-              <div className="mt-5 space-y-4">
+              <div className="mt-3 space-y-3">
                 {[
                   "Open the highest-click post and compare visible groups before publishing the next draft.",
                   "Review low-interaction sessions to confirm your post order and question cadence are working.",
@@ -730,7 +967,7 @@ export default function AnalyticsPage() {
                 ].map((item) => (
                   <div key={item} className="flex items-start gap-3">
                     <CheckCircleIcon className="mt-0.5 h-4 w-4 text-black" />
-                    <p className="text-[14px] leading-7 text-slate-500">{item}</p>
+                    <p className="text-[13px] leading-6 text-slate-500">{item}</p>
                   </div>
                 ))}
               </div>

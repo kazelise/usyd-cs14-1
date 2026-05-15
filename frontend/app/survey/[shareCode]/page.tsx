@@ -8,13 +8,14 @@ import { isLocale, t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, LinkIcon, SurveyIcon, UsersIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
 import { ExternalPostImage } from "@/components/external-post-image";
-import { useGazeTracker } from "./useGazeTracker";
+import { useGazeTracker, type GazeTrackerSnapshot, type GazeTrackerStatus } from "./useGazeTracker";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
 type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky";
+type FeedSkin = "x" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky";
 
 const PLATFORM_FEED_STYLES: Record<
-  PlatformStyle,
+  FeedSkin,
   {
       name: string;
       pageClass: string;
@@ -171,35 +172,114 @@ const PLATFORM_FEED_STYLES: Record<
       commentCardClass: "rounded-[14px] border border-rose-100 bg-rose-50/50 px-3 py-3",
       participantCommentClass: "rounded-[14px] border border-rose-200 bg-white px-3 py-3",
     },
+  truth_social: {
+      name: "Truth Social-style",
+      pageClass: "bg-[linear-gradient(180deg,#f4f6fb_0%,#e4e9f2_100%)]",
+      pageMaxClass: "mx-auto max-w-[1240px] px-4 py-6 lg:px-6 lg:py-8",
+      contentGridClass: "grid gap-6 xl:grid-cols-[240px_minmax(0,640px)_300px] xl:justify-center",
+      leftAsideClass: "space-y-6 xl:sticky xl:top-6 xl:self-start",
+      mainClass: "min-w-0 space-y-4",
+      introClass: "surface-panel-soft flex flex-col gap-3 px-6 py-5 md:flex-row md:items-center md:justify-between",
+      feedClass: "space-y-4",
+      rightAsideClass: "space-y-6 xl:sticky xl:top-6 xl:self-start",
+      accentTextClass: "text-[#b22234]",
+      accentBgClass: "bg-[#1a2a4f]",
+      progressClass: "bg-[#b22234]",
+      cardClass: "overflow-hidden rounded-[10px] border-2 border-[#1a2a4f] bg-white shadow-[0_14px_36px_rgba(26,42,79,0.18)]",
+      headerClass: "border-b-2 border-[#b22234] bg-[#1a2a4f] px-6 py-4 text-white",
+      avatarClass: "flex h-11 w-11 items-center justify-center rounded-full border-2 border-white bg-[#b22234] text-[13px] font-bold uppercase text-white",
+      badgeClass: "inline-flex rounded-[4px] bg-[#1a2a4f] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white",
+      imageWrapClass: "border-b border-slate-200 bg-slate-100",
+      imageClass: "h-72 w-full object-cover",
+      moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-[6px] border-2 border-[#1a2a4f] bg-white px-3 py-2 text-[13px] font-bold uppercase tracking-[0.08em] text-[#1a2a4f] transition hover:bg-[#1a2a4f] hover:text-white",
+      engagementClass: "flex flex-wrap items-center gap-6 border-t-2 border-[#1a2a4f]/15 bg-[#f4f6fb] px-6 py-4 text-[13px] font-semibold text-[#1a2a4f]",
+      actionGridClass: "grid border-t-2 border-[#1a2a4f]/15 text-[13px] md:grid-cols-3",
+      actionButtonClass: "border-[#1a2a4f]/15 px-4 py-4 font-bold uppercase tracking-[0.08em] text-[#1a2a4f] transition hover:bg-[#1a2a4f]/5",
+      actionButtonDividerClass: "border-t md:border-l md:border-t-0",
+      activeActionClass: "bg-[#b22234] text-white hover:bg-[#9a1a2a]",
+      bodyClass: "px-6 py-5",
+      titleClass: "mt-3 text-[20px] font-bold leading-7 tracking-[-0.02em] text-[#1a2a4f]",
+      descriptionClass: "mt-2 text-[14px] leading-7 text-slate-700",
+      commentCardClass: "rounded-[8px] border border-[#1a2a4f]/15 bg-[#f4f6fb] px-4 py-4",
+      participantCommentClass: "rounded-[8px] border-2 border-[#b22234]/60 bg-white px-4 py-4",
+    },
+  bluesky: {
+      name: "Bluesky-style",
+      pageClass: "bg-[linear-gradient(180deg,#eef6ff_0%,#dbeafe_100%)]",
+      pageMaxClass: "mx-auto max-w-[1200px] px-4 py-6 lg:px-6 lg:py-8",
+      contentGridClass: "grid gap-6 xl:grid-cols-[240px_minmax(0,620px)_300px] xl:justify-center",
+      leftAsideClass: "space-y-6 xl:sticky xl:top-6 xl:self-start",
+      mainClass: "min-w-0 space-y-4",
+      introClass: "surface-panel-soft flex flex-col gap-3 px-6 py-5 md:flex-row md:items-center md:justify-between",
+      feedClass: "space-y-4",
+      rightAsideClass: "space-y-6 xl:sticky xl:top-6 xl:self-start",
+      accentTextClass: "text-[#0085ff]",
+      accentBgClass: "bg-[#0085ff]",
+      progressClass: "bg-[linear-gradient(90deg,#0085ff_0%,#33b1ff_100%)]",
+      cardClass: "overflow-hidden rounded-[20px] border border-[#cfe3ff] bg-white shadow-[0_12px_34px_rgba(0,133,255,0.12)]",
+      headerClass: "border-b border-[#e0eeff] bg-white px-6 py-4",
+      avatarClass: "flex h-11 w-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#0085ff,#33b1ff)] text-[13px] font-semibold text-white",
+      badgeClass: "inline-flex rounded-full bg-[#e6f1ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0066c8]",
+      imageWrapClass: "border-b border-[#e0eeff] bg-[#eef6ff]",
+      imageClass: "h-72 w-full object-cover",
+      moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-[#cfe3ff] bg-[#eef6ff] px-3 py-2 text-[13px] font-semibold text-[#0066c8] transition hover:bg-[#dbeafe]",
+      engagementClass: "flex flex-wrap items-center gap-6 border-t border-[#e0eeff] bg-[#f6fbff] px-6 py-4 text-[13px] text-slate-600",
+      actionGridClass: "grid border-t border-[#e0eeff] text-[13px] md:grid-cols-3",
+      actionButtonClass: "border-[#e0eeff] px-4 py-4 font-semibold text-[#0066c8] transition hover:bg-[#eef6ff]",
+      actionButtonDividerClass: "border-t md:border-l md:border-t-0",
+      activeActionClass: "bg-[#0085ff] text-white hover:bg-[#0070d6]",
+      bodyClass: "px-6 py-5",
+      titleClass: "mt-3 text-[19px] font-semibold leading-7 tracking-[-0.02em] text-[#0c1e3a]",
+      descriptionClass: "mt-2 text-[14px] leading-7 text-slate-600",
+      commentCardClass: "rounded-[16px] border border-[#cfe3ff] bg-[#f6fbff] px-4 py-4",
+      participantCommentClass: "rounded-[16px] border border-[#0085ff]/40 bg-white px-4 py-4",
+    },
 };
 
 function getPlatformFeedStyle(style?: string | null) {
-    return PLATFORM_FEED_STYLES[(style as PlatformStyle) || "x"] ?? PLATFORM_FEED_STYLES.x;
+    return PLATFORM_FEED_STYLES[(style as FeedSkin) || "x"] ?? PLATFORM_FEED_STYLES.x;
 }
 
-function platformUiStyleToFeedStyle(style?: PlatformUiStyle | null): PlatformStyle | null {
+function platformUiStyleToFeedSkin(style?: PlatformUiStyle | null): FeedSkin | null {
   if (!style) return null;
   if (style === "twitter") return "x";
-  if (style === "facebook" || style === "instagram" || style === "xiaohongshu") return style;
-  return "x";
+  return style;
 }
 
-function getPostImageClass(style: PlatformStyle, baseClass: string, index: number) {
-    if (style !== "xiaohongshu") return baseClass;
+function getPostImageClass(skin: FeedSkin, baseClass: string, index: number) {
+    if (skin !== "xiaohongshu") return baseClass;
     const ratios = ["aspect-[3/4]", "aspect-square", "aspect-[4/5]", "aspect-[5/4]"];
     return `${baseClass} ${ratios[index % ratios.length]}`;
 }
 
-function getPlatformActionLabels(style: PlatformStyle, locale: Locale) {
-  if (style === "x") {
+function hostnameFromUrl(url: string) {
+  try {
+    return new URL(url).hostname || "Unknown";
+  } catch {
+    return "Unknown";
+  }
+}
+
+function getPlatformActionLabels(skin: FeedSkin, locale: Locale) {
+  if (skin === "x") {
     return locale === "zh"
       ? { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" }
       : { like: "Like", liked: "Liked", comment: "Reply", share: "Repost" };
   }
-  if (style === "xiaohongshu") {
+  if (skin === "xiaohongshu") {
     return locale === "zh"
       ? { like: "赞", liked: "已赞", comment: "评论", share: "收藏" }
       : { like: "Like", liked: "Liked", comment: "Comment", share: "Collect" };
+  }
+  if (skin === "truth_social") {
+    return locale === "zh"
+      ? { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" }
+      : { like: "Like", liked: "Liked", comment: "Reply", share: "ReTruth" };
+  }
+  if (skin === "bluesky") {
+    return locale === "zh"
+      ? { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" }
+      : { like: "Like", liked: "Liked", comment: "Reply", share: "Repost" };
   }
   return {
     like: t(locale, "like"),
@@ -207,6 +287,87 @@ function getPlatformActionLabels(style: PlatformStyle, locale: Locale) {
     comment: t(locale, "comment"),
     share: t(locale, "share"),
   };
+}
+
+type TrackingStatusKey =
+  | "trackingStatusStarting"
+  | "trackingStatusTracking"
+  | "trackingStatusWeak"
+  | "trackingStatusLost"
+  | "trackingStatusStopped";
+
+const TRACKING_STATUS_STYLES: Record<
+  GazeTrackerStatus,
+  { dot: string; ring: string; label: TrackingStatusKey }
+> = {
+  starting: {
+    dot: "bg-slate-400 animate-pulse",
+    ring: "ring-slate-300/70",
+    label: "trackingStatusStarting",
+  },
+  tracking: {
+    dot: "bg-emerald-500 animate-pulse",
+    ring: "ring-emerald-300/60",
+    label: "trackingStatusTracking",
+  },
+  weak: {
+    dot: "bg-amber-500 animate-pulse",
+    ring: "ring-amber-300/60",
+    label: "trackingStatusWeak",
+  },
+  lost: {
+    dot: "bg-rose-500",
+    ring: "ring-rose-300/60",
+    label: "trackingStatusLost",
+  },
+  stopped: {
+    dot: "bg-slate-400",
+    ring: "ring-slate-200/60",
+    label: "trackingStatusStopped",
+  },
+};
+
+function TrackingStatusWidget({
+  snapshot,
+  locale,
+}: {
+  snapshot: GazeTrackerSnapshot;
+  locale: Locale;
+}) {
+  const style = TRACKING_STATUS_STYLES[snapshot.status];
+  const coveragePct = Math.round(Math.min(1, Math.max(0, snapshot.coverage)) * 100);
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`pointer-events-none fixed bottom-4 right-4 z-50 max-w-[280px] rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-lg ring-2 ${style.ring} backdrop-blur`}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {t(locale, "trackingStatusTitle")}
+      </p>
+      <div className="mt-2 flex items-center gap-2 text-[13px] font-semibold text-[#163047]">
+        <span className={`inline-block h-2.5 w-2.5 rounded-full ${style.dot}`} />
+        <span>{t(locale, style.label)}</span>
+      </div>
+      {snapshot.expectedSamples > 0 && (
+        <div className="mt-2">
+          <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-slate-400">
+            <span>{t(locale, "trackingCoverageLabel")}</span>
+            <span>{coveragePct}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-slate-700 transition-all"
+              style={{ width: `${coveragePct}%` }}
+            />
+          </div>
+        </div>
+      )}
+      <p className="mt-2 text-[10px] leading-4 text-slate-400">
+        {t(locale, "trackingPrivacyNote")}
+      </p>
+    </div>
+  );
 }
 
 interface Comment {
@@ -277,7 +438,8 @@ export default function SurveyParticipantPage() {
   const { locale, setLocale } = useLocale();
   const requestedLocale = search.get("lang");
   const isPreviewSession = search.get("preview") === "1";
-  const previewAssignedGroup = Number(search.get("group") || "");
+  const previewGroupParam = search.get("group");
+  const previewAssignedGroup = previewGroupParam ? Number(previewGroupParam) : null;
   const previewScope = Number.isFinite(previewAssignedGroup) ? previewAssignedGroup : "auto";
   const savedLocale = typeof window !== "undefined" ? localStorage.getItem("locale") : null;
   const initialLocale: Locale = isLocale(requestedLocale)
@@ -307,8 +469,9 @@ export default function SurveyParticipantPage() {
     const target = e.target as HTMLElement;
     let targetElement = "other";
 
-    if (target.closest("[data-track='headline']")) targetElement = "headline";
+    if (target.closest("[data-track='more_info']")) targetElement = "more_info";
     else if (target.closest("[data-track='image']")) targetElement = "image";
+    else if (target.closest("[data-track='headline']")) targetElement = "headline";
     else if (target.closest("[data-track='like']")) targetElement = "like_button";
     else if (target.closest("[data-track='comment']")) targetElement = "comment_button";
     else if (target.closest("[data-track='share']")) targetElement = "share_count";
@@ -337,7 +500,11 @@ export default function SurveyParticipantPage() {
   }, []);
 
   // Gaze tracking — runs continuously during survey after calibration
-  const { flush: flushGaze } = useGazeTracker({
+  const {
+    flush: flushGaze,
+    snapshot: gazeSnapshot,
+    getSummary: getGazeSummary,
+  } = useGazeTracker({
     responseId: session?.response_id ?? 0,
     participantToken: session?.participant_token ?? "",
     intervalMs: session?.gaze_interval_ms ?? 1000,
@@ -376,7 +543,8 @@ export default function SurveyParticipantPage() {
           user_agent: navigator.userAgent,
           participant_token: cachedToken,
           is_preview: isPreviewSession,
-          preview_assigned_group: Number.isFinite(previewAssignedGroup) ? previewAssignedGroup : undefined,
+          preview_assigned_group:
+            isPreviewSession && Number.isFinite(previewAssignedGroup) ? previewAssignedGroup as number : undefined,
         });
         setSession(result);
         localStorage.setItem(tokenStorageKey, result.participant_token);
@@ -389,7 +557,7 @@ export default function SurveyParticipantPage() {
         }
 
         try {
-          const state = await api.getResponseState(result.response_id);
+          const state = await api.getResponseState(result.response_id, result.participant_token);
           setLikedPosts(new Set<number>(state.liked_post_ids || []));
           setParticipantComments(state.comments_by_post || {});
         } catch {}
@@ -436,7 +604,7 @@ export default function SurveyParticipantPage() {
     });
 
     try {
-      await api.toggleLike(session.response_id, postId);
+      await api.toggleLike(session.response_id, postId, session.participant_token);
     } catch (err: any) {
       setLikedPosts((prev) => {
         const next = new Set(prev);
@@ -455,7 +623,11 @@ export default function SurveyParticipantPage() {
     setActionError("");
 
     try {
-      const created = await api.createParticipantComment(session.response_id, { post_id: postId, text });
+      const created = await api.createParticipantComment(session.response_id, {
+        post_id: postId,
+        text,
+        participant_token: session.participant_token,
+      });
       setParticipantComments((prev) => ({
         ...prev,
         [postId]: [...(prev[postId] || []), created],
@@ -467,13 +639,15 @@ export default function SurveyParticipantPage() {
     }
   }
 
-  async function handleClickPost(postId: number, url: string) {
+  async function handleClickPost(postId: number) {
     if (!session) return;
     setActionError("");
-    const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
-    if (openedWindow) openedWindow.opener = null;
     try {
-      await api.recordInteraction(session.response_id, { post_id: postId, action_type: "click" });
+      await api.recordInteraction(session.response_id, {
+        post_id: postId,
+        action_type: "click",
+        participant_token: session.participant_token,
+      });
     } catch (err: any) {
       setActionError(err.message || t(locale, "networkRequestFailed"));
     }
@@ -485,7 +659,12 @@ export default function SurveyParticipantPage() {
     try {
       await flushClicks(session.response_id, session.participant_token);
       await flushGaze();
-      await api.completeSurvey(session.response_id);
+      const attentionSummary = session.gaze_tracking_enabled ? getGazeSummary() : null;
+      await api.completeSurvey(
+        session.response_id,
+        session.participant_token,
+        attentionSummary,
+      );
       // Drop the cached token so a fresh visit to the same share link starts
       // a new response from the start screen, while a refresh of this completed
       // page keeps showing completion instead of opening an orphan response.
@@ -561,12 +740,16 @@ export default function SurveyParticipantPage() {
     locale === "zh"
       ? `已记录交互标记，覆盖 ${totalPosts} 条帖子`
       : `Interaction markers recorded across ${totalPosts} posts`;
-  const platformStyle = platformUiStyleToFeedStyle(session.platform_ui_style) || ((session.platform_style || "x") as PlatformStyle);
-  const platform = getPlatformFeedStyle(platformStyle);
-  const platformActionLabels = getPlatformActionLabels(platformStyle, locale);
+  const feedSkin: FeedSkin = platformUiStyleToFeedSkin(session.platform_ui_style)
+    || ((session.platform_style || "x") as FeedSkin);
+  const platform = getPlatformFeedStyle(feedSkin);
+  const platformActionLabels = getPlatformActionLabels(feedSkin, locale);
 
   return (
     <div className={`min-h-screen ${platform.pageClass}`}>
+      {calibrationDone && session.gaze_tracking_enabled && (
+        <TrackingStatusWidget snapshot={gazeSnapshot} locale={locale} />
+      )}
       {isPreviewSession && (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-[12px] font-semibold uppercase tracking-[0.18em] text-amber-800">
           Preview test session · excluded from analytics exports by default
@@ -798,7 +981,7 @@ export default function SurveyParticipantPage() {
               {session.posts.map((post, postIndex) => {
                 const title = post.display_title || post.fetched_title || "Untitled";
                 const imageUrl = post.display_image_url || post.fetched_image_url;
-                const source = post.source_label || post.fetched_source || new URL(post.original_url).hostname;
+                const source = post.source_label || post.fetched_source || hostnameFromUrl(post.original_url);
                 const description = post.display_description || post.fetched_description;
                 const moreInfoLabel = post.more_info_label || "More Information";
                 const isLiked = likedPosts.has(post.id);
@@ -819,10 +1002,19 @@ export default function SurveyParticipantPage() {
                       </div>
                     </div>
 
-                    <div className="cursor-pointer bg-white" data-track="headline" onClick={() => handleClickPost(post.id, post.original_url)}>
+                    <a
+                      href={post.original_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block cursor-pointer bg-white text-inherit no-underline"
+                      data-track="headline"
+                      onClick={() => {
+                        void handleClickPost(post.id);
+                      }}
+                    >
                       {imageUrl && (
                         <div data-track="image" className={platform.imageWrapClass}>
-                          <ExternalPostImage src={imageUrl} className={getPostImageClass(platformStyle, platform.imageClass, postIndex)} />
+                          <ExternalPostImage src={imageUrl} className={getPostImageClass(feedSkin, platform.imageClass, postIndex)} />
                         </div>
                       )}
                       <div className={platform.bodyClass}>
@@ -835,19 +1027,15 @@ export default function SurveyParticipantPage() {
                             {description}
                           </p>
                         )}
-                        <button
-                          type="button"
+                        <span
+                          data-track="more_info"
                           className={platform.moreInfoButtonClass}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleClickPost(post.id, post.original_url);
-                          }}
                         >
                           <LinkIcon className="h-4 w-4 shrink-0" />
                           <span className="truncate">{moreInfoLabel}</span>
-                        </button>
+                        </span>
                       </div>
-                    </div>
+                    </a>
 
                     <div className={platform.engagementClass}>
                       {post.show_likes && <span>{(post.display_likes + (isLiked ? 1 : 0)).toLocaleString()} {t(locale, "likesLabel")}</span>}
@@ -877,7 +1065,11 @@ export default function SurveyParticipantPage() {
                         onClick={() => {
                           setActionError("");
                           void api
-                            .recordInteraction(session.response_id, { post_id: post.id, action_type: "share" })
+                            .recordInteraction(session.response_id, {
+                              post_id: post.id,
+                              action_type: "share",
+                              participant_token: session.participant_token,
+                            })
                             .catch((err: any) => setActionError(err.message || t(locale, "networkRequestFailed")));
                         }}
                         className={`${platform.actionButtonClass} ${platform.actionButtonDividerClass}`}
@@ -919,7 +1111,7 @@ export default function SurveyParticipantPage() {
                                       if (value.trim()) {
                                         try {
                                           setActionError("");
-                                          await api.updateParticipantComment(session.response_id, comment.id, value);
+                                          await api.updateParticipantComment(session.response_id, comment.id, value, session.participant_token);
                                         } catch (err: any) {
                                           setActionError(err.message || t(locale, "networkRequestFailed"));
                                         }
@@ -932,7 +1124,7 @@ export default function SurveyParticipantPage() {
                                   onClick={async () => {
                                     try {
                                       setActionError("");
-                                      await api.deleteParticipantComment(session.response_id, comment.id);
+                                      await api.deleteParticipantComment(session.response_id, comment.id, session.participant_token);
                                       setParticipantComments((prev) => ({
                                         ...prev,
                                         [post.id]: (prev[post.id] || []).filter((item) => item.id !== comment.id),

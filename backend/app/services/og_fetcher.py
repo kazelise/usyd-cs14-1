@@ -5,11 +5,16 @@ and extracts OG tags (title, image, description, site_name) to
 auto-populate the social media post card.
 """
 
+import asyncio
+import ipaddress
+import socket
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
+
+MAX_REDIRECTS = 5
 
 
 @dataclass
@@ -20,13 +25,85 @@ class OGMetadata:
     source: str | None = None  # domain name, e.g. "bbc.com"
 
 
+def _safe_source(url: str) -> str | None:
+    parsed = urlparse(url)
+    return parsed.hostname or parsed.netloc or None
+
+
+def _is_blocked_ip(address: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return True
+    return (
+        not ip.is_global
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_private
+        or ip.is_reserved
+        or ip.is_unspecified
+    )
+
+
+async def _resolve_public_host(hostname: str, port: int) -> bool:
+    normalized = hostname.rstrip(".").lower()
+    if normalized in {"localhost", "localhost.localdomain"}:
+        return False
+
+    try:
+        infos = await asyncio.to_thread(
+            socket.getaddrinfo,
+            hostname,
+            port,
+            type=socket.SOCK_STREAM,
+        )
+    except OSError:
+        return False
+
+    addresses = {info[4][0] for info in infos}
+    return bool(addresses) and all(not _is_blocked_ip(address) for address in addresses)
+
+
+async def _is_fetchable_url(url: str) -> bool:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return False
+    try:
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError:
+        return False
+    return await _resolve_public_host(parsed.hostname, port)
+
+
+async def _safe_get(
+    client: httpx.AsyncClient,
+    url: str,
+    headers: dict[str, str],
+) -> httpx.Response | None:
+    current_url = url
+    for _ in range(MAX_REDIRECTS + 1):
+        if not await _is_fetchable_url(current_url):
+            return None
+
+        response = await client.get(current_url, headers=headers, follow_redirects=False)
+        if response.is_redirect:
+            location = response.headers.get("location")
+            if not location:
+                return response
+            current_url = urljoin(str(response.url), location)
+            continue
+        return response
+    return None
+
+
 async def fetch_og_metadata(url: str, timeout: float = 10.0) -> OGMetadata:
     """Fetch a URL and extract Open Graph metadata.
 
     Falls back to regular HTML tags if OG tags are missing.
     """
     metadata = OGMetadata()
-    metadata.source = urlparse(url).netloc  # e.g. "www.bbc.com"
+    metadata.source = _safe_source(url)  # e.g. "www.bbc.com"
 
     headers = {
         "User-Agent": (
@@ -38,8 +115,10 @@ async def fetch_og_metadata(url: str, timeout: float = 10.0) -> OGMetadata:
     }
 
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as client:
-            resp = await client.get(url, headers=headers)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await _safe_get(client, url, headers)
+            if resp is None:
+                return metadata
             resp.raise_for_status()
     except Exception:
         return metadata  # return partial metadata with just the domain

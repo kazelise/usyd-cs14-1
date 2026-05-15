@@ -10,20 +10,13 @@ import { CalibrationExperience } from "@/components/calibration-experience";
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
 type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky";
 
-const PLATFORM_OPTIONS: { value: PlatformStyle; label: string }[] = [
-  { value: "x", label: "X" },
-  { value: "facebook", label: "Facebook" },
-  { value: "instagram", label: "Instagram" },
-  { value: "xiaohongshu", label: "Xiaohongshu" },
-];
-
 const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
-  { value: "twitter", label: "Twitter/X" },
+  { value: "twitter", label: "X (Twitter)" },
   { value: "facebook", label: "Facebook" },
   { value: "instagram", label: "Instagram" },
-  { value: "xiaohongshu", label: "Xiaohongshu" },
   { value: "truth_social", label: "Truth Social" },
   { value: "bluesky", label: "Bluesky" },
+  { value: "xiaohongshu", label: "Xiaohongshu" },
 ];
 
 const LANGUAGE_OPTIONS = [
@@ -230,22 +223,6 @@ export default function NewSurveyPage() {
             <div>
               <label className="mb-2 block text-[14px] font-medium text-slate-600">{text.platformStyle}</label>
               <select
-                value={platformStyle}
-                onChange={(e) => setPlatformStyle(e.target.value as PlatformStyle)}
-                className="field-input h-12"
-              >
-                {PLATFORM_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-2 text-[13px] leading-6 text-slate-500">{text.platformStyleCopy}</p>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-[14px] font-medium text-slate-600">Platform UI style</label>
-              <select
                 value={platformUiStyle}
                 onChange={(e) => {
                   const nextStyle = e.target.value as PlatformUiStyle;
@@ -260,9 +237,7 @@ export default function NewSurveyPage() {
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-[13px] leading-6 text-slate-500">
-                Choose the social platform skin participants will see in the feed.
-              </p>
+              <p className="mt-2 text-[13px] leading-6 text-slate-500">{text.platformStyleCopy}</p>
             </div>
 
             <div className="rounded-[18px] border border-slate-200 bg-slate-50/60 px-4 py-4">

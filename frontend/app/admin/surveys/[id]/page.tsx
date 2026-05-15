@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { buildTemplateFromSurvey, persistTemplate } from "@/lib/template-library";
 import {
   ChartIcon,
   CheckCircleIcon,
@@ -19,20 +18,13 @@ import { ExternalPostImage } from "@/components/external-post-image";
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
 type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky";
 
-const PLATFORM_OPTIONS: { value: PlatformStyle; label: string; description: string }[] = [
-  { value: "x", label: "X", description: "Compact text-first feed with repost-style interactions." },
+const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string; description: string }[] = [
+  { value: "twitter", label: "X (Twitter)", description: "Compact text-first feed with repost-style interactions." },
   { value: "facebook", label: "Facebook", description: "Familiar blue social feed with broad engagement controls." },
   { value: "instagram", label: "Instagram", description: "Image-forward layout for visual post stimuli." },
+  { value: "truth_social", label: "Truth Social", description: "Navy-and-red Truth Social-style layout for political content stimuli." },
+  { value: "bluesky", label: "Bluesky", description: "Sky-blue minimal layout reminiscent of the Bluesky feed." },
   { value: "xiaohongshu", label: "Xiaohongshu", description: "Lifestyle-card style suited to note-like social content." },
-];
-
-const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
-  { value: "twitter", label: "Twitter/X" },
-  { value: "facebook", label: "Facebook" },
-  { value: "instagram", label: "Instagram" },
-  { value: "xiaohongshu", label: "Xiaohongshu" },
-  { value: "truth_social", label: "Truth Social" },
-  { value: "bluesky", label: "Bluesky" },
 ];
 
 const LANGUAGE_OPTIONS = [
@@ -121,6 +113,14 @@ function numberInputClass() {
   return "w-24 rounded-[16px] border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none";
 }
 
+function hostnameFromUrl(url: string) {
+  try {
+    return new URL(url).hostname || "Unknown";
+  } catch {
+    return "Unknown";
+  }
+}
+
 export default function SurveyEditPage() {
   const router = useRouter();
   const locale: string = "en";
@@ -171,7 +171,6 @@ export default function SurveyEditPage() {
     Record<number, { id: number; post_id: number; text: string; created_at: string }[]>
   >({});
   const [isUnsavedDraft, setIsUnsavedDraft] = useState(initialUnsavedDraft);
-  const [templateSaved, setTemplateSaved] = useState(false);
   const [translationLanguage, setTranslationLanguage] = useState("zh");
   const [defaultLanguage, setDefaultLanguage] = useState("en");
   const [supportedLanguages, setSupportedLanguages] = useState<string[]>(["en", "ar", "zh"]);
@@ -189,13 +188,9 @@ export default function SurveyEditPage() {
       ? {
           deleteConfirm: "确定删除这条帖子吗？",
           publishConfirm: "确定发布这份问卷吗？发布后参与者将可以访问。",
-          templateName: "模板名称",
-          templateSuffix: "模板",
           loading: "正在加载问卷",
           workspace: "问卷工作台",
           subtitle: "在把实验分享给参与者之前，先配置帖子、分组可见性和互动基线数值。",
-          templateSaved: "模板已保存",
-          saveAsTemplate: "保存为模板",
           linkCopied: "链接已复制",
           copyParticipantLink: "复制参与者链接",
           publishSurvey: "发布问卷",
@@ -287,13 +282,9 @@ export default function SurveyEditPage() {
       : {
           deleteConfirm: "Delete this post?",
           publishConfirm: "Publish this survey? Participants will be able to access it.",
-          templateName: "Template name",
-          templateSuffix: "Template",
           loading: "Loading survey",
           workspace: "Survey Workspace",
           subtitle: "Configure the posts, group visibility, and engagement baselines before sharing the study with participants.",
-          templateSaved: "Template Saved",
-          saveAsTemplate: "Save as Template",
           linkCopied: "Link copied",
           copyParticipantLink: "Copy participant link",
           publishSurvey: "Publish Survey",
@@ -672,17 +663,6 @@ export default function SurveyEditPage() {
     await loadData();
   }
 
-  async function updatePlatformStyle(nextStyle: PlatformStyle) {
-    if (!survey) return;
-    setSurvey({ ...survey, platform_style: nextStyle });
-    try {
-      const updated = await api.updateSurvey(surveyId, { platform_style: nextStyle });
-      setSurvey(updated);
-    } catch (err: any) {
-      setError(err.message || "Failed to update platform style");
-    }
-  }
-
   async function updatePlatformUiStyle(nextStyle: PlatformUiStyle) {
     if (!survey) return;
     const nextFeedStyle = platformUiStyleToFeedStyle(nextStyle);
@@ -716,20 +696,6 @@ export default function SurveyEditPage() {
     } catch (err: any) {
       setTranslationStatus(err.message || "Failed to save language settings");
     }
-  }
-
-  function saveAsTemplate() {
-    if (!survey) return;
-    const name = window.prompt(text.templateName, `${survey.title} ${text.templateSuffix}`);
-    if (!name?.trim()) return;
-    const template = buildTemplateFromSurvey({
-      name: name.trim(),
-      survey,
-      posts,
-    });
-    persistTemplate(template);
-    setTemplateSaved(true);
-    window.setTimeout(() => setTemplateSaved(false), 2200);
   }
 
   async function copyShareUrl(url: string) {
@@ -832,8 +798,7 @@ export default function SurveyEditPage() {
     (sum, post) =>
       sum +
       post.comments.length +
-      (participantCommentsByPost[post.id]?.length || 0) +
-      (stats?.find((item) => item.post_id === post.id)?.participant_comments || 0),
+      (participantCommentsByPost[post.id]?.length || 0),
     0,
   );
 
@@ -849,9 +814,6 @@ export default function SurveyEditPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button onClick={saveAsTemplate} className="secondary-button">
-            {templateSaved ? text.templateSaved : text.saveAsTemplate}
-          </button>
           {survey.status === "published" && shareUrl && (
             <button
               onClick={() => copyShareUrl(shareUrl)}
@@ -939,7 +901,7 @@ export default function SurveyEditPage() {
             const totalCountComments = (post.display_comments_count || 0) + (stat?.participant_comments || 0);
             const totalShares = (post.display_shares || 0) + (stat?.shares || 0);
             const title = post.display_title || post.fetched_title || text.untitled;
-            const source = post.source_label || post.fetched_source || new URL(post.original_url).hostname;
+            const source = post.source_label || post.fetched_source || hostnameFromUrl(post.original_url);
             const description = post.display_description || post.fetched_description;
             const moreInfoLabel = post.more_info_label || "More Information";
             const imageUrl = post.display_image_url || post.fetched_image_url;
@@ -1428,25 +1390,6 @@ export default function SurveyEditPage() {
           <div className="surface-panel-soft px-6 py-6">
             <p className="section-kicker">{text.platformStyle}</p>
             <select
-              value={survey.platform_style ?? "x"}
-              onChange={(event) => updatePlatformStyle(event.target.value as PlatformStyle)}
-              className="field-input mt-5 h-11 text-[13px]"
-            >
-              {PLATFORM_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-3 text-[13px] leading-6 text-slate-500">
-              {PLATFORM_OPTIONS.find((option) => option.value === (survey.platform_style ?? "x"))?.description}
-            </p>
-            <p className="mt-2 text-[13px] leading-6 text-slate-500">{text.platformStyleCopy}</p>
-          </div>
-
-          <div className="surface-panel-soft px-6 py-6">
-            <p className="section-kicker">Platform UI</p>
-            <select
               value={survey.platform_ui_style ?? "twitter"}
               onChange={(event) => updatePlatformUiStyle(event.target.value as PlatformUiStyle)}
               className="field-input mt-5 h-11 text-[13px]"
@@ -1459,8 +1402,9 @@ export default function SurveyEditPage() {
               ))}
             </select>
             <p className="mt-3 text-[13px] leading-6 text-slate-500">
-              Choose the social platform skin participants will see in the feed.
+              {PLATFORM_UI_OPTIONS.find((option) => option.value === (survey.platform_ui_style ?? "twitter"))?.description}
             </p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-500">{text.platformStyleCopy}</p>
           </div>
 
           <div className="surface-panel-soft px-6 py-6">

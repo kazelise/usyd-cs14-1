@@ -1,4 +1,4 @@
-# Local Setup & Deployment Prep
+# Local Setup & Live Deployment
 
 ## Run The Application Locally
 
@@ -66,21 +66,29 @@ Before calling a build MVP-ready:
 9. Select participant language, grant camera permission, complete calibration, interact with cards, answer questions, and submit.
 10. Confirm analytics update and export CSV/JSON with survey, condition, and language filters.
 
-## Deployment Preparation
+## Production Deployment
 
-Actual deployment is postponed. The Japan server deployment is the final step later, after the local MVP acceptance checks pass.
+The public CS14 demo is deployed on the Japan VM and exposed through Cloudflare Tunnel:
 
-Prepare these items before deployment:
+| Endpoint | URL |
+|---|---|
+| Application | `https://cs14.kazelis.top/` |
+| Swagger / OpenAPI | `https://cs14.kazelis.top/docs` |
+| Public documentation | `https://cs14-docs.kazelis.top/` |
+
+The custom domains terminate TLS at Cloudflare and route to the Caddy container over the tunnel. The VM's port 443 is occupied by an unrelated service, so direct Caddy HTTPS remains available only as a legacy fallback on port 8443.
+
+Keep these items checked before a client demo or redeploy:
 
 | Area | Checklist |
 |---|---|
-| Server | Japan host provisioned, SSH access confirmed, firewall allows HTTP/HTTPS, disk space checked. |
-| Runtime | Docker and Docker Compose installed, repository checked out, production branch pinned. |
-| Environment | Backend secret key, database URL, allowed origins, frontend API base URL, HTTPS domain, and optional tracking configuration documented. |
-| Database | Production PostgreSQL volume planned, backup path defined, Alembic migration command tested on staging or disposable database. |
-| HTTPS | Browser camera APIs require secure context outside localhost, so production participant links must use HTTPS. |
-| CORS | Frontend origin must be explicitly allowed by the backend. |
+| Server | Japan host reachable by SSH, disk space checked, Docker stack healthy. |
+| Runtime | Backend, frontend, PostgreSQL, Caddy, and Cloudflare Tunnel containers running. |
+| Environment | Backend secret key, database URL, allowed origins, frontend API base URL, HTTPS domains, and tunnel token present on the server only. |
+| Database | Production PostgreSQL volume retained, Alembic migration command tested before major changes, backup path defined before destructive migration work. |
+| HTTPS | Browser camera APIs require secure context outside localhost, so participant links must use the Cloudflare HTTPS domain. |
+| CORS | `https://cs14.kazelis.top` must be explicitly allowed by the backend. |
 | Smoke test | Register/login, create survey, metadata fetch/manual card, publish, participant run, calibration, analytics, CSV export, JSON export. |
 | Rollback | Previous image/tag retained, database backup captured before migration, logs accessible. |
 
-Deployment should not be treated as complete until the public frontend can reach the public API, camera calibration works in a real participant browser over HTTPS, and exports can be downloaded from the deployed admin interface.
+The deployment should not be treated as ready for a meeting unless the public frontend can reach the public API, camera calibration works in a real participant browser over HTTPS, and exports can be downloaded from the deployed admin interface.

@@ -64,7 +64,7 @@
   }
 
   .section-kicker {
-    @apply text-[12px] font-semibold uppercase tracking-[0.24em] text-slate-500;
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500;
   }
 
   .section-title {
