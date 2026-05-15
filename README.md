@@ -51,6 +51,7 @@ cd frontend && npm install && npm run dev
 - **Analytics** at `/admin/analytics` — completion rate, median session time, A/B-broken-down likes / comments / clicks, calibration pass rate, suspicious-session flags (sub-30s completion, all-empty interactions, duplicate comment text).
 - **Export** — `GET /surveys/{id}/export?format=csv|json` with filters by group / language / response status / calibration outcome. Each row is keyed by an anonymous participant ID derived from the per-session token; raw tokens never leave the database.
 - **Researcher guide** — see [`docs/researcher-user-guide.md`](docs/researcher-user-guide.md) for the survey-building, translation, publishing, testing, and export workflow.
+- **Deployment & demo** — see [`docs/README.md`](docs/README.md) for the doc index, [`docs/deployment.md`](docs/deployment.md) for production env vars, migrations, HTTPS/camera and CORS, and [`docs/DEMO_RUNBOOK.md`](docs/DEMO_RUNBOOK.md) for a 20-minute client meeting script.
 
 ### Participant flow
 
@@ -120,6 +121,9 @@ frontend/
   components/           Calibration experience · locale provider · icons
   lib/                  API client · i18n dictionaries
 docs/
+  README.md                      Index of all docs (start here for navigation)
+  deployment.md                  Production env, migrations, HTTPS/smoke checklist
+  DEMO_RUNBOOK.md                Client demo script (~20 minutes)
   architecture.md                Subsystem overview
   tracking-api.md                Tracking endpoint contracts (auth, error codes)
   tracking-data-flow.md          DB schema & batch flow

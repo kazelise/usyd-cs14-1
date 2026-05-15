@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type PointerEvent } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import {
@@ -23,6 +23,61 @@ function navItemClass(active: boolean, collapsed: boolean) {
   ].join(" ");
 }
 
+function SurveySidebarFilterNav({
+  collapsed,
+  text,
+}: {
+  collapsed: boolean;
+  text: {
+    allSurveys: string;
+    published: string;
+    drafts: string;
+    closed: string;
+    closedHint: string;
+  };
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeFilter = searchParams.get("filter");
+
+  return (
+    <nav className="mt-6 space-y-1.5">
+      <Link
+        href="/admin/surveys"
+        className={navItemClass(pathname === "/admin/surveys" && !activeFilter, collapsed)}
+        title={text.allSurveys}
+      >
+        <SurveyIcon className="h-5 w-5" />
+        {!collapsed && <span>{text.allSurveys}</span>}
+      </Link>
+      <Link
+        href="/admin/surveys?filter=published"
+        className={navItemClass(activeFilter === "published", collapsed)}
+        title={text.published}
+      >
+        <UsersIcon className="h-5 w-5" />
+        {!collapsed && <span>{text.published}</span>}
+      </Link>
+      <Link
+        href="/admin/surveys?filter=draft"
+        className={navItemClass(activeFilter === "draft", collapsed)}
+        title={text.drafts}
+      >
+        <DraftIcon className="h-5 w-5" />
+        {!collapsed && <span>{text.drafts}</span>}
+      </Link>
+      <Link
+        href="/admin/surveys?filter=closed"
+        className={navItemClass(activeFilter === "closed", collapsed)}
+        title={text.closedHint}
+      >
+        <ArchiveIcon className="h-5 w-5" />
+        {!collapsed && <span>{text.closed}</span>}
+      </Link>
+    </nav>
+  );
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -35,7 +90,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
   const [collapsed, setCollapsed] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const profileRef = useRef<HTMLDivElement | null>(null);
   const text =
     locale === "zh"
@@ -52,7 +106,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           allSurveys: "全部问卷",
           published: "已发布",
           drafts: "草稿",
-          archived: "已归档",
+          closed: "已关闭",
+          closedHint: "显示后端状态为 closed 的问卷；这不是单独的归档功能。",
           language: "语言切换",
           english: "English",
           chinese: "中文",
@@ -80,7 +135,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           allSurveys: "All Surveys",
           published: "Published",
           drafts: "Drafts",
-          archived: "Archived",
+          closed: "Closed",
+          closedHint: "Shows surveys with backend status closed; this is not a separate archive workflow.",
           language: "Language",
           english: "English",
           chinese: "中文",
@@ -123,12 +179,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setCollapsed(true);
     }
   }, [router]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setActiveFilter(new URLSearchParams(window.location.search).get("filter"));
-    }
-  }, [pathname]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -218,14 +268,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               className={`liquid-nav-link ${pathname.startsWith("/admin/surveys") ? "liquid-nav-link-active" : ""}`}
             >
               {text.surveys}
-            </Link>
-            <Link
-              href="/admin/templates"
-              onPointerMove={handleLiquidPointerMove}
-              onPointerLeave={resetLiquidPointer}
-              className={`liquid-nav-link ${pathname.startsWith("/admin/templates") ? "liquid-nav-link-active" : ""}`}
-            >
-              {text.templates}
             </Link>
             <Link
               href="/admin/analytics"
@@ -336,16 +378,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {text.surveys}
           </Link>
           <Link
-            href="/admin/templates"
-            className={`shrink-0 rounded-full border px-4 py-2 font-medium ${
-              pathname.startsWith("/admin/templates")
-                ? "border-[#9ddfd8] bg-[#effcfb] text-[#0f3146]"
-                : "border-slate-200 bg-white text-slate-500"
-            }`}
-          >
-            {text.templates}
-          </Link>
-          <Link
             href="/admin/analytics"
             className={`shrink-0 rounded-full border px-4 py-2 font-medium ${
               pathname.startsWith("/admin/analytics")
@@ -402,44 +434,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {!collapsed && <span>{text.createSurvey}</span>}
           </Link>
 
-          <nav className="mt-6 space-y-1.5">
-            <Link
-              href="/admin/surveys"
-              onClick={() => setActiveFilter(null)}
-              className={navItemClass(pathname === "/admin/surveys" && !activeFilter, collapsed)}
-              title={text.allSurveys}
-            >
-              <SurveyIcon className="h-5 w-5" />
-              {!collapsed && <span>{text.allSurveys}</span>}
-            </Link>
-            <Link
-              href="/admin/surveys?filter=published"
-              onClick={() => setActiveFilter("published")}
-              className={navItemClass(activeFilter === "published", collapsed)}
-              title={text.published}
-            >
-              <UsersIcon className="h-5 w-5" />
-              {!collapsed && <span>{text.published}</span>}
-            </Link>
-            <Link
-              href="/admin/surveys?filter=draft"
-              onClick={() => setActiveFilter("draft")}
-              className={navItemClass(activeFilter === "draft", collapsed)}
-              title={text.drafts}
-            >
-              <DraftIcon className="h-5 w-5" />
-              {!collapsed && <span>{text.drafts}</span>}
-            </Link>
-            <Link
-              href="/admin/surveys?filter=closed"
-              onClick={() => setActiveFilter("closed")}
-              className={navItemClass(activeFilter === "closed", collapsed)}
-              title={text.archived}
-            >
-              <ArchiveIcon className="h-5 w-5" />
-              {!collapsed && <span>{text.archived}</span>}
-            </Link>
-          </nav>
+          <Suspense fallback={<nav className="mt-6 space-y-1.5" />}>
+            <SurveySidebarFilterNav collapsed={collapsed} text={text} />
+          </Suspense>
           <div className="mt-auto" />
         </aside>
 

@@ -135,6 +135,7 @@ def make_response(
     status: str = "completed",
     calibration_passed: bool = True,
     is_preview: bool = False,
+    attention: dict | None = None,
 ) -> SurveyResponse:
     started_at = datetime(2026, 4, 25, 10, 5, 0)
     response = SurveyResponse(
@@ -150,6 +151,26 @@ def make_response(
         started_at=started_at,
         completed_at=started_at + timedelta(minutes=4),
     )
+    attention = attention or {
+        "active_ms": 60_000,
+        "expected_samples": 60,
+        "detected_samples": 55,
+        "missing_ms": 5_000,
+        "no_face_periods": 1,
+        "coverage": 0.917,
+        "confidence": 0.917,
+        "quality": "high",
+        "quality_reason": "Face/eye samples covered 92% of expected windows.",
+    }
+    response.attention_active_ms = attention["active_ms"]
+    response.attention_expected_samples = attention["expected_samples"]
+    response.attention_detected_samples = attention["detected_samples"]
+    response.attention_missing_ms = attention["missing_ms"]
+    response.attention_no_face_periods = attention["no_face_periods"]
+    response.attention_coverage = attention["coverage"]
+    response.attention_confidence = attention["confidence"]
+    response.attention_quality = attention["quality"]
+    response.attention_quality_reason = attention["quality_reason"]
     response.interactions = [
         ParticipantInteraction(
             id=501,
@@ -328,6 +349,12 @@ def test_json_export_shape_tracking_summary_and_anonymization():
     assert exported["calibration"]["quality"] == "good"
     assert exported["calibration"]["quality_score"] == 92.5
     assert exported["calibration"]["passed"] is True
+    assert exported["attention"]["confidence"] == 0.917
+    assert exported["attention"]["quality"] == "high"
+    assert exported["attention"]["coverage"] == 0.917
+    assert exported["attention"]["detected_samples"] == 55
+    assert exported["attention"]["expected_samples"] == 60
+    assert exported["attention"]["missing_ms"] == 5_000
     assert exported["gaze_count"] == 12
     assert exported["click_count"] == 3
     assert exported["participant_interactions"][0]["action_type"] == "like"
@@ -350,6 +377,11 @@ def test_csv_export_headers_and_flattened_summary_fields():
     assert rows[0]["calibration_quality"] == "good"
     assert rows[0]["calibration_quality_score"] == "92.5"
     assert rows[0]["calibration_passed"] == "True"
+    assert rows[0]["attention_confidence"] == "0.917"
+    assert rows[0]["attention_quality"] == "high"
+    assert rows[0]["attention_coverage"] == "0.917"
+    assert rows[0]["attention_detected_samples"] == "55"
+    assert rows[0]["attention_expected_samples"] == "60"
     assert rows[0]["gaze_count"] == "12"
     assert rows[0]["click_count"] == "3"
     assert json.loads(rows[0]["participant_interactions"])[0]["action_type"] == "like"

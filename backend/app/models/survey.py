@@ -37,9 +37,7 @@ class Survey(Base):
     )
     platform_style: Mapped[str] = mapped_column(String(32), default="x", server_default="x")
     default_language: Mapped[str] = mapped_column(String(10), default="en", server_default="en")
-    supported_languages: Mapped[list[str]] = mapped_column(
-        JSON, default=lambda: ["en", "ar", "zh"]
-    )
+    supported_languages: Mapped[list[str]] = mapped_column(JSON, default=lambda: ["en", "ar", "zh"])
 
     # ── A/B Testing Configuration ────────────────────
     num_groups: Mapped[int] = mapped_column(SmallInteger, default=1)  # 1 = no A/B testing
@@ -62,7 +60,9 @@ class Survey(Base):
     posts: Mapped[list["SurveyPost"]] = relationship(
         back_populates="survey", cascade="all, delete-orphan", order_by="SurveyPost.order"
     )
-    responses: Mapped[list["SurveyResponse"]] = relationship(back_populates="survey")  # noqa: F821
+    responses: Mapped[list["SurveyResponse"]] = relationship(  # noqa: F821
+        back_populates="survey", cascade="all, delete-orphan", passive_deletes=True
+    )
     translations: Mapped[list["SurveyTranslation"]] = relationship(  # noqa: F821
         back_populates="survey", cascade="all, delete-orphan"
     )

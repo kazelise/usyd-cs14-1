@@ -17,7 +17,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -35,6 +35,7 @@ from app.models.researcher import Researcher
 from app.models.survey import PostComment, Survey, SurveyPost
 from app.models.tracking import CalibrationSession, ClickRecord, GazeRecord
 from app.schemas.survey import (
+    AttentionSummaryIn,
     CommentIn,
     CommentOut,
     CreatePostRequest,
@@ -80,6 +81,7 @@ from app.services.translation_service import (
     normalize_optional_language,
     translation_payload_to_csv,
 )
+from app.utils.attention import compute_attention_quality
 
 router = APIRouter(prefix="/surveys", tags=["Surveys"])
 
@@ -187,6 +189,78 @@ def response_scope(survey_id: int, include_preview: bool = False):
     if not include_preview:
         conditions.append(SurveyResponse.is_preview.is_(False))
     return conditions
+
+
+def analytics_response_scope(
+    survey_id: int,
+    *,
+    include_preview: bool = False,
+    assigned_group: int | None = None,
+    language: str | None = None,
+    response_status: str | None = None,
+    calibration_passed: bool | None = None,
+):
+    """Like response_scope but also applies the export-style filters.
+
+    Filters here intentionally mirror the GET /surveys/{id}/export filters so
+    the visible analytics summary and the CSV/JSON downloads stay coherent.
+    """
+    conditions = response_scope(survey_id, include_preview)
+    if assigned_group is not None:
+        conditions.append(SurveyResponse.assigned_group == assigned_group)
+    if language:
+        conditions.append(SurveyResponse.language == language)
+    if response_status:
+        conditions.append(SurveyResponse.status == response_status)
+    if calibration_passed is not None:
+        conditions.append(
+            SurveyResponse.id.in_(
+                select(CalibrationSession.response_id).where(
+                    CalibrationSession.passed.is_(calibration_passed)
+                )
+            )
+        )
+    return conditions
+
+
+async def get_response_or_404(response_id: int, db: AsyncSession) -> SurveyResponse:
+    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == response_id))
+    response = result.scalar_one_or_none()
+    if not response:
+        raise HTTPException(status_code=404, detail="Response not found")
+    return response
+
+
+async def get_participant_response_or_404(
+    response_id: int,
+    participant_token: str,
+    db: AsyncSession,
+    *,
+    require_active: bool = True,
+) -> SurveyResponse:
+    """Return a participant response only when the anonymous token matches.
+
+    Mirrors `routers.tracking.get_active_response_or_404` so every public
+    participant endpoint validates the session token, not just the response id.
+    """
+    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == response_id))
+    response = result.scalar_one_or_none()
+    if not response or response.participant_token != participant_token:
+        raise HTTPException(status_code=404, detail="Response not found")
+    if require_active and response.status != "in_progress":
+        raise HTTPException(status_code=409, detail="Response is not active")
+    return response
+
+
+async def ensure_post_belongs_to_survey(post_id: int, survey_id: int, db: AsyncSession) -> None:
+    result = await db.execute(
+        select(SurveyPost.id).where(
+            SurveyPost.id == post_id,
+            SurveyPost.survey_id == survey_id,
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=422, detail="Post does not belong to this response survey")
 
 
 # ══════════════════════════════════════════════════════
@@ -524,6 +598,7 @@ async def update_post(
     db: AsyncSession = Depends(get_db),
 ):
     """Update post display settings: override title/image, set fake numbers, configure A/B visibility."""
+    await get_survey_or_404(survey_id, researcher.id, db)
     result = await db.execute(
         select(SurveyPost)
         .options(selectinload(SurveyPost.comments), selectinload(SurveyPost.questions))
@@ -547,6 +622,7 @@ async def delete_post(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a post from a survey."""
+    await get_survey_or_404(survey_id, researcher.id, db)
     result = await db.execute(
         select(SurveyPost).where(SurveyPost.id == post_id, SurveyPost.survey_id == survey_id)
     )
@@ -568,6 +644,7 @@ async def add_comment(
     db: AsyncSession = Depends(get_db),
 ):
     """Add a fake comment to a post. Researchers manually write comment content."""
+    await get_survey_or_404(survey_id, researcher.id, db)
     result = await db.execute(
         select(SurveyPost).where(SurveyPost.id == post_id, SurveyPost.survey_id == survey_id)
     )
@@ -751,18 +828,8 @@ async def record_interaction(
     db: AsyncSession = Depends(get_db),
 ):
     """Record a participant interaction with a post (like, comment, or click to original)."""
-    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == response_id))
-    response = result.scalar_one_or_none()
-    if not response:
-        raise HTTPException(status_code=404, detail="Response not found")
-    post_result = await db.execute(
-        select(SurveyPost.id).where(
-            SurveyPost.id == body.post_id,
-            SurveyPost.survey_id == response.survey_id,
-        )
-    )
-    if not post_result.scalar_one_or_none():
-        raise HTTPException(status_code=422, detail="Post does not belong to this response survey")
+    response = await get_participant_response_or_404(response_id, body.participant_token, db)
+    await ensure_post_belongs_to_survey(body.post_id, response.survey_id, db)
 
     interaction = ParticipantInteraction(
         response_id=response_id,
@@ -782,6 +849,7 @@ async def record_interaction(
 
 class ToggleLikeRequest(BaseModel):
     post_id: int
+    participant_token: str = Field(min_length=1, max_length=128)
 
 
 @router.post("/responses/{response_id}/likes/toggle")
@@ -790,9 +858,8 @@ async def toggle_like(
     body: ToggleLikeRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == response_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Response not found")
+    response = await get_participant_response_or_404(response_id, body.participant_token, db)
+    await ensure_post_belongs_to_survey(body.post_id, response.survey_id, db)
 
     existing_q = await db.execute(
         select(ParticipantLike).where(
@@ -810,6 +877,7 @@ async def toggle_like(
                 action_type="unlike",
             )
         )
+        await db.flush()
         return {"liked": False}
     else:
         db.add(ParticipantLike(response_id=response_id, post_id=body.post_id))
@@ -827,12 +895,12 @@ async def toggle_like(
 @router.get("/responses/{response_id}/state", response_model=ResponseStateOut)
 async def get_response_state(
     response_id: int,
+    participant_token: str = Query(min_length=1, max_length=128),
     db: AsyncSession = Depends(get_db),
 ):
-    # ensure response exists
-    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == response_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Response not found")
+    # State may legitimately be fetched after completion (e.g. resume after
+    # tab close), so we only enforce token ownership, not in_progress status.
+    await get_participant_response_or_404(response_id, participant_token, db, require_active=False)
 
     likes_result = await db.execute(
         select(ParticipantLike.post_id).where(ParticipantLike.response_id == response_id)
@@ -851,16 +919,89 @@ async def get_response_state(
     return ResponseStateOut(liked_post_ids=liked_post_ids, comments_by_post=comments_by_post)
 
 
+async def _apply_attention_summary(
+    response: SurveyResponse,
+    summary: AttentionSummaryIn,
+    db: AsyncSession,
+) -> dict[str, object]:
+    """Compute and persist the response-level attention/confidence metadata."""
+    calibration_q = await db.execute(
+        select(CalibrationSession).where(CalibrationSession.response_id == response.id)
+    )
+    calibration = calibration_q.scalar_one_or_none()
+    metrics = compute_attention_quality(
+        active_ms=summary.active_ms,
+        expected_samples=summary.expected_samples,
+        detected_samples=summary.detected_samples,
+        missing_ms=summary.missing_ms,
+        no_face_periods=summary.no_face_periods,
+        calibration_passed=calibration.passed if calibration else None,
+        calibration_quality=calibration.quality if calibration else None,
+    )
+    response.attention_active_ms = metrics["active_ms"]
+    response.attention_expected_samples = metrics["expected_samples"]
+    response.attention_detected_samples = metrics["detected_samples"]
+    response.attention_missing_ms = metrics["missing_ms"]
+    response.attention_no_face_periods = metrics["no_face_periods"]
+    response.attention_coverage = metrics["coverage"]
+    response.attention_confidence = metrics["confidence"]
+    response.attention_quality = metrics["quality"]
+    response.attention_quality_reason = metrics["quality_reason"]
+    return metrics
+
+
+class AttentionSummaryRequest(BaseModel):
+    participant_token: str = Field(min_length=1, max_length=128)
+    summary: AttentionSummaryIn
+
+
+@router.post("/responses/{response_id}/attention-summary")
+async def submit_attention_summary(
+    response_id: int,
+    body: AttentionSummaryRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Record survey-time attention/confidence metadata for a response.
+
+    The participant client posts this just before /complete so a response that
+    fails to complete (network drop, tab close) still keeps the partial
+    quality signal for analysis. The server recomputes the confidence score
+    from raw counts so the client cannot inflate it.
+    """
+    response = await get_participant_response_or_404(response_id, body.participant_token, db)
+    metrics = await _apply_attention_summary(response, body.summary, db)
+    await db.commit()
+    return {
+        "coverage": metrics["coverage"],
+        "confidence": metrics["confidence"],
+        "quality": metrics["quality"],
+        "quality_reason": metrics["quality_reason"],
+    }
+
+
+class CompleteResponseRequest(BaseModel):
+    participant_token: str = Field(min_length=1, max_length=128)
+    attention_summary: AttentionSummaryIn | None = Field(
+        default=None,
+        description=(
+            "Optional survey-time tracking summary. When provided, the server "
+            "computes the response-level attention confidence/quality bucket "
+            "from these counts (raw video is never sent)."
+        ),
+    )
+
+
 @router.post("/responses/{response_id}/complete")
 async def complete_response(
     response_id: int,
+    body: CompleteResponseRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """Mark a survey response as completed."""
-    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == response_id))
-    response = result.scalar_one_or_none()
-    if not response:
-        raise HTTPException(status_code=404, detail="Response not found")
+    response = await get_participant_response_or_404(response_id, body.participant_token, db)
+
+    if body.attention_summary is not None:
+        await _apply_attention_summary(response, body.attention_summary, db)
 
     # Enforcing server-side timestamps to prevent client-side manipulation
     now = datetime.utcnow()
@@ -876,17 +1017,24 @@ async def complete_response(
 
     response.completed_at = now
     await db.commit()
-    return {"status": response.status, "duration_seconds": duration}
+    return {
+        "status": response.status,
+        "duration_seconds": duration,
+        "attention_confidence": response.attention_confidence,
+        "attention_quality": response.attention_quality,
+    }
 
 
 class ParticipantCommentIn(BaseModel):
     post_id: int
     text: str
     author_name: str | None = None
+    participant_token: str = Field(min_length=1, max_length=128)
 
 
 class ParticipantCommentPatch(BaseModel):
     text: str
+    participant_token: str = Field(min_length=1, max_length=128)
 
 
 @router.post(
@@ -897,12 +1045,11 @@ async def create_participant_comment(
     body: ParticipantCommentIn,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(SurveyResponse).where(SurveyResponse.id == response_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Response not found")
+    response = await get_participant_response_or_404(response_id, body.participant_token, db)
+    await ensure_post_belongs_to_survey(body.post_id, response.survey_id, db)
 
     comment = ParticipantComment(
-        response_id=response_id, post_id=body.post_id, text=body.text, author_name=body.author_name
+        response_id=response.id, post_id=body.post_id, text=body.text, author_name=body.author_name
     )
     db.add(comment)
     db.add(
@@ -927,6 +1074,7 @@ async def update_participant_comment(
     body: ParticipantCommentPatch,
     db: AsyncSession = Depends(get_db),
 ):
+    await get_participant_response_or_404(response_id, body.participant_token, db)
     result = await db.execute(
         select(ParticipantComment).where(
             ParticipantComment.id == comment_id, ParticipantComment.response_id == response_id
@@ -946,8 +1094,10 @@ async def update_participant_comment(
 async def delete_participant_comment(
     response_id: int,
     comment_id: int,
+    participant_token: str = Query(min_length=1, max_length=128),
     db: AsyncSession = Depends(get_db),
 ):
+    await get_participant_response_or_404(response_id, participant_token, db)
     result = await db.execute(
         select(ParticipantComment).where(
             ParticipantComment.id == comment_id, ParticipantComment.response_id == response_id
@@ -1145,6 +1295,10 @@ async def get_participant_comments(
 async def get_analytics_summary(
     survey_id: int,
     include_preview: bool = False,
+    assigned_group: int | None = None,
+    language: str | None = None,
+    response_status: str | None = None,
+    calibration_passed: bool | None = None,
     researcher: Researcher = Depends(get_current_researcher),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1155,9 +1309,16 @@ async def get_analytics_summary(
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found")
 
-    responses_result = await db.execute(
-        select(SurveyResponse).where(*response_scope(survey_id, include_preview))
+    scope = analytics_response_scope(
+        survey_id,
+        include_preview=include_preview,
+        assigned_group=assigned_group,
+        language=language,
+        response_status=response_status,
+        calibration_passed=calibration_passed,
     )
+
+    responses_result = await db.execute(select(SurveyResponse).where(*scope))
     responses = responses_result.scalars().all()
     total_responses = len(responses)
     completed_responses = [r for r in responses if r.status == "completed" and r.completed_at]
@@ -1176,7 +1337,7 @@ async def get_analytics_summary(
     calibration_result = await db.execute(
         select(CalibrationSession)
         .join(SurveyResponse, CalibrationSession.response_id == SurveyResponse.id)
-        .where(*response_scope(survey_id, include_preview))
+        .where(*scope)
     )
     calibration_sessions = calibration_result.scalars().all()
     successful_calibrations = [
@@ -1193,7 +1354,7 @@ async def get_analytics_summary(
     click_rows_result = await db.execute(
         select(ClickRecord.response_id, ClickRecord.post_id, func.count(ClickRecord.id))
         .join(SurveyResponse, ClickRecord.response_id == SurveyResponse.id)
-        .where(*response_scope(survey_id, include_preview))
+        .where(*scope)
         .group_by(ClickRecord.response_id, ClickRecord.post_id)
     )
     click_rows = click_rows_result.all()
@@ -1212,14 +1373,14 @@ async def get_analytics_summary(
     gaze_samples_result = await db.execute(
         select(func.count(GazeRecord.id))
         .join(SurveyResponse, GazeRecord.response_id == SurveyResponse.id)
-        .where(*response_scope(survey_id, include_preview))
+        .where(*scope)
     )
     total_gaze_samples = gaze_samples_result.scalar_one() or 0
 
     likes_result = await db.execute(
         select(ParticipantLike.response_id, ParticipantLike.post_id)
         .join(SurveyResponse, ParticipantLike.response_id == SurveyResponse.id)
-        .where(*response_scope(survey_id, include_preview))
+        .where(*scope)
     )
     like_rows = likes_result.all()
     response_like_totals: dict[int, int] = {}
@@ -1235,7 +1396,7 @@ async def get_analytics_summary(
     comments_result = await db.execute(
         select(ParticipantComment)
         .join(SurveyResponse, ParticipantComment.response_id == SurveyResponse.id)
-        .where(*response_scope(survey_id, include_preview))
+        .where(*scope)
     )
     participant_comments = comments_result.scalars().all()
     response_comment_totals: dict[int, int] = {}
@@ -1258,7 +1419,7 @@ async def get_analytics_summary(
         select(ParticipantInteraction.response_id, ParticipantInteraction.post_id)
         .join(SurveyResponse, ParticipantInteraction.response_id == SurveyResponse.id)
         .where(
-            *response_scope(survey_id, include_preview),
+            *scope,
             ParticipantInteraction.action_type == "share",
         )
     )
@@ -1552,9 +1713,7 @@ async def submit_question_response(
     from app.models.question_response import QuestionResponse
 
     survey_response = await db.get(SurveyResponse, response_id)
-    if not survey_response:
-        raise HTTPException(404, "Response not found")
-    if body.participant_token and survey_response.participant_token != body.participant_token:
+    if not survey_response or survey_response.participant_token != body.participant_token:
         raise HTTPException(404, "Response not found")
     if survey_response.status != "in_progress":
         raise HTTPException(409, "Response is not active")
@@ -1598,6 +1757,15 @@ async def list_question_responses(
     from sqlalchemy import select
 
     from app.models.question_response import QuestionResponse
+
+    # Enforce that the calling researcher owns the survey this response belongs to
+    ownership_q = await db.execute(
+        select(SurveyResponse.id)
+        .join(Survey, Survey.id == SurveyResponse.survey_id)
+        .where(SurveyResponse.id == response_id, Survey.researcher_id == researcher.id)
+    )
+    if not ownership_q.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Response not found")
 
     result = await db.execute(
         select(QuestionResponse).where(QuestionResponse.response_id == response_id)

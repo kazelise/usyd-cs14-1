@@ -284,6 +284,7 @@ class InteractionRequest(BaseModel):
     post_id: int
     action_type: str  # like / comment / click
     comment_text: str | None = None
+    participant_token: str = Field(min_length=1, max_length=128)
 
 
 class InteractionOut(BaseModel):
@@ -376,9 +377,19 @@ class SurveyAnalyticsOut(BaseModel):
 # ── Question Response ─────────────────────────────────
 
 
+class AttentionSummaryIn(BaseModel):
+    """Survey-time attention quality reported by the participant client."""
+
+    active_ms: int = Field(ge=0, le=24 * 60 * 60 * 1000)
+    expected_samples: int = Field(ge=0, le=1_000_000)
+    detected_samples: int = Field(ge=0, le=1_000_000)
+    missing_ms: int = Field(ge=0, le=24 * 60 * 60 * 1000)
+    no_face_periods: int = Field(default=0, ge=0, le=100_000)
+
+
 class SubmitQuestionResponseRequest(BaseModel):
     question_id: int
-    participant_token: str | None = None
+    participant_token: str = Field(min_length=1, max_length=128)
     answer_text: str | None = None
     answer_value: int | None = None
     answer_choices: list | None = None

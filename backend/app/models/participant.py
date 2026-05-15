@@ -61,6 +61,20 @@ class SurveyResponse(Base):
     started_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     completed_at: Mapped[datetime | None] = mapped_column()
 
+    # ── Survey-time attention/gaze quality ──────────
+    # Populated by the participant client when the survey completes, so that
+    # the response carries a confidence signal even when raw gaze samples are
+    # too sparse or completely missing.
+    attention_active_ms: Mapped[int | None] = mapped_column(Integer)
+    attention_expected_samples: Mapped[int | None] = mapped_column(Integer)
+    attention_detected_samples: Mapped[int | None] = mapped_column(Integer)
+    attention_missing_ms: Mapped[int | None] = mapped_column(Integer)
+    attention_no_face_periods: Mapped[int | None] = mapped_column(Integer)
+    attention_coverage: Mapped[float | None] = mapped_column(Float)
+    attention_confidence: Mapped[float | None] = mapped_column(Float)
+    attention_quality: Mapped[str | None] = mapped_column(String(20))
+    attention_quality_reason: Mapped[str | None] = mapped_column(Text)
+
     # ── Flexible Research Data ───────────────────────
     # Allows storing extra variables without frequent schema changes.
     extra_metadata: Mapped[dict | None] = mapped_column(JSON)

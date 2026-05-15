@@ -22,9 +22,9 @@ export default function AuthPage() {
           command: "研究工作台",
           headline: "用更清晰的界面设计并追踪社交媒体实验。",
           intro: "从文章链接创建问卷，配置面向参与者的帖子信息流，并在同一个后台中查看交互信号。",
-          studies: "实验",
-          completion: "完成率",
-          insights: "洞察",
+          studies: "构建",
+          completion: "校准",
+          insights: "导出",
           signIn: "登录",
           register: "注册",
           welcomeBack: "欢迎回来",
@@ -53,9 +53,9 @@ export default function AuthPage() {
           command: "Research Command",
           headline: "Design and track social media experiments with a calmer interface.",
           intro: "Build surveys from article links, shape participant-facing post feeds, and review interaction signals from one dashboard.",
-          studies: "Studies",
-          completion: "Completion",
-          insights: "Insights",
+          studies: "Builder",
+          completion: "Calibration",
+          insights: "Export",
           signIn: "Sign in",
           register: "Register",
           welcomeBack: "Welcome back",
@@ -137,17 +137,17 @@ export default function AuthPage() {
             <div className="rounded-[18px] border border-white/10 bg-white/5 p-5">
               <SurveyIcon className="h-5 w-5 text-white/80" />
               <p className="mt-5 text-[12px] uppercase tracking-[0.22em] text-white/45">{text.studies}</p>
-              <p className="mt-2 text-[28px] font-semibold tracking-[-0.05em]">14</p>
+              <p className="mt-2 text-[18px] font-semibold tracking-[-0.03em]">Survey CRUD</p>
             </div>
             <div className="rounded-[18px] border border-white/10 bg-white/5 p-5">
               <ChartIcon className="h-5 w-5 text-white/80" />
               <p className="mt-5 text-[12px] uppercase tracking-[0.22em] text-white/45">{text.completion}</p>
-              <p className="mt-2 text-[28px] font-semibold tracking-[-0.05em]">68.4%</p>
+              <p className="mt-2 text-[18px] font-semibold tracking-[-0.03em]">Webcam flow</p>
             </div>
             <div className="rounded-[18px] border border-white/10 bg-white/5 p-5">
               <CheckCircleIcon className="h-5 w-5 text-white/80" />
               <p className="mt-5 text-[12px] uppercase tracking-[0.22em] text-white/45">{text.insights}</p>
-              <p className="mt-2 text-[28px] font-semibold tracking-[-0.05em]">242</p>
+              <p className="mt-2 text-[18px] font-semibold tracking-[-0.03em]">CSV / JSON</p>
             </div>
           </div>
         </section>

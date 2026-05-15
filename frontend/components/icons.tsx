@@ -195,3 +195,11 @@ export function ChevronRightIcon({ className }: IconProps) {
     </IconFrame>
   );
 }
+
+export function ChevronDownIcon({ className }: IconProps) {
+  return (
+    <IconFrame className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </IconFrame>
+  );
+}

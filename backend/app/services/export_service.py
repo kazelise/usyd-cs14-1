@@ -52,6 +52,15 @@ CSV_HEADERS = [
     "calibration_quality",
     "calibration_quality_score",
     "calibration_passed",
+    "attention_confidence",
+    "attention_quality",
+    "attention_coverage",
+    "attention_active_ms",
+    "attention_expected_samples",
+    "attention_detected_samples",
+    "attention_missing_ms",
+    "attention_no_face_periods",
+    "attention_quality_reason",
     "gaze_count",
     "click_count",
     "participant_interactions",
@@ -174,6 +183,20 @@ def serialize_question_response(
     }
 
 
+def serialize_attention(response: SurveyResponse) -> dict[str, Any]:
+    return {
+        "confidence": response.attention_confidence,
+        "quality": response.attention_quality,
+        "coverage": response.attention_coverage,
+        "active_ms": response.attention_active_ms,
+        "expected_samples": response.attention_expected_samples,
+        "detected_samples": response.attention_detected_samples,
+        "missing_ms": response.attention_missing_ms,
+        "no_face_periods": response.attention_no_face_periods,
+        "quality_reason": response.attention_quality_reason,
+    }
+
+
 def serialize_calibration(session: CalibrationSession | None) -> dict[str, Any]:
     if session is None:
         return {
@@ -231,6 +254,7 @@ def build_export_payload(
                 "started_at": isoformat(response.started_at),
                 "completed_at": isoformat(response.completed_at),
                 "calibration": calibration,
+                "attention": serialize_attention(response),
                 "gaze_count": gaze_counts.get(response.id, 0),
                 "click_count": click_counts.get(response.id, 0),
                 "participant_interactions": interactions,
@@ -334,6 +358,7 @@ def export_payload_to_csv(payload: dict[str, Any]) -> str:
     writer.writeheader()
     for response in payload["responses"]:
         calibration = response["calibration"]
+        attention = response.get("attention") or {}
         writer.writerow(
             {
                 "survey_id": response["survey_id"],
@@ -351,6 +376,15 @@ def export_payload_to_csv(payload: dict[str, Any]) -> str:
                 "calibration_quality": calibration["quality"],
                 "calibration_quality_score": calibration["quality_score"],
                 "calibration_passed": calibration["passed"],
+                "attention_confidence": attention.get("confidence"),
+                "attention_quality": attention.get("quality"),
+                "attention_coverage": attention.get("coverage"),
+                "attention_active_ms": attention.get("active_ms"),
+                "attention_expected_samples": attention.get("expected_samples"),
+                "attention_detected_samples": attention.get("detected_samples"),
+                "attention_missing_ms": attention.get("missing_ms"),
+                "attention_no_face_periods": attention.get("no_face_periods"),
+                "attention_quality_reason": attention.get("quality_reason"),
                 "gaze_count": response["gaze_count"],
                 "click_count": response["click_count"],
                 "participant_interactions": json.dumps(
