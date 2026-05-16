@@ -8,7 +8,7 @@ import { CheckCircleIcon, SurveyIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
-type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky";
+type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky" | "douyin";
 
 const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
   { value: "twitter", label: "X (Twitter)" },
@@ -17,6 +17,7 @@ const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
   { value: "truth_social", label: "Truth Social" },
   { value: "bluesky", label: "Bluesky" },
   { value: "xiaohongshu", label: "Xiaohongshu" },
+  { value: "douyin", label: "Douyin / TikTok" },
 ];
 
 const LANGUAGE_OPTIONS = [

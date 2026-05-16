@@ -25,7 +25,7 @@ This matrix maps every listed PDF/MVP item from the CS14 acceptance checklist to
 
 - Participant/researcher app: `https://cs14.kazelis.top/`
 - Public docs site: `https://cs14-docs.kazelis.top/`
-- Published participant smoke link: `https://cs14.kazelis.top/survey/oYmBN-pj9IhZ3pT9?lang=en`
+- Published participant smoke link: `https://cs14.kazelis.top/survey/CS14DEMO2026?lang=en`
 
 ## Client Feedback Status
 

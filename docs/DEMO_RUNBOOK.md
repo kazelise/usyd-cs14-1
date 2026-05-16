@@ -9,16 +9,16 @@ Use this script for the live walkthrough of CS14 (researcher build → participa
 | Public demo URL (researcher + participant) | `https://cs14.kazelis.top/` |
 | API base / Swagger | `https://cs14.kazelis.top/docs` |
 | Public docs site | `https://cs14-docs.kazelis.top/` |
-| Pre-seeded participant share link (EN) | `https://cs14.kazelis.top/survey/oYmBN-pj9IhZ3pT9?lang=en` |
-| Pre-seeded participant share link (中文) | `https://cs14.kazelis.top/survey/oYmBN-pj9IhZ3pT9?lang=zh` |
-| Pre-seeded participant share link (ar, RTL sanity) | `https://cs14.kazelis.top/survey/oYmBN-pj9IhZ3pT9?lang=ar` |
+| Pre-seeded participant share link (EN) | `https://cs14.kazelis.top/survey/CS14DEMO2026?lang=en` |
+| Pre-seeded participant share link (中文) | `https://cs14.kazelis.top/survey/CS14DEMO2026?lang=zh` |
+| Pre-seeded participant share link (ar, RTL sanity) | `https://cs14.kazelis.top/survey/CS14DEMO2026?lang=ar` |
 | Researcher demo account | Communicated out-of-band — see the KAZ-1 issue thread on Multica. Do not paste it into committed docs or external chats. |
 | Project docs (in repo) | [`docs/README.md`](./README.md) for the full index; this file plus [`researcher-user-guide.md`](./researcher-user-guide.md), [`deployment.md`](./deployment.md), [`tracking-*.md`](./tracking-api.md) |
 | Docs site (VitePress source) | `docs-site/docs/` — published at `https://cs14-docs.kazelis.top/`; run `cd docs-site && npm install && npm run dev` to preview locally |
 
 ## Live demo survey (stage host)
 
-The **CS14 Deployment Smoke Survey** (`share_code` `oYmBN-pj9IhZ3pT9`) on the public demo is the canonical seed: one social-style post, one Likert question, **Control / Treatment** groups, **EN + 中文** content (use `?lang=ar` for RTL layout sanity). It is created and published directly on the deployment — there is no checked-in SQL seed; recreate via **Admin → Surveys** if you ever need a fresh tenant.
+The **CS14 Client Demo - Social Media Credibility Study** (`share_code` `CS14DEMO2026`) on the public demo is the canonical clean seed: two social-style posts, post-attached Likert questions, **Control / High engagement cues** groups, **EN + 中文 + Arabic entry** content, seeded calibration/attention/export data, and platform gallery companion surveys.
 
 ### If the canonical survey is missing (fresh database or new host)
 
@@ -38,20 +38,20 @@ Use this checklist instead of improvising on stage (~15 minutes once). Credentia
 
    Defaults to the coordination staging host if `DEMO_HOST` is unset. The script checks `/health` and the public survey JSON for both `en` and `zh`.
 
-There is still **no** fully automated DB seed in-repo; this path keeps prep explicit and repeatable without embedding secrets.
+To rebuild the clean demo dataset, run `python -m scripts.seed_client_demo` from the backend container or backend working directory with production environment variables loaded. The script recreates fixed demo share codes and does not write demo credentials into docs.
 
 ## Before the meeting (5 min)
 
 - **Browser:** Desktop Chrome or Edge; grant camera permissions for `https://cs14.kazelis.top` in advance. Reading the camera prompt on stage burns ~30 seconds.
 - **Researcher account:** Sign in once *before* the call so the JWT is fresh — login takes a noticeable round-trip on first hit. Use the demo account from the out-of-band reference; do not register a new account on stage.
-- **Survey:** The seeded survey **CS14 Deployment Smoke Survey** (share code `oYmBN-pj9IhZ3pT9`) is already published with one social-media-style post, one Likert question, two groups (Control / Treatment), and Chinese translations for the survey title, post content, and question text. If you want to demo creation from scratch, allow an extra ~5 min and skip Minute 8–14 below.
+- **Survey:** The seeded survey **CS14 Client Demo - Social Media Credibility Study** (share code `CS14DEMO2026`) is already published with two social-media-style posts, Likert questions, two groups (Control / High engagement cues), Chinese translations, seeded analytics, and attention-confidence data. If you want to demo creation from scratch, allow an extra ~5 min and skip Minute 8–14 below.
 - **Second path:** Open the participant share link in a **private/incognito** window (or a second browser profile) so the flow looks like a fresh participant and the researcher session stays open in the original window.
 - **Backup:** Keep a CSV/JSON export from a previous successful run in case the network fails mid-demo. Save it locally before the call.
 - **Sanity-check the host:** Two quick commands you can run from the laptop ~10 minutes before the call:
 
   ```bash
   curl -sf https://cs14.kazelis.top/health        # → {"status":"ok"}
-  curl -sf "https://cs14.kazelis.top/api/v1/surveys/public/oYmBN-pj9IhZ3pT9?language=zh" | head -c 200
+  curl -sf "https://cs14.kazelis.top/api/v1/surveys/public/CS14DEMO2026?language=zh" | head -c 200
   ```
 
   The second one should print Chinese text in the `title` field — that proves the multilingual content path is live.
@@ -78,7 +78,7 @@ After the participant starts the survey, browser calls authenticate with an anon
 
 ## Minute 8–14 — Participant workflow
 
-1. In incognito, open `https://cs14.kazelis.top/survey/oYmBN-pj9IhZ3pT9?lang=en` — that's HTTPS, so camera permissions will be offered.
+1. In incognito, open `https://cs14.kazelis.top/survey/CS14DEMO2026?lang=en` — that's HTTPS, so camera permissions will be offered.
 2. Consent + **language** switch — toggle to `zh` to show the post title and question render in Chinese (proves the two-language path end to end).
 3. **Webcam calibration**: grant camera permission, show the face-detection presence check, run the 9-point dot sequence, point at the resulting **quality score** (good / acceptable / poor).
 4. Scroll the **feed**, like / comment / share at least one post, answer the Likert question, complete the session.
@@ -120,8 +120,8 @@ curl -sf https://cs14.kazelis.top/health
 # → {"status":"ok"}
 
 # survey API reachable, multilingual content
-curl -sf "https://cs14.kazelis.top/api/v1/surveys/public/oYmBN-pj9IhZ3pT9?language=en" | head -c 200
-curl -sf "https://cs14.kazelis.top/api/v1/surveys/public/oYmBN-pj9IhZ3pT9?language=zh" | head -c 200
+curl -sf "https://cs14.kazelis.top/api/v1/surveys/public/CS14DEMO2026?language=en" | head -c 200
+curl -sf "https://cs14.kazelis.top/api/v1/surveys/public/CS14DEMO2026?language=zh" | head -c 200
 ```
 
 For full operational detail, see [`deployment.md`](./deployment.md) and [`researcher-user-guide.md`](./researcher-user-guide.md).
