@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
+export default withMermaid(
+  defineConfig({
   title: 'CS14 Research Platform',
   description: 'Researcher and acceptance documentation for the COMP5703 CS14 social-media survey platform.',
   cleanUrls: true,
@@ -53,5 +55,18 @@ export default defineConfig({
   },
   head: [
     ['meta', { name: 'theme-color', content: '#00a7a0' }]
-  ]
-})
+  ],
+
+  mermaid: {
+    theme: 'neutral',
+    themeVariables: {
+      primaryColor: '#e8f6f5',
+      primaryTextColor: '#163047',
+      primaryBorderColor: '#00847f',
+      lineColor: '#4b6074',
+      secondaryColor: '#f7f9fc',
+      tertiaryColor: '#eef2f7'
+    }
+  }
+  })
+)

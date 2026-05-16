@@ -324,9 +324,7 @@ def test_export_filters_exclude_preview_responses_by_default():
     preview_response = make_response(106, is_preview=True)
 
     assert response_matches_filters(preview_response, ExportFilters()) is False
-    assert response_matches_filters(
-        preview_response, ExportFilters(include_preview=True)
-    ) is True
+    assert response_matches_filters(preview_response, ExportFilters(include_preview=True)) is True
 
 
 def test_json_export_shape_tracking_summary_and_anonymization():

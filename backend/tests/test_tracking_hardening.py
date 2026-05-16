@@ -289,7 +289,9 @@ async def test_record_interaction_rejects_cross_survey_post_id():
     with pytest.raises(HTTPException) as exc_info:
         await record_interaction(
             10,
-            InteractionRequest(post_id=99, action_type="share", participant_token="participant-token"),
+            InteractionRequest(
+                post_id=99, action_type="share", participant_token="participant-token"
+            ),
             db,
         )
 

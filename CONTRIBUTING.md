@@ -10,6 +10,8 @@ cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload
 cd frontend && npm install && npm run dev
 ```
 
+Researcher-facing prose and diagrams live in the VitePress tree at `docs-site/` (`cd docs-site && npm install && npm run dev` → http://localhost:2999). Update that tree when you change public handbook content; reviewers often read the deployed mirror instead of repo markdown.
+
 ## Branches
 
 ```

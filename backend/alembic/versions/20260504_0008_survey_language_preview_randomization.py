@@ -35,7 +35,9 @@ def upgrade() -> None:
     if not _column_exists("surveys", "default_language"):
         op.add_column(
             "surveys",
-            sa.Column("default_language", sa.String(length=10), nullable=False, server_default="en"),
+            sa.Column(
+                "default_language", sa.String(length=10), nullable=False, server_default="en"
+            ),
         )
     if not _column_exists("surveys", "supported_languages"):
         op.add_column("surveys", sa.Column("supported_languages", sa.JSON(), nullable=True))
