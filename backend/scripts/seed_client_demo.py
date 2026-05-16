@@ -220,9 +220,7 @@ CALIBRATION_GRID = (
 )
 
 
-def personalize_posts_for_platform(
-    definitions: list[dict], platform_ui_style: str
-) -> list[dict]:
+def personalize_posts_for_platform(definitions: list[dict], platform_ui_style: str) -> list[dict]:
     """Tune copy hints so layouts read like their platform metaphor without spoofing branding."""
 
     tweaked: list[dict] = []
@@ -268,7 +266,9 @@ def personalize_posts_for_platform(
             elif platform_ui_style == "douyin":
                 zh["display_description"] = f"速览划重点：{zh['display_description']}"
             elif platform_ui_style == "instagram":
-                zh["display_description"] = f"{zh['display_description']}\n• 之后再看 • 研究刺激用语"
+                zh["display_description"] = (
+                    f"{zh['display_description']}\n• 之后再看 • 研究刺激用语"
+                )
             elif platform_ui_style == "truth_social":
                 zh["display_title"] = f"议题帖：{zh['display_title']}"
             elif platform_ui_style == "bluesky":
@@ -489,7 +489,9 @@ async def add_demo_content(
         await session.flush()
 
         for comment_order, (author, text) in enumerate(comments_preview, start=1):
-            session.add(PostComment(post_id=post.id, order=comment_order, author_name=author, text=text))
+            session.add(
+                PostComment(post_id=post.id, order=comment_order, author_name=author, text=text)
+            )
 
         question = Question(
             survey_id=survey.id,
@@ -557,7 +559,13 @@ async def seed_responses(session, survey: Survey, questions: list[Question]) -> 
         missing_ms = max(0, (expected - detected) * 950)
         calibration_quality = "good" if index < 7 else "acceptable" if index < 10 else "poor"
         calibration_passed = calibration_quality != "poor"
-        face_ratio = 0.98 if calibration_quality == "good" else 0.86 if calibration_quality == "acceptable" else 0.52
+        face_ratio = (
+            0.98
+            if calibration_quality == "good"
+            else 0.86
+            if calibration_quality == "acceptable"
+            else 0.52
+        )
         metrics = compute_attention_quality(
             active_ms=expected * 1000,
             expected_samples=expected,
@@ -739,7 +747,10 @@ async def seed_responses(session, survey: Survey, questions: list[Question]) -> 
                         response_id=response.id,
                         post_id=target_post.id,
                         timestamp_ms=int(
-                            (ts_base * 1000) + offset_multiplier * 8000 + sample_index * 1100 + index * 17
+                            (ts_base * 1000)
+                            + offset_multiplier * 8000
+                            + sample_index * 1100
+                            + index * 17
                         ),
                         screen_x=520.0 + sample_index * 24 + offset_multiplier * 12 + index,
                         screen_y=260.0 + sample_index * 22 + offset_multiplier * 30,
@@ -753,7 +764,9 @@ async def seed_responses(session, survey: Survey, questions: list[Question]) -> 
                     ClickRecord(
                         response_id=response.id,
                         post_id=target_post.id,
-                        timestamp_ms=int((ts_base * 1000) + offset_multiplier * 5000 + sample_index * 1400),
+                        timestamp_ms=int(
+                            (ts_base * 1000) + offset_multiplier * 5000 + sample_index * 1400
+                        ),
                         screen_x=480.0 + sample_index * 32 + offset_multiplier * 10,
                         screen_y=600.0 + offset_multiplier * 18,
                         target_element="headline" if sample_index % 2 == 0 else "more_info",
