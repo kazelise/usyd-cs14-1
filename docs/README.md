@@ -10,7 +10,7 @@ Human-facing docs live in this directory. For deployment and live-demo scripts, 
 | [`deployment.md`](./deployment.md) | Operators | Prod host layout, `.env`, Caddy, Compose commands, HTTPS/CORS/smoke checklist |
 | [`researcher-user-guide.md`](./researcher-user-guide.md) | Researchers | Building surveys, translations, publishing, export |
 | [`CS14_ACCEPTANCE_CHECKLIST.md`](./CS14_ACCEPTANCE_CHECKLIST.md) | Team | Requirement vs implementation matrix |
-| [`architecture.md`](./architecture.md) | Engineers | Subsystem overview |
+| [`architecture.md`](./architecture.md) and docs-site Project pages | Engineers / client | Subsystem overview, frontend design, database design, API reference |
 | [`tracking-api.md`](./tracking-api.md), [`tracking-data-flow.md`](./tracking-data-flow.md), [`tracking-design-decisions.md`](./tracking-design-decisions.md) | Engineers | Calibration/gaze API contracts and design rationale |
 
-**VitePress site:** source under [`docs-site/docs/`](../docs-site/docs/). Not published as a hosted site today — run `cd docs-site && npm install && npm run docs:dev` (or `npm run build`) locally if you want a browsable sidebar.
+**VitePress site:** source under [`docs-site/docs/`](../docs-site/docs/). It is published at `https://cs14-docs.kazelis.top/`; run `cd docs-site && npm install && npm run dev` locally if you want a browsable sidebar.

@@ -50,8 +50,8 @@ function SurveysPageContent() {
     locale === "zh"
       ? {
           loading: "正在加载问卷",
-          title: "我的问卷",
-          subtitle: "管理并追踪当前进行中的研究项目。",
+          title: "问卷工作台",
+          subtitle: "创建、发布并检查面向 client 演示的研究问卷。",
           statusFilter: "状态",
           allStatuses: "全部状态",
           draft: "草稿",
@@ -68,7 +68,7 @@ function SurveysPageContent() {
           singleGroup: "单组实验",
           created: "创建于",
           newSurvey: "新建问卷",
-          newSurveyCopy: "从空白草稿开始，配置帖子、指标和分组变化。",
+          newSurveyCopy: "从空白草稿开始，配置平台样式、帖子、指标和分组变化。",
           noMatching: "没有匹配的问卷",
           noSurveys: "还没有问卷",
           adjustFilters: "调整搜索词或切换筛选条件以查看更多实验。",
@@ -77,8 +77,8 @@ function SurveysPageContent() {
         }
       : {
           loading: "Loading surveys",
-          title: "My Surveys",
-          subtitle: "Manage and track your active research projects.",
+          title: "Survey Workspace",
+          subtitle: "Create, publish, and review client-ready research studies.",
           statusFilter: "Status",
           allStatuses: "All statuses",
           draft: "Draft",
@@ -95,7 +95,7 @@ function SurveysPageContent() {
           singleGroup: "Single-group study",
           created: "Created",
           newSurvey: "New Survey",
-          newSurveyCopy: "Start from a blank draft and configure posts, metrics, and group variations.",
+          newSurveyCopy: "Start from a blank draft and configure platform style, posts, metrics, and group variations.",
           noMatching: "No matching surveys",
           noSurveys: "No surveys yet",
           adjustFilters: "Adjust your search or switch filters to view more studies.",

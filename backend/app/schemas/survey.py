@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 PlatformStyle = Literal["x", "facebook", "instagram", "xiaohongshu"]
 PlatformUiStyle = Literal[
-    "twitter", "facebook", "instagram", "xiaohongshu", "truth_social", "bluesky"
+    "twitter", "facebook", "instagram", "xiaohongshu", "truth_social", "bluesky", "douyin"
 ]
 DEFAULT_SUPPORTED_LANGUAGES = ["en", "ar", "zh"]
 

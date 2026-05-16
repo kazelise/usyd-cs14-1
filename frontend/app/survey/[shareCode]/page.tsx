@@ -11,8 +11,8 @@ import { ExternalPostImage } from "@/components/external-post-image";
 import { useGazeTracker, type GazeTrackerSnapshot, type GazeTrackerStatus } from "./useGazeTracker";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
-type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky";
-type FeedSkin = "x" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky";
+type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky" | "douyin";
+type FeedSkin = "x" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky" | "douyin";
 
 const PLATFORM_FEED_STYLES: Record<
   FeedSkin,
@@ -234,6 +234,37 @@ const PLATFORM_FEED_STYLES: Record<
       commentCardClass: "rounded-[16px] border border-[#cfe3ff] bg-[#f6fbff] px-4 py-4",
       participantCommentClass: "rounded-[16px] border border-[#0085ff]/40 bg-white px-4 py-4",
     },
+  douyin: {
+      name: "Douyin / TikTok",
+      pageClass: "bg-[#080b10]",
+      pageMaxClass: "mx-auto max-w-[1120px] px-4 py-5 lg:px-6 lg:py-7",
+      contentGridClass: "grid justify-center gap-5 lg:grid-cols-[minmax(0,460px)_minmax(280px,340px)] lg:items-start",
+      leftAsideClass: "hidden",
+      mainClass: "min-w-0 space-y-5",
+      introClass: "hidden",
+      feedClass: "space-y-6",
+      rightAsideClass: "w-full space-y-4 lg:sticky lg:top-6 lg:self-start [&_.surface-panel]:border-white/10 [&_.surface-panel]:bg-white/95 [&_.surface-panel-soft]:border-white/10 [&_.surface-panel-soft]:bg-white/95",
+      accentTextClass: "text-[#fe2c55]",
+      accentBgClass: "bg-[#fe2c55]",
+      progressClass: "bg-[linear-gradient(90deg,#25f4ee_0%,#fe2c55_100%)]",
+      cardClass: "overflow-hidden rounded-[28px] border border-white/10 bg-[#111820] text-white shadow-[0_24px_80px_rgba(0,0,0,0.42)]",
+      headerClass: "hidden",
+      avatarClass: "flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-[#fe2c55] text-[13px] font-bold text-white",
+      badgeClass: "inline-flex rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80",
+      imageWrapClass: "bg-black",
+      imageClass: "aspect-[9/16] w-full object-cover",
+      moreInfoButtonClass: "mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[13px] font-semibold text-white transition hover:bg-white/15",
+      engagementClass: "flex flex-wrap items-center gap-4 border-t border-white/10 bg-black/25 px-5 py-4 text-[13px] text-white/70",
+      actionGridClass: "grid grid-cols-3 gap-2 border-t border-white/10 bg-black/20 px-3 py-3 text-[12px]",
+      actionButtonClass: "rounded-full px-3 py-2 font-semibold text-white/80 transition hover:bg-white/10",
+      actionButtonDividerClass: "border-0",
+      activeActionClass: "bg-[#fe2c55] text-white hover:bg-[#e3264d]",
+      bodyClass: "px-5 py-5",
+      titleClass: "mt-4 text-[20px] font-semibold leading-7 text-white",
+      descriptionClass: "mt-2 text-[14px] leading-7 text-white/70",
+      commentCardClass: "rounded-[18px] border border-white/10 bg-white/10 px-4 py-4",
+      participantCommentClass: "rounded-[18px] border border-[#25f4ee]/50 bg-[#25f4ee]/10 px-4 py-4",
+    },
 };
 
 function getPlatformFeedStyle(style?: string | null) {
@@ -281,12 +312,101 @@ function getPlatformActionLabels(skin: FeedSkin, locale: Locale) {
       ? { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" }
       : { like: "Like", liked: "Liked", comment: "Reply", share: "Repost" };
   }
+  if (skin === "douyin") {
+    return locale === "zh"
+      ? { like: "喜欢", liked: "已喜欢", comment: "评论", share: "转发" }
+      : { like: "Heart", liked: "Hearted", comment: "Comment", share: "Share" };
+  }
   return {
     like: t(locale, "like"),
     liked: t(locale, "liked"),
     comment: t(locale, "comment"),
     share: t(locale, "share"),
   };
+}
+
+function PlatformFeedChrome({
+  skin,
+  platformName,
+  locale,
+}: {
+  skin: FeedSkin;
+  platformName: string;
+  locale: Locale;
+}) {
+  if (skin === "instagram") {
+    const labels = locale === "zh" ? ["账号", "帖子", "收藏", "洞察"] : ["Profile", "Posts", "Saved", "Insights"];
+    return (
+      <div className="rounded-[6px] border border-slate-200 bg-white px-5 py-4">
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-[18px] font-semibold text-[#262626]">Instagram</p>
+          <div className="flex gap-3">
+            {labels.map((label, index) => (
+              <span key={label} className={`h-10 w-10 rounded-full border-2 ${index === 0 ? "border-[#dd2a7b]" : "border-slate-200"} bg-slate-50`} title={label} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (skin === "xiaohongshu") {
+    const labels = locale === "zh" ? ["关注", "发现", "图文笔记", "生活方式"] : ["Following", "Discover", "Notes", "Lifestyle"];
+    return (
+      <div className="sticky top-0 z-10 -mx-1 flex gap-2 overflow-x-auto bg-[#fff8f8]/90 px-1 py-2 backdrop-blur">
+        {labels.map((label, index) => (
+          <span key={label} className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold ${index === 1 ? "bg-[#ff2442] text-white" : "bg-white text-slate-600"}`}>
+            {label}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  if (skin === "truth_social") {
+    return (
+      <div className="overflow-hidden rounded-[10px] border-2 border-[#1a2a4f] bg-white">
+        <div className="bg-[#1a2a4f] px-5 py-3 text-[12px] font-bold uppercase tracking-[0.18em] text-white">
+          {platformName} feed
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-[#1a2a4f]/15 text-center text-[13px] font-bold uppercase tracking-[0.08em] text-[#1a2a4f]">
+          <span className="py-3">Following</span>
+          <span className="py-3">Truths</span>
+          <span className="py-3">Replies</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (skin === "bluesky") {
+    return (
+      <div className="rounded-[22px] border border-[#cfe3ff] bg-white/90 p-2 shadow-[0_12px_34px_rgba(0,133,255,0.10)] backdrop-blur">
+        <div className="grid grid-cols-2 rounded-[18px] bg-[#eef6ff] p-1 text-center text-[13px] font-semibold text-[#0066c8]">
+          <span className="rounded-[14px] bg-white px-4 py-2 shadow-sm">Following</span>
+          <span className="px-4 py-2">Discover</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (skin === "douyin") {
+    return (
+      <div className="rounded-[26px] border border-white/10 bg-white/5 px-5 py-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-[#25f4ee]">Vertical feed</p>
+          <div className="flex gap-2 text-[12px] font-semibold">
+            <span className="rounded-full bg-white px-3 py-1.5 text-black">Following</span>
+            <span className="rounded-full bg-white/10 px-3 py-1.5 text-white/70">For You</span>
+          </div>
+        </div>
+        <p className="mt-3 text-[13px] leading-6 text-white/60">
+          {locale === "zh" ? "短视频式深色信息流，用于展示更沉浸的社交平台刺激。" : "Dark short-form feed treatment for immersive social stimuli."}
+        </p>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 type TrackingStatusKey =
@@ -864,6 +984,8 @@ export default function SurveyParticipantPage() {
               </div>
             </div>
 
+            <PlatformFeedChrome skin={feedSkin} platformName={platform.name} locale={locale} />
+
             {session.questions && session.questions.length > 0 && (
               <div className="surface-panel-soft space-y-4 px-5 py-5">
                 <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${platform.accentTextClass}`}>{t(locale, "questionBlock")}</p>
@@ -1006,7 +1128,7 @@ export default function SurveyParticipantPage() {
                       href={post.original_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block cursor-pointer bg-white text-inherit no-underline"
+                      className={`block cursor-pointer text-inherit no-underline ${feedSkin === "douyin" ? "bg-[#111820]" : "bg-white"}`}
                       data-track="headline"
                       onClick={() => {
                         void handleClickPost(post.id);
@@ -1084,8 +1206,8 @@ export default function SurveyParticipantPage() {
                         <div className="space-y-3">
                           {post.comments.map((comment) => (
                             <div key={`r-${comment.id}`} className={platform.commentCardClass}>
-                              <p className="text-[13px] font-semibold text-[#163047]">{comment.author_name}</p>
-                              <p className="mt-1 text-[13px] leading-6 text-slate-600">{comment.text}</p>
+                              <p className={`text-[13px] font-semibold ${feedSkin === "douyin" ? "text-white" : "text-[#163047]"}`}>{comment.author_name}</p>
+                              <p className={`mt-1 text-[13px] leading-6 ${feedSkin === "douyin" ? "text-white/70" : "text-slate-600"}`}>{comment.text}</p>
                             </div>
                           ))}
 
@@ -1095,7 +1217,7 @@ export default function SurveyParticipantPage() {
                                 <div className="flex-1">
                                   <p className={`text-[12px] font-semibold uppercase tracking-[0.16em] ${platform.accentTextClass}`}>{t(locale, "yourResponse")}</p>
                                   <input
-                                    className="mt-2 w-full border-0 bg-transparent p-0 text-[13px] leading-6 text-slate-600 outline-none"
+                                    className={`mt-2 w-full border-0 bg-transparent p-0 text-[13px] leading-6 outline-none ${feedSkin === "douyin" ? "text-white/75" : "text-slate-600"}`}
                                     value={comment.text}
                                     onChange={(e) => {
                                       const value = e.target.value;

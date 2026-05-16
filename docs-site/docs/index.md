@@ -45,7 +45,7 @@ The public demo is live at [cs14.kazelis.top](https://cs14.kazelis.top/), with t
 
 <div class="tagline-row">
   <span>Survey builder</span>
-  <span>Post templates</span>
+  <span>Platform style gallery</span>
   <span>Translations</span>
   <span>Calibration</span>
   <span>Export</span>

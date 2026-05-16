@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Smoke-check public demo endpoints (no credentials).
 # Usage: DEMO_HOST='cs14.kazelis.top' ./scripts/verify_demo_public.sh
-# Optional: DEMO_SHARE_CODE='oYmBN-pj9IhZ3pT9' (default below matches coordination staging).
+# Optional: DEMO_SHARE_CODE='CS14DEMO2026' (default below matches the clean client demo seed).
 
 set -euo pipefail
 
 HOST="${DEMO_HOST:-cs14.kazelis.top}"
-CODE="${DEMO_SHARE_CODE:-oYmBN-pj9IhZ3pT9}"
+CODE="${DEMO_SHARE_CODE:-CS14DEMO2026}"
 BASE="https://${HOST}"
 
 echo "Checking ${BASE} (share_code=${CODE})"

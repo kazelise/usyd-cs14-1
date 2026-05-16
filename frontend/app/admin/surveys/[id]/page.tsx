@@ -16,7 +16,7 @@ import {
 import { ExternalPostImage } from "@/components/external-post-image";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
-type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky";
+type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky" | "douyin";
 
 const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string; description: string }[] = [
   { value: "twitter", label: "X (Twitter)", description: "Compact text-first feed with repost-style interactions." },
@@ -25,6 +25,7 @@ const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string; description:
   { value: "truth_social", label: "Truth Social", description: "Navy-and-red Truth Social-style layout for political content stimuli." },
   { value: "bluesky", label: "Bluesky", description: "Sky-blue minimal layout reminiscent of the Bluesky feed." },
   { value: "xiaohongshu", label: "Xiaohongshu", description: "Lifestyle-card style suited to note-like social content." },
+  { value: "douyin", label: "Douyin / TikTok", description: "Dark vertical-video inspired feed for short-form social stimuli." },
 ];
 
 const LANGUAGE_OPTIONS = [
