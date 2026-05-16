@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { ChartIcon, CheckCircleIcon, ChevronDownIcon } from "@/components/icons";
+import { ChartIcon, ChevronDownIcon } from "@/components/icons";
 
 type SurveyListItem = {
   id: number;
@@ -68,6 +68,39 @@ function formatPercent(value: number) {
 function formatMinutes(value: number) {
   if (!value) return "0.0 min";
   return `${value.toFixed(1)} min`;
+}
+
+const DOCS_EXPORT_URL = "https://cs14-docs.kazelis.top/guide/data-export.html";
+
+function HorizontalRatioBars({
+  bars,
+  valueSuffix = "",
+}: {
+  bars: { label: string; value: number; displayValue?: string }[];
+  valueSuffix?: string;
+}) {
+  const max = Math.max(1e-6, ...bars.map((b) => b.value));
+  return (
+    <div className="space-y-3 pt-1">
+      {bars.map((b) => (
+        <div key={b.label}>
+          <div className="flex items-baseline justify-between gap-2 text-[12px]">
+            <span className="min-w-0 truncate font-medium text-black">{b.label}</span>
+            <span className="shrink-0 tabular-nums text-slate-500">
+              {b.displayValue ?? `${Math.round(b.value)}${valueSuffix}`}
+            </span>
+          </div>
+          <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-[#0f3146]"
+              style={{ width: `${Math.min(100, (b.value / max) * 100)}%` }}
+              role="presentation"
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function AnalyticsPage() {
@@ -159,6 +192,12 @@ export default function AnalyticsPage() {
           tableHeadLikes: "点赞",
           tableHeadComments: "评论",
           tableHeadShares: "分享",
+          chartCompletionByGroup: "各组完成率",
+          chartClicksByGroup: "各组点击次数",
+          chartPostClicks: "帖子点击（相对对比）",
+          exportFieldsHint:
+            "导出包含校准摘要、注意力信心指标、眼动/点击计数、互动（含屏幕点击坐标）及作答。完整字段说明见文档：",
+          exportFieldsHintLink: "数据导出指南",
         }
       : {
           failed: "Failed to load analytics",
@@ -228,6 +267,12 @@ export default function AnalyticsPage() {
           tableHeadLikes: "Likes",
           tableHeadComments: "Comments",
           tableHeadShares: "Shares",
+          chartCompletionByGroup: "Completion by group",
+          chartClicksByGroup: "Clicks by group",
+          chartPostClicks: "Post clicks (relative)",
+          exportFieldsHint:
+            "Downloads include calibration summaries, attention-confidence metrics, gaze/click counts, interactions (with screen click coordinates), and answers. Column reference:",
+          exportFieldsHintLink: "Data export guide",
         };
 
   useEffect(() => {
@@ -377,6 +422,34 @@ export default function AnalyticsPage() {
     if (!summary?.posts?.length) return null;
     return summary.posts.find((post) => post.post_id === selectedPostId) ?? summary.posts[0];
   }, [selectedPostId, summary]);
+
+  const groupCompletionBars = useMemo(() => {
+    if (!summary?.group_breakdown?.length) return [];
+    return summary.group_breakdown.map((g) => ({
+      label: `Group ${g.group_id}`,
+      value: g.completion_rate,
+      displayValue: formatPercent(g.completion_rate),
+    }));
+  }, [summary]);
+
+  const groupClickBars = useMemo(() => {
+    if (!summary?.group_breakdown?.length) return [];
+    return summary.group_breakdown.map((g) => ({
+      label: `Group ${g.group_id}`,
+      value: g.clicks,
+    }));
+  }, [summary]);
+
+  const postClickBars = useMemo(() => {
+    if (!summary?.posts?.length) return [];
+    return [...summary.posts]
+      .sort((a, b) => b.clicks - a.clicks)
+      .slice(0, 8)
+      .map((p) => ({
+        label: p.title.length > 48 ? `${p.title.slice(0, 47)}…` : p.title,
+        value: p.clicks,
+      }));
+  }, [summary]);
 
   function exportSummary() {
     if (!summary || !selectedSurvey) return;
@@ -694,6 +767,15 @@ export default function AnalyticsPage() {
         </section>
       )}
 
+      {summary && (
+        <p className="mt-2 text-[12px] leading-5 text-slate-500">
+          {text.exportFieldsHint}{" "}
+          <a href={DOCS_EXPORT_URL} target="_blank" rel="noreferrer" className="font-medium text-[#0f3146] underline decoration-black/15 underline-offset-2">
+            {text.exportFieldsHintLink}
+          </a>
+        </p>
+      )}
+
       {error && <p className="mt-4 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
       {loadingSummary || !summary ? (
@@ -723,6 +805,25 @@ export default function AnalyticsPage() {
                 )}
               </div>
               <p className="metric-value">{formatPercent(summary.calibration_success_rate)}</p>
+            </div>
+          </section>
+
+          <section className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className="surface-panel px-5 py-4">
+              <p className="section-kicker">{text.chartCompletionByGroup}</p>
+              {groupCompletionBars.length ? (
+                <HorizontalRatioBars bars={groupCompletionBars} valueSuffix="%" />
+              ) : (
+                <p className="mt-3 text-[13px] text-slate-500">{text.noGroupData}</p>
+              )}
+            </div>
+            <div className="surface-panel px-5 py-4">
+              <p className="section-kicker">{text.chartClicksByGroup}</p>
+              {groupClickBars.length ? (
+                <HorizontalRatioBars bars={groupClickBars} />
+              ) : (
+                <p className="mt-3 text-[13px] text-slate-500">{text.noGroupData}</p>
+              )}
             </div>
           </section>
 
@@ -957,20 +1058,13 @@ export default function AnalyticsPage() {
               </div>
             </div>
 
-            <div className="surface-panel-soft px-5 py-4">
-              <p className="section-kicker">Recommended next checks</p>
-              <div className="mt-3 space-y-3">
-                {[
-                  "Open the highest-click post and compare visible groups before publishing the next draft.",
-                  "Review low-interaction sessions to confirm your post order and question cadence are working.",
-                  "Export the CSV or JSON research dataset before the final report and presentation handoff.",
-                ].map((item) => (
-                  <div key={item} className="flex items-start gap-3">
-                    <CheckCircleIcon className="mt-0.5 h-4 w-4 text-black" />
-                    <p className="text-[13px] leading-6 text-slate-500">{item}</p>
-                  </div>
-                ))}
-              </div>
+            <div className="surface-panel px-5 py-4">
+              <p className="section-kicker">{text.chartPostClicks}</p>
+              {postClickBars.length ? (
+                <HorizontalRatioBars bars={postClickBars} />
+              ) : (
+                <p className="mt-3 text-[13px] text-slate-500">No post engagement recorded yet.</p>
+              )}
             </div>
           </section>
         </>

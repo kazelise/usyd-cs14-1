@@ -98,3 +98,68 @@ Participants choose language on the start page before calibration and before the
 - Be available as an analytics/export filter.
 
 If a translation is incomplete, researchers should either complete it before launch or clearly fall back to the default language according to the study protocol.
+
+## Research CSV columns (flat file)
+
+Each CSV row is **one participant response** (one session). Columns are fixed in this order. Several fields hold **JSON-encoded text** (arrays or objects) because the underlying data is nested; open them in Python/R with `json.loads` after reading the CSV.
+
+| Column | Meaning |
+| --- | --- |
+| `survey_id` | Internal survey key. |
+| `response_id` | Internal response key. |
+| `participant_id` | Anonymised per-session id (hash-based; not the raw token). |
+| `assigned_group` | A/B condition (1, 2, …). |
+| `randomization_seed` | Server-side seed for stimulus ordering when used. |
+| `shown_post_order` | JSON array of post ids as shown to the participant. |
+| `is_preview` | `true` if this run was a researcher preview / test session. |
+| `language` | Participant UI language code (e.g. `en`, `zh`, `ar`). |
+| `response_status` | `completed`, `in_progress`, or `flagged`, etc. |
+| `started_at` / `completed_at` | ISO timestamps. |
+| **Calibration (flat)** | See below. |
+| **Attention (flat)** | See below. |
+| `gaze_count` | Number of **gaze samples** stored for this response (aggregate count; not raw xy time series in CSV). |
+| `click_count` | Number of stored **click records** for this response. |
+| `participant_interactions` | JSON array: likes, comments, dwell, **click_x / click_y**, `action_type`, timestamps. |
+| `question_responses` | JSON array: question text, type, chosen answers / values. |
+| `displayed_posts` | JSON array: post stimuli as seen for this participant’s group (title, URLs, engagement overrides). |
+
+### Calibration fields in CSV
+
+Flattened from the `calibration` object in JSON exports:
+
+| CSV column | Interpretation |
+| --- | --- |
+| `calibration_status` | Workflow status (e.g. completed). |
+| `calibration_quality` | Categorical quality tier (e.g. good / acceptable / poor). |
+| `calibration_quality_score` | Numeric calibration score when available. |
+| `calibration_passed` | `true`/`false` gate used by analytics filters and attention scoring. |
+
+Detailed point-level calibration geometry is **not** repeated in every CSV row; session-level metrics above are what researchers use for inclusion rules and quality reporting.
+
+### Attention-confidence fields in CSV
+
+Flattened from the `attention` object. These summarise how consistently a face was tracked and how complete the attention window was **relative to calibration outcome**:
+
+| CSV column | Typical use |
+| --- | --- |
+| `attention_confidence` | Overall confidence score for attention/face coverage. |
+| `attention_quality` | Categorical bucket. |
+| `attention_coverage` | Share of expected window with usable face/attention signal. |
+| `attention_active_ms` | Active attention window duration. |
+| `attention_expected_samples` / `attention_detected_samples` | Sample counts for coverage math. |
+| `attention_missing_ms` | Time with missing signal. |
+| `attention_no_face_periods` | Count of gaps without a face. |
+| `attention_quality_reason` | Short machine-readable explanation for QA. |
+
+See also [Attention confidence](./attention-confidence.md).
+
+## JSON export shape
+
+The JSON download wraps the same responses with **structured objects** instead of stringified JSON columns:
+
+- `responses[].calibration` — object with `status`, `quality`, `quality_score`, `passed`, `face_detection_rate`, `stability_score`, `quality_reason`, `completed_at`.
+- `responses[].attention` — object with the same keys as the `attention_*` CSV columns.
+- `responses[].gaze_count` / `click_count` — aggregates matching CSV.
+- Raw time-series gaze points are **not** inlined in the bulk export; counts and interaction/click records are the researcher-facing surface area in this schema.
+
+Use JSON when you prefer nested objects without CSV string parsing; use CSV for spreadsheets and statistical packages.
