@@ -537,7 +537,7 @@ export function CalibrationExperience({
 
               <div className="grid flex-1 gap-6 xl:grid-cols-[minmax(0,1fr)_240px]">
                 <div className="relative min-h-[520px] overflow-hidden rounded-[20px] border bg-slate-900">
-                  <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
+                  <video ref={videoRef} className="h-full w-full scale-x-[-1] object-cover" autoPlay muted playsInline />
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08),rgba(2,6,23,0.4))]" />
 
                   {step !== "results" && (

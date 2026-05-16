@@ -64,7 +64,10 @@ export const dict = {
     trackingCoverageLabel: "Sample coverage",
     trackingPrivacyNote:
       "We use your webcam locally to detect attention. No video is uploaded or stored.",
-    // Questions
+    trackingPipDragHint: "Drag the header bar to move this window.",
+    shareRecordedToast: "Your repost was recorded.",
+    shareSaving: "Saving…",
+    shareRecordedButton: "Shared",
     submitAnswer: "Submit Answer",
     answerSubmitted: "Answer submitted",
     questions: "Questions",
@@ -174,7 +177,10 @@ export const dict = {
     trackingStatusStopped: "追踪已停止",
     trackingCoverageLabel: "采样覆盖率",
     trackingPrivacyNote: "摄像头仅在本地用于检测注意力，画面不会上传或存储。",
-    // Questions
+    trackingPipDragHint: "拖动顶部标题栏可移动此窗口。",
+    shareRecordedToast: "已记录您的转发。",
+    shareSaving: "保存中…",
+    shareRecordedButton: "已分享",
     submitAnswer: "提交回答",
     answerSubmitted: "回答已提交",
     questions: "问题",
@@ -282,7 +288,10 @@ export const dict = {
     trackingStatusStopped: "التتبع متوقف",
     trackingCoverageLabel: "تغطية العينات",
     trackingPrivacyNote: "نستخدم كاميرتك محلياً لاكتشاف الانتباه. لا يتم رفع أو تخزين أي فيديو.",
-    // Questions
+    trackingPipDragHint: "اسحب الشريط العلوي لتحريك هذه النافذة.",
+    shareRecordedToast: "تم تسجيل مشاركتك.",
+    shareSaving: "جارٍ الحفظ…",
+    shareRecordedButton: "تمت المشاركة",
     submitAnswer: "إرسال الإجابة",
     answerSubmitted: "تم إرسال الإجابة",
     questions: "أسئلة",

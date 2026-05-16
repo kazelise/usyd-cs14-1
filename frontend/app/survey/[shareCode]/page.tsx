@@ -8,7 +8,8 @@ import { isLocale, t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, LinkIcon, SurveyIcon, UsersIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
 import { ExternalPostImage } from "@/components/external-post-image";
-import { useGazeTracker, type GazeTrackerSnapshot, type GazeTrackerStatus } from "./useGazeTracker";
+import { GazeTrackingPip } from "@/components/gaze-tracking-pip";
+import { useGazeTracker } from "./useGazeTracker";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
 type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky" | "douyin";
@@ -409,87 +410,6 @@ function PlatformFeedChrome({
   return null;
 }
 
-type TrackingStatusKey =
-  | "trackingStatusStarting"
-  | "trackingStatusTracking"
-  | "trackingStatusWeak"
-  | "trackingStatusLost"
-  | "trackingStatusStopped";
-
-const TRACKING_STATUS_STYLES: Record<
-  GazeTrackerStatus,
-  { dot: string; ring: string; label: TrackingStatusKey }
-> = {
-  starting: {
-    dot: "bg-slate-400 animate-pulse",
-    ring: "ring-slate-300/70",
-    label: "trackingStatusStarting",
-  },
-  tracking: {
-    dot: "bg-emerald-500 animate-pulse",
-    ring: "ring-emerald-300/60",
-    label: "trackingStatusTracking",
-  },
-  weak: {
-    dot: "bg-amber-500 animate-pulse",
-    ring: "ring-amber-300/60",
-    label: "trackingStatusWeak",
-  },
-  lost: {
-    dot: "bg-rose-500",
-    ring: "ring-rose-300/60",
-    label: "trackingStatusLost",
-  },
-  stopped: {
-    dot: "bg-slate-400",
-    ring: "ring-slate-200/60",
-    label: "trackingStatusStopped",
-  },
-};
-
-function TrackingStatusWidget({
-  snapshot,
-  locale,
-}: {
-  snapshot: GazeTrackerSnapshot;
-  locale: Locale;
-}) {
-  const style = TRACKING_STATUS_STYLES[snapshot.status];
-  const coveragePct = Math.round(Math.min(1, Math.max(0, snapshot.coverage)) * 100);
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className={`pointer-events-none fixed bottom-4 right-4 z-50 max-w-[280px] rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-lg ring-2 ${style.ring} backdrop-blur`}
-    >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {t(locale, "trackingStatusTitle")}
-      </p>
-      <div className="mt-2 flex items-center gap-2 text-[13px] font-semibold text-[#163047]">
-        <span className={`inline-block h-2.5 w-2.5 rounded-full ${style.dot}`} />
-        <span>{t(locale, style.label)}</span>
-      </div>
-      {snapshot.expectedSamples > 0 && (
-        <div className="mt-2">
-          <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-slate-400">
-            <span>{t(locale, "trackingCoverageLabel")}</span>
-            <span>{coveragePct}%</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-slate-700 transition-all"
-              style={{ width: `${coveragePct}%` }}
-            />
-          </div>
-        </div>
-      )}
-      <p className="mt-2 text-[10px] leading-4 text-slate-400">
-        {t(locale, "trackingPrivacyNote")}
-      </p>
-    </div>
-  );
-}
-
 interface Comment {
   id: number;
   author_name: string;
@@ -581,9 +501,14 @@ export default function SurveyParticipantPage() {
   // Question answers: { [questionId]: answer }
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, { text?: string; value?: number; choices?: string[] }>>({});
   const [submittedQuestions, setSubmittedQuestions] = useState<Set<number>>(new Set());
+  /** Once a share is recorded successfully for a post, UI stays in the terminal "Shared" state (+1 display cap). */
+  const [shareSessionRecorded, setShareSessionRecorded] = useState<Record<number, boolean>>({});
+  const [shareSubmittingId, setShareSubmittingId] = useState<number | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const clickBuffer = useRef<any[]>([]);
   const initializedSessionRef = useRef<string | null>(null);
+  const gazePipVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const handleTrackedClick = useCallback((e: MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -629,7 +554,14 @@ export default function SurveyParticipantPage() {
     participantToken: session?.participant_token ?? "",
     intervalMs: session?.gaze_interval_ms ?? 1000,
     enabled: calibrationDone && !!session?.gaze_tracking_enabled,
+    pipVideoRef: gazePipVideoRef,
   });
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const id = window.setTimeout(() => setToastMessage(null), 2400);
+    return () => window.clearTimeout(id);
+  }, [toastMessage]);
 
   useEffect(() => {
     setLocale(initialLocale);
@@ -773,6 +705,26 @@ export default function SurveyParticipantPage() {
     }
   }
 
+  async function handleShareAction(postId: number) {
+    if (!session || shareSubmittingId !== null) return;
+    if (shareSessionRecorded[postId]) return;
+    setShareSubmittingId(postId);
+    setActionError("");
+    try {
+      await api.recordInteraction(session.response_id, {
+        post_id: postId,
+        action_type: "share",
+        participant_token: session.participant_token,
+      });
+      setShareSessionRecorded((prev) => ({ ...prev, [postId]: true }));
+      setToastMessage(t(locale, "shareRecordedToast"));
+    } catch (err: any) {
+      setActionError(err.message || t(locale, "networkRequestFailed"));
+    } finally {
+      setShareSubmittingId(null);
+    }
+  }
+
   async function handleComplete() {
     if (!session) return;
     setActionError("");
@@ -868,7 +820,15 @@ export default function SurveyParticipantPage() {
   return (
     <div className={`min-h-screen ${platform.pageClass}`}>
       {calibrationDone && session.gaze_tracking_enabled && (
-        <TrackingStatusWidget snapshot={gazeSnapshot} locale={locale} />
+        <GazeTrackingPip snapshot={gazeSnapshot} locale={locale} videoRef={gazePipVideoRef} />
+      )}
+      {toastMessage && (
+        <div
+          role="status"
+          className="fixed left-1/2 top-[max(1rem,env(safe-area-inset-top))] z-[70] -translate-x-1/2 rounded-full border border-slate-200 bg-[#163047] px-5 py-2.5 text-center text-[13px] font-medium text-white shadow-lg"
+        >
+          {toastMessage}
+        </div>
       )}
       {isPreviewSession && (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-[12px] font-semibold uppercase tracking-[0.18em] text-amber-800">
@@ -1109,6 +1069,8 @@ export default function SurveyParticipantPage() {
                 const isLiked = likedPosts.has(post.id);
                 const commentCount =
                   post.display_comments_count + post.comments.length + (participantComments[post.id]?.length || 0);
+                const sessionShareBonus = shareSessionRecorded[post.id] ? 1 : 0;
+                const displaySharesCount = post.display_shares + sessionShareBonus;
 
                 return (
                   <div key={post.id} data-post-id={post.id} className={platform.cardClass}>
@@ -1162,7 +1124,7 @@ export default function SurveyParticipantPage() {
                     <div className={platform.engagementClass}>
                       {post.show_likes && <span>{(post.display_likes + (isLiked ? 1 : 0)).toLocaleString()} {t(locale, "likesLabel")}</span>}
                       {post.show_comments && <span>{commentCount} {t(locale, "comments")}</span>}
-                      {post.show_shares && <span>{post.display_shares} {t(locale, "shares")}</span>}
+                      {post.show_shares && <span>{displaySharesCount} {t(locale, "shares")}</span>}
                     </div>
 
                     <div className={platform.actionGridClass}>
@@ -1183,20 +1145,19 @@ export default function SurveyParticipantPage() {
                         {platformActionLabels.comment}
                       </button>
                       <button
+                        type="button"
                         data-track="share"
-                        onClick={() => {
-                          setActionError("");
-                          void api
-                            .recordInteraction(session.response_id, {
-                              post_id: post.id,
-                              action_type: "share",
-                              participant_token: session.participant_token,
-                            })
-                            .catch((err: any) => setActionError(err.message || t(locale, "networkRequestFailed")));
-                        }}
-                        className={`${platform.actionButtonClass} ${platform.actionButtonDividerClass}`}
+                        disabled={shareSubmittingId === post.id || sessionShareBonus > 0}
+                        onClick={() => void handleShareAction(post.id)}
+                        className={`${platform.actionButtonClass} ${platform.actionButtonDividerClass} ${
+                          sessionShareBonus > 0 ? platform.activeActionClass : ""
+                        } disabled:opacity-60`}
                       >
-                        {platformActionLabels.share}
+                        {shareSubmittingId === post.id
+                          ? t(locale, "shareSaving")
+                          : sessionShareBonus > 0
+                            ? t(locale, "shareRecordedButton")
+                            : platformActionLabels.share}
                       </button>
                     </div>
 
