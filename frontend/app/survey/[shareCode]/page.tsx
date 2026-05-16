@@ -292,6 +292,36 @@ function hostnameFromUrl(url: string) {
   }
 }
 
+/** Terminal label after a share is recorded; matches platform verb where possible */
+function getPlatformShareRecordedLabel(skin: FeedSkin, locale: Locale): string {
+  if (skin === "x") {
+    if (locale === "zh") return "已转发";
+    if (locale === "ar") return "تمّت إعادة النشر";
+    return "Reposted";
+  }
+  if (skin === "bluesky") {
+    if (locale === "zh") return "已转发";
+    if (locale === "ar") return "تمّت إعادة النشر";
+    return "Reposted";
+  }
+  if (skin === "truth_social") {
+    if (locale === "zh") return "已ReTruth";
+    if (locale === "ar") return "تمّ تأكيد ReTruth";
+    return "ReTruthed";
+  }
+  if (skin === "xiaohongshu") {
+    if (locale === "zh") return "已收藏";
+    if (locale === "ar") return "تم الحفظ";
+    return "Collected";
+  }
+  if (skin === "douyin") {
+    if (locale === "zh") return "已分享";
+    if (locale === "ar") return "تمّت المشاركة";
+    return "Shared";
+  }
+  return t(locale, "shareRecordedButton");
+}
+
 function getPlatformActionLabels(skin: FeedSkin, locale: Locale) {
   if (skin === "x") {
     return locale === "zh"
@@ -511,7 +541,10 @@ export default function SurveyParticipantPage() {
   const gazePipVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const handleTrackedClick = useCallback((e: MouseEvent) => {
-    const target = e.target as HTMLElement;
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    if (target.closest("[data-gaze-pip]")) return;
+
     let targetElement = "other";
 
     if (target.closest("[data-track='more_info']")) targetElement = "more_info";
@@ -816,6 +849,7 @@ export default function SurveyParticipantPage() {
     || ((session.platform_style || "x") as FeedSkin);
   const platform = getPlatformFeedStyle(feedSkin);
   const platformActionLabels = getPlatformActionLabels(feedSkin, locale);
+  const platformShareRecordedLabel = getPlatformShareRecordedLabel(feedSkin, locale);
 
   return (
     <div className={`min-h-screen ${platform.pageClass}`}>
@@ -1156,7 +1190,7 @@ export default function SurveyParticipantPage() {
                         {shareSubmittingId === post.id
                           ? t(locale, "shareSaving")
                           : sessionShareBonus > 0
-                            ? t(locale, "shareRecordedButton")
+                            ? platformShareRecordedLabel
                             : platformActionLabels.share}
                       </button>
                     </div>
