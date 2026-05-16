@@ -19,8 +19,8 @@ from sqlalchemy import delete, select
 from app.auth import hash_password
 from app.database import async_session
 from app.models import (
-    CalibrationSession,
     CalibrationPoint,
+    CalibrationSession,
     ClickRecord,
     GazeRecord,
     ParticipantComment,
