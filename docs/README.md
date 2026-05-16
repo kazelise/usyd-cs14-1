@@ -1,8 +1,8 @@
 # CS14 documentation index
 
-Human-facing docs live in this directory. For deployment and live-demo scripts, start with [`deployment.md`](./deployment.md) and [`DEMO_RUNBOOK.md`](./DEMO_RUNBOOK.md). The repository root [`README.md`](../README.md) links here from the main project overview.
+Human-facing docs live in this directory. For deployment and live-demo scripts, start with [`deployment.md`](./deployment.md) and [`DEMO_RUNBOOK.md`](./DEMO_RUNBOOK.md). The repository root [`README.md`](../README.md) adds a condensed **Demo Showcase** table beside this index.
 
-**Public demo smoke (no secrets):** [`scripts/verify_demo_public.sh`](../scripts/verify_demo_public.sh) — curls `/health` and the published public survey for `en` + `zh` (override host/share code via env vars documented in the script header).
+**Public demo smoke (no secrets):** [`scripts/verify_demo_public.sh`](../scripts/verify_demo_public.sh) — curls `/health` **and each published demo share code** (`CS14DEMO2026` + six gallery codes by default) for `en` + `zh`; override hosts, schemes (`DEMO_SCHEME`), or narrowed code lists via env vars spelled out in the script header.
 
 | Document | Audience | Purpose |
 | --- | --- | --- |
