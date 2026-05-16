@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { api } from "@/lib/api";
 import { acquireSharedFaceMesh, releaseSharedFaceMesh } from "@/lib/mediapipe-face-mesh";
 
@@ -35,6 +35,8 @@ interface GazeTrackerOptions {
   intervalMs: number;
   enabled: boolean;
   flushIntervalMs?: number;
+  /** When set, gaze capture uses this mounted `<video>` (e.g. picture-in-picture preview). */
+  pipVideoRef?: RefObject<HTMLVideoElement | null>;
 }
 
 // MediaPipe iris landmark indices
@@ -72,10 +74,12 @@ export function useGazeTracker({
   intervalMs,
   enabled,
   flushIntervalMs = 5000,
+  pipVideoRef,
 }: GazeTrackerOptions) {
   const bufferRef = useRef<any[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const usesExternalVideoRef = useRef(false);
   const faceMeshRef = useRef<any>(null);
   const faceMeshOwnerRef = useRef<symbol | null>(null);
   const captureRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -240,11 +244,17 @@ export function useGazeTracker({
       }
       faceMeshRef.current = faceMesh;
 
-      // Start webcam via MediaPipe Camera utility
-      const video = document.createElement("video");
-      video.setAttribute("playsinline", "");
-      video.setAttribute("autoplay", "");
-      video.muted = true;
+      const external = pipVideoRef?.current ?? null;
+      usesExternalVideoRef.current = Boolean(external);
+      const video =
+        external ??
+        (() => {
+          const el = document.createElement("video");
+          el.setAttribute("playsinline", "");
+          el.setAttribute("autoplay", "");
+          el.muted = true;
+          return el;
+        })();
       videoRef.current = video;
 
       cameraInstance = new browserWindow.Camera(video, {
@@ -349,10 +359,16 @@ export function useGazeTracker({
       faceMeshRef.current = null;
       releaseSharedFaceMesh(faceMeshOwnerRef.current);
       faceMeshOwnerRef.current = null;
-      if (videoRef.current) { videoRef.current.srcObject = null; videoRef.current = null; }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        if (!usesExternalVideoRef.current) {
+          videoRef.current = null;
+        }
+      }
+      usesExternalVideoRef.current = false;
       setSnapshot((prev) => ({ ...prev, status: "stopped", faceDetected: false }));
     };
-  }, [enabled, responseId, participantToken, intervalMs, flushIntervalMs, flush, getVisiblePostId]);
+  }, [enabled, responseId, participantToken, intervalMs, flushIntervalMs, pipVideoRef, flush, getVisiblePostId]);
 
   return { flush, snapshot, getSummary };
 }
