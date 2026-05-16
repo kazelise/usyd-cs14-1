@@ -1,4 +1,6 @@
 :root {
+  --vp-nav-bg-color: color-mix(in srgb, var(--vp-c-bg-alt) 92%, transparent);
+  --vp-local-search-bg: var(--vp-c-bg-soft);
   --vp-c-brand-1: #00847f;
   --vp-c-brand-2: #00a7a0;
   --vp-c-brand-3: #73d4cf;
@@ -25,6 +27,8 @@
 }
 
 .dark {
+  --vp-nav-bg-color: color-mix(in srgb, var(--vp-c-bg-alt) 88%, transparent);
+  --vp-local-search-bg: var(--vp-c-bg-soft);
   --vp-c-bg: #0f1d29;
   --vp-c-bg-alt: #122535;
   --vp-c-bg-soft: #172e40;
@@ -57,6 +61,36 @@ body {
 .VPNav {
   border-bottom: 1px solid var(--vp-c-divider);
   backdrop-filter: blur(16px);
+  background-color: var(--vp-nav-bg-color);
+}
+
+.VPNavBar .divider-line {
+  background-color: var(--vp-c-divider);
+}
+
+.DocSearch-Button {
+  border: 1px solid var(--vp-c-border);
+  background-color: var(--vp-local-search-bg);
+}
+
+.DocSearch-Button:hover {
+  border-color: rgba(0, 132, 127, 0.35);
+}
+
+.dark .DocSearch-Button:hover {
+  border-color: rgba(115, 212, 207, 0.35);
+}
+
+.vp-doc .mermaid {
+  margin: 22px 0;
+  padding: 18px;
+  border-radius: 10px;
+  border: 1px solid var(--vp-c-border);
+  background: var(--vp-c-bg-soft);
+}
+
+.dark .vp-doc .mermaid {
+  box-shadow: none;
 }
 
 .VPHome .main {
