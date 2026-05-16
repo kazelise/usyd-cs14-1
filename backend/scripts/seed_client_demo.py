@@ -107,9 +107,7 @@ async def delete_existing_demo(session, share_code: str) -> None:
 
     post_ids = list(
         (
-            await session.execute(
-                select(SurveyPost.id).where(SurveyPost.survey_id == survey.id)
-            )
+            await session.execute(select(SurveyPost.id).where(SurveyPost.survey_id == survey.id))
         ).scalars()
     )
     response_ids = list(
@@ -121,9 +119,7 @@ async def delete_existing_demo(session, share_code: str) -> None:
     )
     question_ids = list(
         (
-            await session.execute(
-                select(Question.id).where(Question.survey_id == survey.id)
-            )
+            await session.execute(select(Question.id).where(Question.survey_id == survey.id))
         ).scalars()
     )
     calibration_ids = []
@@ -131,23 +127,41 @@ async def delete_existing_demo(session, share_code: str) -> None:
         calibration_ids = list(
             (
                 await session.execute(
-                    select(CalibrationSession.id).where(CalibrationSession.response_id.in_(response_ids))
+                    select(CalibrationSession.id).where(
+                        CalibrationSession.response_id.in_(response_ids)
+                    )
                 )
             ).scalars()
         )
 
     if question_ids:
-        await session.execute(delete(QuestionResponse).where(QuestionResponse.question_id.in_(question_ids)))
-        await session.execute(delete(QuestionTranslation).where(QuestionTranslation.question_id.in_(question_ids)))
+        await session.execute(
+            delete(QuestionResponse).where(QuestionResponse.question_id.in_(question_ids))
+        )
+        await session.execute(
+            delete(QuestionTranslation).where(QuestionTranslation.question_id.in_(question_ids))
+        )
     if response_ids:
         await session.execute(delete(GazeRecord).where(GazeRecord.response_id.in_(response_ids)))
         await session.execute(delete(ClickRecord).where(ClickRecord.response_id.in_(response_ids)))
-        await session.execute(delete(ParticipantLike).where(ParticipantLike.response_id.in_(response_ids)))
-        await session.execute(delete(ParticipantComment).where(ParticipantComment.response_id.in_(response_ids)))
-        await session.execute(delete(ParticipantInteraction).where(ParticipantInteraction.response_id.in_(response_ids)))
+        await session.execute(
+            delete(ParticipantLike).where(ParticipantLike.response_id.in_(response_ids))
+        )
+        await session.execute(
+            delete(ParticipantComment).where(ParticipantComment.response_id.in_(response_ids))
+        )
+        await session.execute(
+            delete(ParticipantInteraction).where(
+                ParticipantInteraction.response_id.in_(response_ids)
+            )
+        )
     if calibration_ids:
-        await session.execute(delete(CalibrationPoint).where(CalibrationPoint.session_id.in_(calibration_ids)))
-        await session.execute(delete(CalibrationSession).where(CalibrationSession.id.in_(calibration_ids)))
+        await session.execute(
+            delete(CalibrationPoint).where(CalibrationPoint.session_id.in_(calibration_ids))
+        )
+        await session.execute(
+            delete(CalibrationSession).where(CalibrationSession.id.in_(calibration_ids))
+        )
     if response_ids:
         await session.execute(delete(SurveyResponse).where(SurveyResponse.id.in_(response_ids)))
     if post_ids:
@@ -172,7 +186,9 @@ async def create_survey_shell(
     tracking_enabled: bool = True,
     calibration_enabled: bool = True,
 ) -> Survey:
-    platform_style = platform_ui_style if platform_ui_style in {"facebook", "instagram", "xiaohongshu"} else "x"
+    platform_style = (
+        platform_ui_style if platform_ui_style in {"facebook", "instagram", "xiaohongshu"} else "x"
+    )
     survey = Survey(
         researcher_id=researcher.id,
         title=title,
@@ -233,7 +249,9 @@ async def add_demo_content(session, survey: Survey, *, compact: bool = False) ->
         await session.flush()
 
         for comment_order, (author, text) in enumerate(post_data["comments_preview"], start=1):
-            session.add(PostComment(post_id=post.id, order=comment_order, author_name=author, text=text))
+            session.add(
+                PostComment(post_id=post.id, order=comment_order, author_name=author, text=text)
+            )
 
         question = Question(
             survey_id=survey.id,
@@ -253,7 +271,9 @@ async def add_demo_content(session, survey: Survey, *, compact: bool = False) ->
                 post_id=post.id,
                 language_code="zh",
                 translated_fields={
-                    "display_title": "公众对 AI 新闻摘要的信任仍存在分歧" if order == 1 else "研究人员比较平台设计如何改变阅读注意力",
+                    "display_title": "公众对 AI 新闻摘要的信任仍存在分歧"
+                    if order == 1
+                    else "研究人员比较平台设计如何改变阅读注意力",
                     "display_description": "用于测试来源可信度、图片显著性和互动线索的社交媒体帖子预览。",
                     "source_label": post_data["source"],
                     "more_info_label": "打开来源文章",
@@ -345,7 +365,11 @@ async def seed_responses(session, survey: Survey, questions: list[Question]) -> 
                 camera_height=480,
                 expected_points=9,
                 face_detection_rate=metrics["coverage"],
-                quality_score=0.92 if calibration_quality == "good" else 0.72 if calibration_quality == "acceptable" else 0.44,
+                quality_score=0.92
+                if calibration_quality == "good"
+                else 0.72
+                if calibration_quality == "acceptable"
+                else 0.44,
                 passed=calibration_passed,
                 stability_score=0.88 if calibration_quality == "good" else 0.64,
                 quality_reason=metrics["quality_reason"],
