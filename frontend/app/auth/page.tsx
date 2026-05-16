@@ -37,15 +37,10 @@ export default function AuthPage() {
           working: "处理中...",
           signInButton: "登录后台",
           createAccount: "创建账号",
-          included: "本工作区包含",
+          accessNote: "已通过验证的研究者可访问问卷后台（演示环境）。",
           namePlaceholder: "张三",
           emailPlaceholder: "researcher@lab.edu",
           passwordPlaceholder: "请输入密码",
-          benefits: [
-            "通过真实文章链接配置帖子卡片",
-            "控制可见指标、评论和 A/B 分组",
-            "记录参与者点击、评论和校准质量",
-          ],
         }
       : {
           product: "CS14 Survey Platform",
@@ -68,15 +63,10 @@ export default function AuthPage() {
           working: "Working...",
           signInButton: "Sign in to dashboard",
           createAccount: "Create account",
-          included: "Included in this workspace",
+          accessNote: "Authenticated researchers access the CS14 survey dashboard (demo-safe).",
           namePlaceholder: "Jane Smith",
           emailPlaceholder: "researcher@lab.edu",
           passwordPlaceholder: "Enter your password",
-          benefits: [
-            "Configure article cards from real URLs",
-            "Control visible metrics, comments, and A/B groups",
-            "Track participant clicks, comments, and calibration quality",
-          ],
         };
 
   useEffect(() => {
@@ -107,14 +97,14 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen px-4 py-8 lg:px-8 lg:py-10">
-      <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_35px_90px_rgba(17,24,39,0.08)] lg:grid-cols-[1.02fr_0.98fr]">
-        <section className="flex flex-col justify-between bg-[linear-gradient(180deg,#111111_0%,#1f1f1f_100%)] px-8 py-10 text-white lg:px-12 lg:py-12">
+      <div className="mx-auto grid min-w-0 max-w-7xl overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_35px_90px_rgba(17,24,39,0.08)] lg:grid-cols-[1.02fr_0.98fr]">
+        <section className="flex min-w-0 flex-col justify-between bg-[linear-gradient(180deg,#111111_0%,#1f1f1f_100%)] px-8 py-10 text-white lg:px-12 lg:py-12">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-white/10">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] bg-white/10">
                 <WorkspaceIcon className="h-5 w-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white/65">
                   {text.product}
                 </p>
@@ -152,8 +142,8 @@ export default function AuthPage() {
           </div>
         </section>
 
-        <section className="flex items-center px-6 py-8 lg:px-12 lg:py-12">
-          <div className="mx-auto w-full max-w-xl">
+        <section className="flex min-w-0 items-center px-6 py-8 lg:px-12 lg:py-12">
+          <div className="mx-auto w-full min-w-0 max-w-xl">
             <div className="flex items-center gap-3 rounded-full bg-stone-100 p-1">
               <button
                 className={`flex-1 rounded-full px-4 py-3 text-sm font-medium transition ${
@@ -230,17 +220,7 @@ export default function AuthPage() {
               </button>
             </form>
 
-            <div className="mt-8 rounded-[20px] border border-black/5 bg-stone-50 p-6">
-              <p className="section-kicker">{text.included}</p>
-              <div className="mt-4 space-y-3">
-                {text.benefits.map((item) => (
-                  <div key={item} className="flex items-start gap-3">
-                    <CheckCircleIcon className="mt-0.5 h-4 w-4 text-black" />
-                    <p className="text-[14px] leading-6 text-slate-600">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <p className="mt-6 text-center text-xs leading-relaxed text-slate-500">{text.accessNote}</p>
           </div>
         </section>
       </div>
