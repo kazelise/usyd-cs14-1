@@ -43,6 +43,8 @@ This site is separate from the application runtime and is intended for handover,
 
 The public demo is live at [cs14.kazelis.top](https://cs14.kazelis.top/), with this documentation published separately at [cs14-docs.kazelis.top](https://cs14-docs.kazelis.top/). Both routes are served through Cloudflare Tunnel so the application can use standard HTTPS while the VM's port 443 remains reserved for another service.
 
+The step-by-step **demo runbook** (share-code matrix, disposable researcher policy, scripted 20 -minute walk-through, verifier shell usage) stays in-repo as markdown: [`docs/DEMO_RUNBOOK.md` on GitHub](https://github.com/kazelise/usyd-cs14-1/blob/dev/docs/DEMO_RUNBOOK.md).
+
 <div class="tagline-row">
   <span>Survey builder</span>
   <span>Platform style gallery</span>

@@ -12,6 +12,31 @@ A research platform for studying how participants interact with social-media-sty
 | Repo markdown index | [`docs/README.md`](docs/README.md) |
 | Tracking & HTTP contracts | [`docs/tracking-api.md`](docs/tracking-api.md), [`docs/tracking-data-flow.md`](docs/tracking-data-flow.md) |
 
+### Demo Showcase
+
+| Surface | Where |
+| --- | --- |
+| **Live application** | <https://cs14.kazelis.top/> — researcher landing at `/auth` |
+| **Public handbook** | <https://cs14-docs.kazelis.top/> (`docs-site` source mirrors engineering + ops narratives) |
+| **Command-center runbook** | [`docs/DEMO_RUNBOOK.md`](docs/DEMO_RUNBOOK.md) — URLs, examiner script, seeded share-code matrix, exporter story |
+
+**Disposable researcher login (staging default)** — purely synthetic demos; rotations happen after wipes. Operators must inject the same identities via `DEMO_RESEARCHER_EMAIL` / `DEMO_RESEARCHER_PASSWORD` when running `python -m scripts.seed_client_demo` on shared hosts:
+
+| Email | Password |
+| --- | --- |
+| `cs14.demopresenter@students.sydney.edu.au` | `Cs14DemoMay2026!` |
+
+**Participant gallery (seven fixed seeds)**:
+
+| Scenario | Share code |
+| --- | --- |
+| Main calibration + credibility deck | **CS14DEMO2026** |
+| X timeline · IG grid · RED collage · Truth · Bluesky · Douyin preview strip | **CS14X2026**, **CS14IG2026**, **CS14RED2026**, **CS14TRUTH26**, **CS14BSKY2026**, **CS14DOUYIN26** |
+
+**Credential policy:** If this table diverges from the environment you opened, escalate to COMP5703 leads for the refreshed pairing rather than circulating personal passwords. Local-only seeds still default to `cs14.demo@example.com`, which is harmless for Compose sandboxes only.
+
+Smoke without secrets: `./scripts/verify_demo_public.sh` (override `DEMO_HOST` / `DEMO_SCHEME` / `DEMO_SHARE_CODES`; defaults hit every seeded code twice per language).
+
 **Privacy & gaze (summary):** Webcam frames stay in the participant browser for MediaPipe. The API persists calibration verdicts, iris-relative gaze coordinates, clicks, and attention summaries—not raw video. Full narrative: [`docs-site/docs/guide/calibration-privacy.md`](docs-site/docs/guide/calibration-privacy.md) (same page under _Calibration & Privacy_ on the published site).
 
 **Demo vs disposable data:** `docker compose up` gives you Postgres + services with empty survey tables until you create studies in `/admin`. Anything you configure for screenshots or client demos should be treated as throwaway unless exported under your ethics/consent rules.
