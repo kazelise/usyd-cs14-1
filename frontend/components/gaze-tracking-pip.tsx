@@ -120,6 +120,7 @@ export function GazeTrackingPip({ snapshot, locale, videoRef }: GazeTrackingPipP
 
   return (
     <div
+      data-gaze-pip
       ref={shellRef}
       className="pointer-events-auto fixed z-[60] w-[min(42vw,200px)] select-none sm:w-[200px]"
       style={{ left: pos.x, top: pos.y }}
