@@ -4,6 +4,18 @@
 
 A research platform for studying how participants interact with social-media-style stimuli. Researchers paste real article URLs, the platform turns them into controllable feed posts (override headline / image / engagement counts, attach fake comments, gate by A/B group), then publishes a share link. Participants run through a guided session that records likes, comments, click positions, gaze samples, and webcam calibration quality — all anonymised under a per-session token.
 
+### Documentation map
+
+| Surface | Where |
+| --- | --- |
+| Published handbook (architecture diagrams, acceptance matrix, researcher guides) | `https://cs14-docs.kazelis.top/` |
+| Repo markdown index | [`docs/README.md`](docs/README.md) |
+| Tracking & HTTP contracts | [`docs/tracking-api.md`](docs/tracking-api.md), [`docs/tracking-data-flow.md`](docs/tracking-data-flow.md) |
+
+**Privacy & gaze (summary):** Webcam frames stay in the participant browser for MediaPipe. The API persists calibration verdicts, iris-relative gaze coordinates, clicks, and attention summaries—not raw video. Full narrative: [`docs-site/docs/guide/calibration-privacy.md`](docs-site/docs/guide/calibration-privacy.md) (same page under _Calibration & Privacy_ on the published site).
+
+**Demo vs disposable data:** `docker compose up` gives you Postgres + services with empty survey tables until you create studies in `/admin`. Anything you configure for screenshots or client demos should be treated as throwaway unless exported under your ethics/consent rules.
+
 <table>
   <tr>
     <td><img src="docs/screenshots/start-en.png" alt="Participant start screen — English" /></td>

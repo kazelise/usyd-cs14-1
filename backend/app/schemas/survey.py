@@ -27,7 +27,9 @@ class CreateSurveyRequest(BaseModel):
     calibration_points: int = 9
     platform_ui_style: PlatformUiStyle = "twitter"
     default_language: str = "en"
-    supported_languages: list[str] = Field(default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy())
+    supported_languages: list[str] = Field(
+        default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy()
+    )
 
 
 class UpdateSurveyRequest(BaseModel):
@@ -62,7 +64,9 @@ class SurveyOut(BaseModel):
     calibration_points: int
     platform_ui_style: PlatformUiStyle = "twitter"
     default_language: str = "en"
-    supported_languages: list[str] = Field(default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy())
+    supported_languages: list[str] = Field(
+        default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy()
+    )
     share_code_expires_at: datetime | None = None
     published_at: datetime | None = None
     created_at: datetime
@@ -86,7 +90,9 @@ class PublicSurveyOut(BaseModel):
     language: str | None = None
     fallback_language: str = "en"
     default_language: str = "en"
-    supported_languages: list[str] = Field(default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy())
+    supported_languages: list[str] = Field(
+        default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy()
+    )
     translation_fallbacks: list[str] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
@@ -257,7 +263,9 @@ class StartSurveyResponse(BaseModel):
     language: str | None = None
     fallback_language: str = "en"
     default_language: str = "en"
-    supported_languages: list[str] = Field(default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy())
+    supported_languages: list[str] = Field(
+        default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy()
+    )
     posts: list[PostOut]
     questions: list[QuestionOut] = Field(default_factory=list)
 
@@ -275,7 +283,9 @@ class SurveyPreviewResponse(BaseModel):
     language: str | None = None
     fallback_language: str = "en"
     default_language: str = "en"
-    supported_languages: list[str] = Field(default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy())
+    supported_languages: list[str] = Field(
+        default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy()
+    )
     posts: list[PostOut]
     questions: list[QuestionOut] = Field(default_factory=list)
 

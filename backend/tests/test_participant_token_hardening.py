@@ -160,9 +160,7 @@ async def test_toggle_like_rejects_wrong_token():
     db = SequenceDB([ScalarOneResult(make_response(token="right-token"))])
 
     with pytest.raises(HTTPException) as exc_info:
-        await toggle_like(
-            10, ToggleLikeRequest(post_id=99, participant_token="wrong-token"), db
-        )
+        await toggle_like(10, ToggleLikeRequest(post_id=99, participant_token="wrong-token"), db)
 
     assert exc_info.value.status_code == 404
     assert db.added == []
@@ -183,9 +181,7 @@ async def test_complete_response_rejects_wrong_token():
     db = SequenceDB([ScalarOneResult(make_response(token="right-token"))])
 
     with pytest.raises(HTTPException) as exc_info:
-        await complete_response(
-            10, CompleteResponseRequest(participant_token="wrong-token"), db
-        )
+        await complete_response(10, CompleteResponseRequest(participant_token="wrong-token"), db)
 
     assert exc_info.value.status_code == 404
     assert db.committed is False
@@ -272,8 +268,7 @@ async def test_toggle_like_accepts_correct_token_and_creates_like():
     assert result == {"liked": True}
     assert any(isinstance(item, ParticipantLike) for item in db.added)
     assert any(
-        isinstance(item, ParticipantInteraction) and item.action_type == "like"
-        for item in db.added
+        isinstance(item, ParticipantInteraction) and item.action_type == "like" for item in db.added
     )
 
 

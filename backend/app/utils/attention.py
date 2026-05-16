@@ -94,9 +94,7 @@ def compute_attention_quality(
 
     if expected_int == 0 and active_ms_int == 0:
         bucket = "unknown"
-        reason = (
-            "No survey-time tracking data was reported; cannot estimate attention quality."
-        )
+        reason = "No survey-time tracking data was reported; cannot estimate attention quality."
     elif (
         coverage_rounded >= GOOD_COVERAGE
         and missing_ratio <= GOOD_MISSING_RATIO
@@ -108,10 +106,7 @@ def compute_attention_quality(
             f"Face/eye samples covered {coverage_rounded:.0%} of expected windows "
             f"with {missing_ratio:.0%} missing-face time."
         )
-    elif (
-        coverage_rounded >= ACCEPTABLE_COVERAGE
-        and missing_ratio <= ACCEPTABLE_MISSING_RATIO
-    ):
+    elif coverage_rounded >= ACCEPTABLE_COVERAGE and missing_ratio <= ACCEPTABLE_MISSING_RATIO:
         bucket = "medium"
         if too_few_windows:
             reason = (
