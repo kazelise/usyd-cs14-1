@@ -54,7 +54,7 @@ DEMO_POSTS = [
         "url": "https://www.bbc.com/news/articles/cy4d8k7v2j1o",
         "source": "BBC News",
         "title": "Public trust in AI news summaries remains divided",
-        "description": "A social-media post preview used to test source credibility, image salience, and engagement cues.",
+        "description": "Headline article on AI and news credibility, shown with controlled engagement cues for the study stimuli.",
         "image": "/demo-assets/ai-news.jpg",
         "likes": 1840,
         "comments": 126,
@@ -68,7 +68,7 @@ DEMO_POSTS = [
         "url": "https://www.nature.com/articles/d41586-024-00000-0",
         "source": "Nature",
         "title": "Researchers compare how platform design changes reading attention",
-        "description": "A study card with controlled engagement numbers for condition comparison.",
+        "description": "Research-focused card comparing how interface design shapes reading attention, with stable engagement baselines.",
         "image": "/demo-assets/research-workspace.jpg",
         "likes": 912,
         "comments": 48,
@@ -274,7 +274,7 @@ async def add_demo_content(session, survey: Survey, *, compact: bool = False) ->
                     "display_title": "公众对 AI 新闻摘要的信任仍存在分歧"
                     if order == 1
                     else "研究人员比较平台设计如何改变阅读注意力",
-                    "display_description": "用于测试来源可信度、图片显著性和互动线索的社交媒体帖子预览。",
+                    "display_description": "关于人工智能与新闻可信度的头条内容，在受控互动线索下作为研究刺激呈现。",
                     "source_label": post_data["source"],
                     "more_info_label": "打开来源文章",
                 },

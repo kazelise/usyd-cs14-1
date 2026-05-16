@@ -251,14 +251,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen lg:h-screen lg:overflow-hidden">
       <header className="relative z-[220] border-b border-slate-200 bg-[rgba(255,255,255,0.92)] backdrop-blur">
-        <div className="mx-auto flex min-h-[68px] max-w-[1560px] items-center gap-7 px-4 py-3 md:px-5 lg:py-0">
+        <div className="mx-auto flex min-h-[68px] min-w-0 max-w-[1560px] flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 md:px-5 lg:flex-nowrap lg:gap-x-7 lg:py-0">
           <Link
             href="/admin/surveys"
-            className="shrink-0 text-[14px] font-semibold uppercase tracking-[0.14em] text-[#0f3146] md:text-[15px]"
+            className="min-w-0 shrink-0 text-[14px] font-semibold uppercase tracking-[0.14em] text-[#0f3146] md:text-[15px]"
           >
             CS14 Survey Platform
           </Link>
-          <nav className="hidden items-center gap-7 lg:flex">
+          <nav className="hidden min-w-0 shrink items-center gap-5 xl:gap-7 lg:flex">
             <Link
               href="/admin/surveys"
               onPointerMove={handleLiquidPointerMove}
@@ -395,9 +395,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
       </header>
 
-      <div className="mx-auto grid max-w-[1560px] lg:h-[calc(100vh-68px)] lg:grid-cols-[auto_minmax(0,1fr)]">
+      <div className="mx-auto grid min-w-0 max-w-[1560px] lg:h-[calc(100vh-68px)] lg:grid-cols-[auto_minmax(0,1fr)]">
         <aside
-          className={`hidden h-full flex-col border-r border-slate-200 bg-[rgba(250,252,254,0.72)] px-4 py-5 transition-[width] duration-200 lg:flex ${
+          className={`hidden h-full shrink-0 flex-col border-r border-slate-200 bg-[rgba(250,252,254,0.72)] px-4 py-5 transition-[width] duration-200 lg:flex ${
             collapsed ? "w-[78px]" : "w-[212px]"
           }`}
         >
@@ -438,8 +438,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="mt-auto" />
         </aside>
 
-        <main className="min-h-[calc(100vh-122px)] px-4 py-5 md:px-7 md:py-6 lg:h-full lg:min-h-0 lg:overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1240px]">{children}</div>
+        <main className="min-h-[calc(100vh-122px)] min-w-0 px-4 py-5 md:px-7 md:py-6 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overflow-x-hidden">
+          <div className="mx-auto w-full min-w-0 max-w-[1240px]">{children}</div>
         </main>
       </div>
     </div>

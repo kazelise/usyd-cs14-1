@@ -817,13 +817,12 @@ export default function SurveyEditPage() {
         <div className="flex flex-wrap items-center gap-3">
           {survey.status === "published" && shareUrl && (
             <button
+              type="button"
               onClick={() => copyShareUrl(shareUrl)}
-              className="secondary-button h-[56px] w-[130px] justify-center gap-2 px-3"
+              className="secondary-button inline-flex min-h-[48px] w-full max-w-[min(100%,220px)] shrink-0 items-center justify-center gap-2 whitespace-nowrap px-4 py-3 sm:w-auto sm:max-w-none"
             >
               <LinkIcon className="h-4 w-4 shrink-0" />
-              <span className="text-center text-[13px] leading-4">
-                {copiedShare ? text.linkCopied : text.copyParticipantLink}
-              </span>
+              <span className="text-[13px] leading-tight">{copiedShare ? text.linkCopied : text.copyParticipantLink}</span>
             </button>
           )}
           {survey.status === "draft" && (
