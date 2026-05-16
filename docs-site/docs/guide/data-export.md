@@ -163,3 +163,19 @@ The JSON download wraps the same responses with **structured objects** instead o
 - Raw time-series gaze points are **not** inlined in the bulk export; counts and interaction/click records are the researcher-facing surface area in this schema.
 
 Use JSON when you prefer nested objects without CSV string parsing; use CSV for spreadsheets and statistical packages.
+
+## Planned Detailed Time-Series Export
+
+The backend already stores timestamped gaze and click rows during the participant run. The current CSV/JSON export keeps the default download compact by exporting counts and response-level attention confidence, not every sample.
+
+The next export improvement should add an optional **detailed time-series export** for studies that need second-by-second analysis:
+
+1. Keep the normal CSV/JSON export as the default researcher download.
+2. Add a separate “Detailed tracking export” action or query option so large files are requested intentionally.
+3. Export gaze samples at the configured survey interval, normally `1000 ms` for demo studies.
+4. Include `timestamp_ms`, `post_id`, `screen_x`, `screen_y`, iris coordinates when available, and matching click records with `target_element`.
+5. Scope the export by survey, response status, group, language, and date range before download.
+6. Prefer JSONL or zipped JSON/CSV for large studies instead of embedding all time-series rows inside each response object.
+7. Continue excluding raw video, participant tokens, passwords, and browser session data.
+
+This gives researchers a compact default export for normal review and an explicit high-volume export when they need replay-style analysis.

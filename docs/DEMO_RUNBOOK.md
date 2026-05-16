@@ -26,8 +26,8 @@ For the **staging host** seeded by the COMP5703 team:
 | Field | Value |
 |-------|-------|
 | Sign-in URL | `https://cs14.kazelis.top/auth` |
-| Email | `cs14.demopresenter@students.sydney.edu.au` |
-| Password | `Cs14DemoMay2026!` |
+| Email | `cs14.showcase.demo@example.com` |
+| Password | `Cs14-Demo-Showcase-2026` |
 
 Seed defaults (`cs14.demo@example.com` / `change-me-client-demo`) are only for unattended local smoke runs — swap them via env vars for any shared environment.
 

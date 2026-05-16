@@ -41,7 +41,14 @@ features:
 
 This site is separate from the application runtime and is intended for handover, marker review, and team coordination. It documents how the platform should be operated today and what must be checked before and during client demonstrations.
 
-The public demo is live at [cs14.kazelis.top](https://cs14.kazelis.top/), with this documentation published separately at [cs14-docs.kazelis.top](https://cs14-docs.kazelis.top/). Both routes are served through Cloudflare Tunnel so the application can use standard HTTPS while the VM's port 443 remains reserved for another service.
+The public demo is live at [cs14.kazelis.top](https://cs14.kazelis.top/), with this documentation published separately at [cs14-docs.kazelis.top](https://cs14-docs.kazelis.top/).
+
+This project provides a disposable **demo admin account and password** for examiner review. [Click here to open the admin login](https://cs14.kazelis.top/auth), then sign in with:
+
+| Field | Value |
+| --- | --- |
+| Admin email | `cs14.showcase.demo@example.com` |
+| Password | `Cs14-Demo-Showcase-2026` |
 
 The step-by-step **demo runbook** (share-code matrix, disposable researcher policy, scripted 20 -minute walk-through, verifier shell usage) stays in-repo as markdown: [`docs/DEMO_RUNBOOK.md` on GitHub](https://github.com/kazelise/usyd-cs14-1/blob/dev/docs/DEMO_RUNBOOK.md).
 

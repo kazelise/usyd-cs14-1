@@ -24,7 +24,7 @@ A research platform for studying how participants interact with social-media-sty
 
 | Email | Password |
 | --- | --- |
-| `cs14.demopresenter@students.sydney.edu.au` | `Cs14DemoMay2026!` |
+| `cs14.showcase.demo@example.com` | `Cs14-Demo-Showcase-2026` |
 
 **Participant gallery (seven fixed seeds)**:
 
