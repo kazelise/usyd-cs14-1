@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -62,7 +62,18 @@ CSV_HEADERS = [
     "attention_no_face_periods",
     "attention_quality_reason",
     "gaze_count",
+    "gaze_sample_index",
+    "gaze_timestamp_ms",
+    "gaze_post_id",
+    "gaze_screen_x",
+    "gaze_screen_y",
+    "gaze_left_iris_x",
+    "gaze_left_iris_y",
+    "gaze_right_iris_x",
+    "gaze_right_iris_y",
+    "gaze_received_at",
     "click_count",
+    "click_records",
     "participant_interactions",
     "question_responses",
     "displayed_posts",
@@ -221,13 +232,41 @@ def serialize_calibration(session: CalibrationSession | None) -> dict[str, Any]:
     }
 
 
+def serialize_gaze_record(record: GazeRecord, index: int) -> dict[str, Any]:
+    return {
+        "sample_index": index,
+        "id": record.id,
+        "post_id": record.post_id,
+        "timestamp_ms": record.timestamp_ms,
+        "screen_x": record.screen_x,
+        "screen_y": record.screen_y,
+        "left_iris_x": record.left_iris_x,
+        "left_iris_y": record.left_iris_y,
+        "right_iris_x": record.right_iris_x,
+        "right_iris_y": record.right_iris_y,
+        "received_at": isoformat(record.received_at),
+    }
+
+
+def serialize_click_record(record: ClickRecord) -> dict[str, Any]:
+    return {
+        "id": record.id,
+        "post_id": record.post_id,
+        "timestamp_ms": record.timestamp_ms,
+        "screen_x": record.screen_x,
+        "screen_y": record.screen_y,
+        "target_element": record.target_element,
+        "received_at": isoformat(record.received_at),
+    }
+
+
 def build_export_payload(
     survey: Survey,
     responses: list[SurveyResponse],
     *,
     filters: ExportFilters,
-    gaze_counts: dict[int, int],
-    click_counts: dict[int, int],
+    gaze_samples_by_response: dict[int, list[dict[str, Any]]],
+    click_records_by_response: dict[int, list[dict[str, Any]]],
     question_responses_by_response: dict[int, list[dict[str, Any]]],
 ) -> dict[str, Any]:
     rows = []
@@ -240,6 +279,8 @@ def build_export_payload(
                 key=lambda interaction: interaction.timestamp or datetime.min,
             )
         ]
+        gaze_samples = gaze_samples_by_response.get(response.id, [])
+        click_records = click_records_by_response.get(response.id, [])
         rows.append(
             {
                 "survey_id": survey.id,
@@ -255,8 +296,10 @@ def build_export_payload(
                 "completed_at": isoformat(response.completed_at),
                 "calibration": calibration,
                 "attention": serialize_attention(response),
-                "gaze_count": gaze_counts.get(response.id, 0),
-                "click_count": click_counts.get(response.id, 0),
+                "gaze_count": len(gaze_samples),
+                "gaze_samples": gaze_samples,
+                "click_count": len(click_records),
+                "click_records": click_records,
                 "participant_interactions": interactions,
                 "question_responses": question_responses_by_response.get(response.id, []),
                 "displayed_posts": visible_displayed_posts(survey, response.assigned_group),
@@ -305,31 +348,51 @@ async def load_survey_export(
     ]
     response_ids = [response.id for response in responses]
 
-    gaze_counts = await count_tracking_rows(db, GazeRecord, response_ids)
-    click_counts = await count_tracking_rows(db, ClickRecord, response_ids)
+    gaze_samples = await load_gaze_samples(db, response_ids)
+    click_records = await load_click_records(db, response_ids)
     question_responses = await load_question_responses(db, response_ids)
 
     return build_export_payload(
         survey,
         responses,
         filters=filters,
-        gaze_counts=gaze_counts,
-        click_counts=click_counts,
+        gaze_samples_by_response=gaze_samples,
+        click_records_by_response=click_records,
         question_responses_by_response=question_responses,
     )
 
 
-async def count_tracking_rows(
-    db: AsyncSession, model: type[GazeRecord] | type[ClickRecord], response_ids: list[int]
-) -> dict[int, int]:
+async def load_gaze_samples(
+    db: AsyncSession, response_ids: list[int]
+) -> dict[int, list[dict[str, Any]]]:
     if not response_ids:
         return {}
     result = await db.execute(
-        select(model.response_id, func.count(model.id))
-        .where(model.response_id.in_(response_ids))
-        .group_by(model.response_id)
+        select(GazeRecord)
+        .where(GazeRecord.response_id.in_(response_ids))
+        .order_by(GazeRecord.response_id, GazeRecord.timestamp_ms, GazeRecord.id)
     )
-    return {response_id: count for response_id, count in result.all()}
+    by_response: dict[int, list[dict[str, Any]]] = {}
+    for record in result.scalars().all():
+        samples = by_response.setdefault(record.response_id, [])
+        samples.append(serialize_gaze_record(record, len(samples) + 1))
+    return by_response
+
+
+async def load_click_records(
+    db: AsyncSession, response_ids: list[int]
+) -> dict[int, list[dict[str, Any]]]:
+    if not response_ids:
+        return {}
+    result = await db.execute(
+        select(ClickRecord)
+        .where(ClickRecord.response_id.in_(response_ids))
+        .order_by(ClickRecord.response_id, ClickRecord.timestamp_ms, ClickRecord.id)
+    )
+    by_response: dict[int, list[dict[str, Any]]] = {}
+    for record in result.scalars().all():
+        by_response.setdefault(record.response_id, []).append(serialize_click_record(record))
+    return by_response
 
 
 async def load_question_responses(
@@ -359,41 +422,59 @@ def export_payload_to_csv(payload: dict[str, Any]) -> str:
     for response in payload["responses"]:
         calibration = response["calibration"]
         attention = response.get("attention") or {}
-        writer.writerow(
-            {
-                "survey_id": response["survey_id"],
-                "response_id": response["response_id"],
-                "participant_id": response["participant_id"],
-                "assigned_group": response["assigned_group"],
-                "randomization_seed": response["randomization_seed"],
-                "shown_post_order": json.dumps(response["shown_post_order"], ensure_ascii=False),
-                "is_preview": response["is_preview"],
-                "language": response["language"],
-                "response_status": response["response_status"],
-                "started_at": response["started_at"],
-                "completed_at": response["completed_at"],
-                "calibration_status": calibration["status"],
-                "calibration_quality": calibration["quality"],
-                "calibration_quality_score": calibration["quality_score"],
-                "calibration_passed": calibration["passed"],
-                "attention_confidence": attention.get("confidence"),
-                "attention_quality": attention.get("quality"),
-                "attention_coverage": attention.get("coverage"),
-                "attention_active_ms": attention.get("active_ms"),
-                "attention_expected_samples": attention.get("expected_samples"),
-                "attention_detected_samples": attention.get("detected_samples"),
-                "attention_missing_ms": attention.get("missing_ms"),
-                "attention_no_face_periods": attention.get("no_face_periods"),
-                "attention_quality_reason": attention.get("quality_reason"),
-                "gaze_count": response["gaze_count"],
-                "click_count": response["click_count"],
-                "participant_interactions": json.dumps(
-                    response["participant_interactions"], ensure_ascii=False
-                ),
-                "question_responses": json.dumps(
-                    response["question_responses"], ensure_ascii=False
-                ),
-                "displayed_posts": json.dumps(response["displayed_posts"], ensure_ascii=False),
-            }
-        )
+        gaze_samples = response.get("gaze_samples") or [None]
+        for sample in gaze_samples:
+            sample_values = sample or {}
+            writer.writerow(
+                {
+                    "survey_id": response["survey_id"],
+                    "response_id": response["response_id"],
+                    "participant_id": response["participant_id"],
+                    "assigned_group": response["assigned_group"],
+                    "randomization_seed": response["randomization_seed"],
+                    "shown_post_order": json.dumps(
+                        response["shown_post_order"], ensure_ascii=False
+                    ),
+                    "is_preview": response["is_preview"],
+                    "language": response["language"],
+                    "response_status": response["response_status"],
+                    "started_at": response["started_at"],
+                    "completed_at": response["completed_at"],
+                    "calibration_status": calibration["status"],
+                    "calibration_quality": calibration["quality"],
+                    "calibration_quality_score": calibration["quality_score"],
+                    "calibration_passed": calibration["passed"],
+                    "attention_confidence": attention.get("confidence"),
+                    "attention_quality": attention.get("quality"),
+                    "attention_coverage": attention.get("coverage"),
+                    "attention_active_ms": attention.get("active_ms"),
+                    "attention_expected_samples": attention.get("expected_samples"),
+                    "attention_detected_samples": attention.get("detected_samples"),
+                    "attention_missing_ms": attention.get("missing_ms"),
+                    "attention_no_face_periods": attention.get("no_face_periods"),
+                    "attention_quality_reason": attention.get("quality_reason"),
+                    "gaze_count": response["gaze_count"],
+                    "gaze_sample_index": sample_values.get("sample_index"),
+                    "gaze_timestamp_ms": sample_values.get("timestamp_ms"),
+                    "gaze_post_id": sample_values.get("post_id"),
+                    "gaze_screen_x": sample_values.get("screen_x"),
+                    "gaze_screen_y": sample_values.get("screen_y"),
+                    "gaze_left_iris_x": sample_values.get("left_iris_x"),
+                    "gaze_left_iris_y": sample_values.get("left_iris_y"),
+                    "gaze_right_iris_x": sample_values.get("right_iris_x"),
+                    "gaze_right_iris_y": sample_values.get("right_iris_y"),
+                    "gaze_received_at": sample_values.get("received_at"),
+                    "click_count": response["click_count"],
+                    "click_records": json.dumps(
+                        response.get("click_records") or [], ensure_ascii=False
+                    ),
+                    "participant_interactions": json.dumps(
+                        response["participant_interactions"], ensure_ascii=False
+                    ),
+                    "question_responses": json.dumps(
+                        response["question_responses"], ensure_ascii=False
+                    ),
+                    "displayed_posts": json.dumps(response["displayed_posts"], ensure_ascii=False),
+                }
+            )
     return output.getvalue()

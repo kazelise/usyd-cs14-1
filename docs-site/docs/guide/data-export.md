@@ -28,7 +28,7 @@ Use CSV for statistical analysis, spreadsheet review, and sharing a flat dataset
 4. Apply the same survey, condition, language, completion, calibration, and preview filters.
 5. Choose `JSON`.
 6. Download the file.
-7. Inspect the top-level survey metadata, response list, answers, interactions, calibration summaries, and tracking aggregates.
+7. Inspect the top-level survey metadata, response list, answers, interactions, calibration summaries, click records, and per-sample gaze rows.
 
 Use JSON when nested relationships matter, such as answers grouped under responses or post-level interaction bundles.
 
@@ -99,9 +99,11 @@ Participants choose language on the start page before calibration and before the
 
 If a translation is incomplete, researchers should either complete it before launch or clearly fall back to the default language according to the study protocol.
 
-## Research CSV columns (flat file)
+## Research CSV columns (gaze-sample file)
 
-Each CSV row is **one participant response** (one session). Columns are fixed in this order. Several fields hold **JSON-encoded text** (arrays or objects) because the underlying data is nested; open them in Python/R with `json.loads` after reading the CSV.
+Each CSV row is **one gaze sample**. Response-level metadata is repeated on each gaze row so the file is immediately useful in Excel, Python, R, or SPSS. If a response has no stored gaze samples, the export still includes one response row with blank `gaze_*` sample fields.
+
+Several non-gaze fields hold **JSON-encoded text** (arrays or objects) because the underlying data is nested; open them in Python/R with `json.loads` after reading the CSV.
 
 | Column | Meaning |
 | --- | --- |
@@ -117,8 +119,16 @@ Each CSV row is **one participant response** (one session). Columns are fixed in
 | `started_at` / `completed_at` | ISO timestamps. |
 | **Calibration (flat)** | See below. |
 | **Attention (flat)** | See below. |
-| `gaze_count` | Number of **gaze samples** stored for this response (aggregate count; not raw xy time series in CSV). |
+| `gaze_count` | Number of **gaze samples** stored for this response. |
+| `gaze_sample_index` | 1-based gaze sample order inside the response. |
+| `gaze_timestamp_ms` | Client-side timestamp for the sample, in milliseconds. Demo surveys capture around every `1000 ms`. |
+| `gaze_post_id` | Post visible/associated with the sample, or blank if between posts. |
+| `gaze_screen_x` / `gaze_screen_y` | Estimated screen coordinate where the participant was looking. |
+| `gaze_left_iris_x` / `gaze_left_iris_y` | Normalized left iris coordinates when available. |
+| `gaze_right_iris_x` / `gaze_right_iris_y` | Normalized right iris coordinates when available. |
+| `gaze_received_at` | Server receive timestamp. |
 | `click_count` | Number of stored **click records** for this response. |
+| `click_records` | JSON array of click records with `timestamp_ms`, `screen_x`, `screen_y`, `post_id`, and `target_element`. |
 | `participant_interactions` | JSON array: likes, comments, dwell, **click_x / click_y**, `action_type`, timestamps. |
 | `question_responses` | JSON array: question text, type, chosen answers / values. |
 | `displayed_posts` | JSON array: post stimuli as seen for this participant’s group (title, URLs, engagement overrides). |
@@ -159,23 +169,8 @@ The JSON download wraps the same responses with **structured objects** instead o
 
 - `responses[].calibration` — object with `status`, `quality`, `quality_score`, `passed`, `face_detection_rate`, `stability_score`, `quality_reason`, `completed_at`.
 - `responses[].attention` — object with the same keys as the `attention_*` CSV columns.
-- `responses[].gaze_count` / `click_count` — aggregates matching CSV.
-- Raw time-series gaze points are **not** inlined in the bulk export; counts and interaction/click records are the researcher-facing surface area in this schema.
+- `responses[].gaze_count` / `click_count` — aggregate counts matching CSV.
+- `responses[].gaze_samples[]` — per-sample gaze time series: `sample_index`, `timestamp_ms`, `post_id`, `screen_x`, `screen_y`, left/right iris coordinates, and `received_at`.
+- `responses[].click_records[]` — per-click time series: `timestamp_ms`, `post_id`, `screen_x`, `screen_y`, `target_element`, and `received_at`.
 
 Use JSON when you prefer nested objects without CSV string parsing; use CSV for spreadsheets and statistical packages.
-
-## Planned Detailed Time-Series Export
-
-The backend already stores timestamped gaze and click rows during the participant run. The current CSV/JSON export keeps the default download compact by exporting counts and response-level attention confidence, not every sample.
-
-The next export improvement should add an optional **detailed time-series export** for studies that need second-by-second analysis:
-
-1. Keep the normal CSV/JSON export as the default researcher download.
-2. Add a separate “Detailed tracking export” action or query option so large files are requested intentionally.
-3. Export gaze samples at the configured survey interval, normally `1000 ms` for demo studies.
-4. Include `timestamp_ms`, `post_id`, `screen_x`, `screen_y`, iris coordinates when available, and matching click records with `target_element`.
-5. Scope the export by survey, response status, group, language, and date range before download.
-6. Prefer JSONL or zipped JSON/CSV for large studies instead of embedding all time-series rows inside each response object.
-7. Continue excluding raw video, participant tokens, passwords, and browser session data.
-
-This gives researchers a compact default export for normal review and an explicit high-volume export when they need replay-style analysis.

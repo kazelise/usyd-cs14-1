@@ -133,13 +133,11 @@ export default function AnalyticsPage() {
           createSurvey: "新建问卷",
           title: "分析",
           subtitle: "查看作答质量、互动行为和分组差异。",
-          export: "导出摘要",
           exportCsv: "导出CSV",
           exportJson: "导出JSON",
           exportLabel: "导出",
           exportMenuHeading: "下载内容",
-          exportSummaryDesc: "面板快照（JSON）",
-          exportCsvDesc: "完整研究数据（CSV）",
+          exportCsvDesc: "研究数据 + 每秒 gaze XY（CSV）",
           exportJsonDesc: "完整研究数据（JSON）",
           filters: "数据过滤",
           filtersShow: "显示过滤器",
@@ -196,7 +194,7 @@ export default function AnalyticsPage() {
           chartClicksByGroup: "各组点击次数",
           chartPostClicks: "帖子点击（相对对比）",
           exportFieldsHint:
-            "导出包含校准摘要、注意力信心指标、眼动/点击计数、互动（含屏幕点击坐标）及作答。完整字段说明见文档：",
+            "导出包含校准摘要、注意力信心指标、每秒 gaze XY/iris 样本、点击记录、互动及作答。完整字段说明见文档：",
           exportFieldsHintLink: "数据导出指南",
         }
       : {
@@ -208,13 +206,11 @@ export default function AnalyticsPage() {
           createSurvey: "Create Survey",
           title: "Analytics",
           subtitle: "Review response quality, engagement behaviour, and group-level differences.",
-          export: "Export Summary",
           exportCsv: "Export CSV",
           exportJson: "Export JSON",
           exportLabel: "Export",
           exportMenuHeading: "Download",
-          exportSummaryDesc: "Dashboard snapshot (JSON)",
-          exportCsvDesc: "Full research data (CSV)",
+          exportCsvDesc: "Research data + per-sample gaze XY (CSV)",
           exportJsonDesc: "Full research data (JSON)",
           filters: "Filters",
           filtersShow: "Show filters",
@@ -271,7 +267,7 @@ export default function AnalyticsPage() {
           chartClicksByGroup: "Clicks by group",
           chartPostClicks: "Post clicks (relative)",
           exportFieldsHint:
-            "Downloads include calibration summaries, attention-confidence metrics, gaze/click counts, interactions (with screen click coordinates), and answers. Column reference:",
+            "Downloads include calibration summaries, attention-confidence metrics, per-sample gaze XY/iris rows, click records, interactions, and answers. Column reference:",
           exportFieldsHintLink: "Data export guide",
         };
 
@@ -451,22 +447,6 @@ export default function AnalyticsPage() {
       }));
   }, [summary]);
 
-  function exportSummary() {
-    if (!summary || !selectedSurvey) return;
-    const payload = {
-      survey: selectedSurvey,
-      summary,
-      exported_at: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${selectedSurvey.title.replace(/\s+/g, "-").toLowerCase()}-analytics.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
   function downloadTextFile(filename: string, content: string, type: string) {
     const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
@@ -586,26 +566,9 @@ export default function AnalyticsPage() {
                 role="menuitem"
                 onClick={() => {
                   setExportMenuOpen(false);
-                  exportSummary();
-                }}
-                className="flex w-full items-start gap-3 px-4 py-3 text-left text-[13px] transition hover:bg-stone-50"
-              >
-                <span className="mt-0.5 inline-flex h-6 min-w-[44px] items-center justify-center rounded-full bg-stone-100 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
-                  JSON
-                </span>
-                <span className="flex flex-col">
-                  <span className="font-semibold text-black">{text.export}</span>
-                  <span className="text-[12px] leading-5 text-slate-500">{text.exportSummaryDesc}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setExportMenuOpen(false);
                   exportResearchData("csv");
                 }}
-                className="flex w-full items-start gap-3 border-t border-slate-100 px-4 py-3 text-left text-[13px] transition hover:bg-stone-50"
+                className="flex w-full items-start gap-3 px-4 py-3 text-left text-[13px] transition hover:bg-stone-50"
               >
                 <span className="mt-0.5 inline-flex h-6 min-w-[44px] items-center justify-center rounded-full bg-stone-100 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
                   CSV

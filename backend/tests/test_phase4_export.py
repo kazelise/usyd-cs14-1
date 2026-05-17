@@ -15,7 +15,7 @@ from app.main import app
 from app.models.participant import ParticipantInteraction, SurveyResponse
 from app.models.researcher import Researcher
 from app.models.survey import Survey, SurveyPost
-from app.models.tracking import CalibrationSession
+from app.models.tracking import CalibrationSession, ClickRecord, GazeRecord
 from app.services.export_service import (
     CSV_HEADERS,
     ExportFilters,
@@ -73,9 +73,9 @@ class ExportEndpointDB:
         if self.calls == 2:
             return ExecuteResult(scalars=[self.response])
         if self.calls == 3:
-            return ExecuteResult(rows=[(101, 12)])
+            return ExecuteResult(scalars=make_gaze_records(101))
         if self.calls == 4:
-            return ExecuteResult(rows=[(101, 3)])
+            return ExecuteResult(scalars=make_click_records(101))
         return ExecuteResult(rows=[])
 
 
@@ -203,13 +203,102 @@ def make_response(
     return response
 
 
+def make_gaze_records(response_id: int) -> list[GazeRecord]:
+    received_at = datetime(2026, 4, 25, 10, 6, 10)
+    return [
+        GazeRecord(
+            id=701,
+            response_id=response_id,
+            post_id=11,
+            timestamp_ms=1000,
+            screen_x=640.0,
+            screen_y=360.0,
+            left_iris_x=0.42,
+            left_iris_y=0.48,
+            right_iris_x=0.58,
+            right_iris_y=0.49,
+            received_at=received_at,
+        ),
+        GazeRecord(
+            id=702,
+            response_id=response_id,
+            post_id=11,
+            timestamp_ms=2000,
+            screen_x=660.0,
+            screen_y=372.0,
+            left_iris_x=0.43,
+            left_iris_y=0.49,
+            right_iris_x=0.59,
+            right_iris_y=0.50,
+            received_at=received_at + timedelta(seconds=1),
+        ),
+    ]
+
+
+def make_click_records(response_id: int) -> list[ClickRecord]:
+    received_at = datetime(2026, 4, 25, 10, 6, 30)
+    return [
+        ClickRecord(
+            id=801,
+            response_id=response_id,
+            post_id=11,
+            timestamp_ms=2500,
+            screen_x=700.0,
+            screen_y=512.0,
+            target_element="headline",
+            received_at=received_at,
+        )
+    ]
+
+
 def make_payload() -> dict:
     return build_export_payload(
         make_survey(),
         [make_response(101)],
         filters=ExportFilters(assigned_group=2, language="en"),
-        gaze_counts={101: 12},
-        click_counts={101: 3},
+        gaze_samples_by_response={
+            101: [
+                {
+                    "sample_index": 1,
+                    "id": 701,
+                    "post_id": 11,
+                    "timestamp_ms": 1000,
+                    "screen_x": 640.0,
+                    "screen_y": 360.0,
+                    "left_iris_x": 0.42,
+                    "left_iris_y": 0.48,
+                    "right_iris_x": 0.58,
+                    "right_iris_y": 0.49,
+                    "received_at": "2026-04-25T10:06:10",
+                },
+                {
+                    "sample_index": 2,
+                    "id": 702,
+                    "post_id": 11,
+                    "timestamp_ms": 2000,
+                    "screen_x": 660.0,
+                    "screen_y": 372.0,
+                    "left_iris_x": 0.43,
+                    "left_iris_y": 0.49,
+                    "right_iris_x": 0.59,
+                    "right_iris_y": 0.50,
+                    "received_at": "2026-04-25T10:06:11",
+                },
+            ]
+        },
+        click_records_by_response={
+            101: [
+                {
+                    "id": 801,
+                    "post_id": 11,
+                    "timestamp_ms": 2500,
+                    "screen_x": 700.0,
+                    "screen_y": 512.0,
+                    "target_element": "headline",
+                    "received_at": "2026-04-25T10:06:30",
+                }
+            ]
+        },
         question_responses_by_response={
             101: [
                 {
@@ -268,8 +357,11 @@ def test_json_export_endpoint_returns_structured_export():
     assert response.status_code == 200
     body = response.json()
     assert body["survey_id"] == 7
-    assert body["responses"][0]["gaze_count"] == 12
-    assert body["responses"][0]["click_count"] == 3
+    assert body["responses"][0]["gaze_count"] == 2
+    assert body["responses"][0]["gaze_samples"][0]["screen_x"] == 640.0
+    assert body["responses"][0]["gaze_samples"][1]["timestamp_ms"] == 2000
+    assert body["responses"][0]["click_count"] == 1
+    assert body["responses"][0]["click_records"][0]["target_element"] == "headline"
     assert body["responses"][0]["calibration"]["passed"] is True
 
 
@@ -284,8 +376,12 @@ def test_csv_export_endpoint_streams_csv():
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/csv")
     rows = list(csv.DictReader(StringIO(response.text)))
-    assert rows[0]["gaze_count"] == "12"
-    assert rows[0]["click_count"] == "3"
+    assert len(rows) == 2
+    assert rows[0]["gaze_count"] == "2"
+    assert rows[0]["gaze_timestamp_ms"] == "1000"
+    assert rows[0]["gaze_screen_x"] == "640.0"
+    assert rows[1]["gaze_timestamp_ms"] == "2000"
+    assert rows[0]["click_count"] == "1"
 
 
 @pytest.mark.asyncio
@@ -353,8 +449,14 @@ def test_json_export_shape_tracking_summary_and_anonymization():
     assert exported["attention"]["detected_samples"] == 55
     assert exported["attention"]["expected_samples"] == 60
     assert exported["attention"]["missing_ms"] == 5_000
-    assert exported["gaze_count"] == 12
-    assert exported["click_count"] == 3
+    assert exported["gaze_count"] == 2
+    assert exported["gaze_samples"][0]["timestamp_ms"] == 1000
+    assert exported["gaze_samples"][0]["screen_x"] == 640.0
+    assert exported["gaze_samples"][0]["screen_y"] == 360.0
+    assert exported["gaze_samples"][0]["left_iris_x"] == 0.42
+    assert exported["gaze_samples"][1]["timestamp_ms"] == 2000
+    assert exported["click_count"] == 1
+    assert exported["click_records"][0]["screen_x"] == 700.0
     assert exported["participant_interactions"][0]["action_type"] == "like"
     assert exported["question_responses"][0]["answer_text"] == "Interesting"
     assert exported["displayed_posts"][0]["display_likes"] == 999
@@ -367,7 +469,7 @@ def test_csv_export_headers_and_flattened_summary_fields():
     rows = list(reader)
 
     assert reader.fieldnames == CSV_HEADERS
-    assert len(rows) == 1
+    assert len(rows) == 2
     assert rows[0]["participant_id"].startswith("anon_")
     assert rows[0]["randomization_seed"] == "seed-101"
     assert json.loads(rows[0]["shown_post_order"]) == [11]
@@ -380,7 +482,17 @@ def test_csv_export_headers_and_flattened_summary_fields():
     assert rows[0]["attention_coverage"] == "0.917"
     assert rows[0]["attention_detected_samples"] == "55"
     assert rows[0]["attention_expected_samples"] == "60"
-    assert rows[0]["gaze_count"] == "12"
-    assert rows[0]["click_count"] == "3"
+    assert rows[0]["gaze_count"] == "2"
+    assert rows[0]["gaze_sample_index"] == "1"
+    assert rows[0]["gaze_timestamp_ms"] == "1000"
+    assert rows[0]["gaze_post_id"] == "11"
+    assert rows[0]["gaze_screen_x"] == "640.0"
+    assert rows[0]["gaze_screen_y"] == "360.0"
+    assert rows[0]["gaze_left_iris_x"] == "0.42"
+    assert rows[0]["gaze_right_iris_y"] == "0.49"
+    assert rows[1]["gaze_sample_index"] == "2"
+    assert rows[1]["gaze_timestamp_ms"] == "2000"
+    assert rows[0]["click_count"] == "1"
+    assert json.loads(rows[0]["click_records"])[0]["target_element"] == "headline"
     assert json.loads(rows[0]["participant_interactions"])[0]["action_type"] == "like"
     assert json.loads(rows[0]["question_responses"])[0]["answer_text"] == "Interesting"
