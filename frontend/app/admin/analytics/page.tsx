@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -54,11 +55,20 @@ type AnalyticsSummary = {
   summary: string;
 };
 
-type ParticipantComment = {
-  id: number;
-  post_id: number;
-  text: string;
-  created_at: string;
+type ChartScope = "posts" | "groups";
+type ChartStyle = "bars" | "columns" | "donut";
+type ChartRow = {
+  id: string;
+  label: string;
+  detail?: string;
+  value: number;
+  displayValue: string;
+};
+type MetricOption<T> = {
+  id: string;
+  label: string;
+  suffix?: string;
+  getValue: (item: T) => number;
 };
 
 function formatPercent(value: number) {
@@ -103,14 +113,138 @@ function HorizontalRatioBars({
   );
 }
 
+function ChartStyleButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3 py-1.5 text-[12px] font-semibold transition ${
+        active
+          ? "bg-[#e4f7f4] text-[#0f3146]"
+          : "bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function DataChart({
+  rows,
+  style,
+  emptyText,
+}: {
+  rows: ChartRow[];
+  style: ChartStyle;
+  emptyText: string;
+}) {
+  const palette = ["#0f3146", "#33b9b2", "#8fd8d4", "#f0b67f", "#7f9fc0", "#d2e9e7", "#c8a2c8", "#9fb7a5"];
+  const max = Math.max(1e-6, ...rows.map((row) => row.value));
+  const total = rows.reduce((sum, row) => sum + row.value, 0);
+
+  if (!rows.length) {
+    return <p className="mt-5 text-[13px] text-slate-500">{emptyText}</p>;
+  }
+
+  if (style === "donut") {
+    let cursor = 0;
+    const gradient =
+      total > 0
+        ? rows
+            .map((row, index) => {
+              const start = cursor;
+              const end = cursor + (row.value / total) * 100;
+              cursor = end;
+              return `${palette[index % palette.length]} ${start}% ${end}%`;
+            })
+            .join(", ")
+        : "#e5e7eb 0% 100%";
+
+    return (
+      <div className="mt-5 grid gap-5 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
+        <div className="relative mx-auto h-[210px] w-[210px] rounded-full" style={{ background: `conic-gradient(${gradient})` }}>
+          <div className="absolute inset-[34px] flex flex-col items-center justify-center rounded-full bg-white text-center shadow-[inset_0_0_0_1px_rgba(15,49,70,0.08)]">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Total</span>
+            <span className="mt-1 text-[30px] font-semibold tracking-[-0.05em] text-black">{Math.round(total)}</span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {rows.slice(0, 8).map((row, index) => (
+            <div key={row.id} className="flex items-center justify-between gap-3 rounded-[14px] bg-stone-50 px-3 py-2">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: palette[index % palette.length] }} />
+                <span className="min-w-0 truncate text-[13px] font-medium text-slate-700">{row.label}</span>
+              </span>
+              <span className="shrink-0 text-[13px] font-semibold tabular-nums text-black">{row.displayValue}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (style === "columns") {
+    return (
+      <div className="mt-5 flex h-[300px] items-end gap-3 overflow-x-auto rounded-[22px] bg-gradient-to-b from-white to-stone-50 px-4 pb-4 pt-6">
+        {rows.slice(0, 12).map((row, index) => (
+          <div key={row.id} className="flex min-w-[82px] flex-1 flex-col items-center gap-2">
+            <span className="text-[12px] font-semibold tabular-nums text-black">{row.displayValue}</span>
+            <div
+              className="w-full rounded-t-[18px] bg-gradient-to-t from-[#0f3146] to-[#72d2cc] shadow-[0_16px_28px_rgba(15,49,70,0.16)]"
+              style={{ height: `${Math.max(8, (row.value / max) * 210)}px`, opacity: 1 - Math.min(index * 0.035, 0.28) }}
+              role="presentation"
+            />
+            <span className="line-clamp-2 min-h-[32px] text-center text-[11px] leading-4 text-slate-500">{row.label}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-5 space-y-3">
+      {rows.slice(0, 12).map((row, index) => (
+        <div key={row.id} className="rounded-[18px] border border-slate-100 bg-white px-4 py-3 shadow-[0_14px_30px_rgba(15,49,70,0.04)]">
+          <div className="flex items-baseline justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-[13px] font-semibold text-black">{row.label}</p>
+              {row.detail && <p className="mt-0.5 truncate text-[11px] uppercase tracking-[0.12em] text-slate-400">{row.detail}</p>}
+            </div>
+            <span className="shrink-0 text-[14px] font-semibold tabular-nums text-[#0f3146]">{row.displayValue}</span>
+          </div>
+          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#0f3146] to-[#62c9c4]"
+              style={{ width: `${Math.max(2, Math.min(100, (row.value / max) * 100))}%` }}
+              role="presentation"
+            />
+          </div>
+          <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300">
+            Rank {index + 1}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const router = useRouter();
   const locale: string = "en";
   const [surveys, setSurveys] = useState<SurveyListItem[]>([]);
   const [selectedSurveyId, setSelectedSurveyId] = useState<number | null>(null);
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
-  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
-  const [commentsByPost, setCommentsByPost] = useState<Record<number, ParticipantComment[]>>({});
+  const [chartScope, setChartScope] = useState<ChartScope>("posts");
+  const [chartMetric, setChartMetric] = useState("clicks");
+  const [chartStyle, setChartStyle] = useState<ChartStyle>("bars");
   const [loading, setLoading] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState("");
@@ -322,14 +456,7 @@ export default function AnalyticsPage() {
     api.getSurveyAnalytics(selectedSurveyId, exportFilters)
       .then((res) => {
         if (!active) return;
-        const nextSummary = res as AnalyticsSummary;
-        setSummary(nextSummary);
-        setSelectedPostId((current) => {
-          if (current && nextSummary.posts.some((post) => post.post_id === current)) {
-            return current;
-          }
-          return nextSummary.posts[0]?.post_id ?? null;
-        });
+        setSummary(res as AnalyticsSummary);
       })
       .catch((err: any) => {
         if (!active) return;
@@ -342,23 +469,6 @@ export default function AnalyticsPage() {
       active = false;
     };
   }, [selectedSurveyId, exportFilters, text.failedSummary]);
-
-  useEffect(() => {
-    if (!selectedSurveyId) return;
-    let active = true;
-    api.getSurveyParticipantComments(selectedSurveyId)
-      .then((res) => {
-        if (!active) return;
-        setCommentsByPost((res.comments_by_post || {}) as Record<number, ParticipantComment[]>);
-      })
-      .catch(() => {
-        if (!active) return;
-        setCommentsByPost({});
-      });
-    return () => {
-      active = false;
-    };
-  }, [selectedSurveyId]);
 
   useEffect(() => {
     if (!exportMenuOpen) return;
@@ -418,37 +528,84 @@ export default function AnalyticsPage() {
     return [...summary.group_breakdown].sort((a, b) => b.clicks - a.clicks)[0];
   }, [summary]);
 
-  const selectedPost = useMemo(() => {
-    if (!summary?.posts?.length) return null;
-    return summary.posts.find((post) => post.post_id === selectedPostId) ?? summary.posts[0];
-  }, [selectedPostId, summary]);
+  const postMetricOptions: MetricOption<PostAnalytics>[] = useMemo(
+    () => [
+      { id: "clicks", label: "Clicks", getValue: (post) => post.clicks },
+      { id: "likes", label: "Likes", getValue: (post) => post.likes },
+      { id: "comments", label: "Researcher comments", getValue: (post) => post.comments },
+      { id: "participant_comment_count", label: "Participant comments", getValue: (post) => post.participant_comment_count },
+      { id: "shares", label: "Shares", getValue: (post) => post.shares },
+    ],
+    [],
+  );
 
-  const groupCompletionBars = useMemo(() => {
-    if (!summary?.group_breakdown?.length) return [];
-    return summary.group_breakdown.map((g) => ({
-      label: `Group ${g.group_id}`,
-      value: g.completion_rate,
-      displayValue: formatPercent(g.completion_rate),
-    }));
+  const groupMetricOptions: MetricOption<GroupAnalytics>[] = useMemo(
+    () => [
+      { id: "participants", label: "Participants", getValue: (group) => group.participants },
+      { id: "completed", label: "Completed", getValue: (group) => group.completed },
+      { id: "completion_rate", label: "Completion rate", suffix: "%", getValue: (group) => group.completion_rate },
+      { id: "clicks", label: "Clicks", getValue: (group) => group.clicks },
+      { id: "likes", label: "Likes", getValue: (group) => group.likes },
+      { id: "comments", label: "Comments", getValue: (group) => group.comments },
+      { id: "shares", label: "Shares", getValue: (group) => group.shares },
+    ],
+    [],
+  );
+
+  const activePostMetric = postMetricOptions.find((option) => option.id === chartMetric) ?? postMetricOptions[0];
+  const activeGroupMetric = groupMetricOptions.find((option) => option.id === chartMetric) ?? groupMetricOptions[0];
+  const metricOptions = chartScope === "posts" ? postMetricOptions : groupMetricOptions;
+  const activeMetric = chartScope === "posts" ? activePostMetric : activeGroupMetric;
+
+  const chartRows = useMemo<ChartRow[]>(() => {
+    if (!summary || !activeMetric) return [];
+    if (chartScope === "posts") {
+      return [...summary.posts]
+        .map((post) => {
+          const value = activePostMetric.getValue(post);
+          return {
+            id: `post-${post.post_id}`,
+            label: post.title.length > 68 ? `${post.title.slice(0, 67)}…` : post.title,
+            detail: post.source || "Unknown source",
+            value,
+            displayValue: `${Math.round(value)}${activePostMetric.suffix ?? ""}`,
+          };
+        })
+        .sort((a, b) => b.value - a.value);
+    }
+    return [...summary.group_breakdown]
+      .map((group) => {
+        const value = activeGroupMetric.getValue(group);
+        return {
+          id: `group-${group.group_id}`,
+          label: `Group ${group.group_id}`,
+          detail: `${group.participants} participants`,
+          value,
+          displayValue: activeGroupMetric.suffix === "%" ? formatPercent(value) : `${Math.round(value)}`,
+        };
+      })
+      .sort((a, b) => b.value - a.value);
+  }, [activeGroupMetric, activeMetric, activePostMetric, chartScope, summary]);
+
+  const engagementRows = useMemo<ChartRow[]>(() => {
+    if (!summary) return [];
+    return [
+      { id: "clicks", label: "Clicks", value: summary.total_clicks, displayValue: String(summary.total_clicks) },
+      { id: "likes", label: "Likes", value: summary.total_likes, displayValue: String(summary.total_likes) },
+      { id: "comments", label: "Comments", value: summary.total_comments, displayValue: String(summary.total_comments) },
+      { id: "shares", label: "Shares", value: summary.total_shares, displayValue: String(summary.total_shares) },
+    ];
   }, [summary]);
 
-  const groupClickBars = useMemo(() => {
-    if (!summary?.group_breakdown?.length) return [];
-    return summary.group_breakdown.map((g) => ({
-      label: `Group ${g.group_id}`,
-      value: g.clicks,
-    }));
-  }, [summary]);
-
-  const postClickBars = useMemo(() => {
-    if (!summary?.posts?.length) return [];
-    return [...summary.posts]
-      .sort((a, b) => b.clicks - a.clicks)
-      .slice(0, 8)
-      .map((p) => ({
-        label: p.title.length > 48 ? `${p.title.slice(0, 47)}…` : p.title,
-        value: p.clicks,
-      }));
+  const qualityBars = useMemo(() => {
+    if (!summary) return [];
+    return [
+      { label: "Completion rate", value: summary.completion_rate, displayValue: formatPercent(summary.completion_rate) },
+      { label: "Calibration success", value: summary.calibration_success_rate, displayValue: formatPercent(summary.calibration_success_rate) },
+      { label: "Fast completions", value: summary.fast_completions },
+      { label: "Low interaction", value: summary.low_interaction_responses },
+      { label: "Duplicate comments", value: summary.duplicate_comment_sessions },
+    ];
   }, [summary]);
 
   function exportSummary() {
@@ -808,49 +965,139 @@ export default function AnalyticsPage() {
             </div>
           </section>
 
-          <section className="mt-4 grid gap-3 lg:grid-cols-2">
-            <div className="surface-panel px-5 py-4">
-              <p className="section-kicker">{text.chartCompletionByGroup}</p>
-              {groupCompletionBars.length ? (
-                <HorizontalRatioBars bars={groupCompletionBars} valueSuffix="%" />
-              ) : (
-                <p className="mt-3 text-[13px] text-slate-500">{text.noGroupData}</p>
-              )}
+          <section className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="surface-panel px-5 py-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="section-kicker">Explore data</p>
+                  <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.04em] text-black">
+                    Choose the data and chart you need
+                  </h2>
+                  <p className="mt-1 max-w-2xl text-[13px] leading-6 text-slate-500">
+                    Switch between posts and groups, then select a metric and chart style for a cleaner read of the same analytics data.
+                  </p>
+                </div>
+                <div className="flex shrink-0 rounded-full border border-slate-100 bg-stone-50 p-1">
+                  <ChartStyleButton
+                    active={chartScope === "posts"}
+                    onClick={() => {
+                      setChartScope("posts");
+                      setChartMetric("clicks");
+                    }}
+                  >
+                    Posts
+                  </ChartStyleButton>
+                  <ChartStyleButton
+                    active={chartScope === "groups"}
+                    onClick={() => {
+                      setChartScope("groups");
+                      setChartMetric("participants");
+                    }}
+                  >
+                    Groups
+                  </ChartStyleButton>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-3 border-y border-slate-100 py-3 md:flex-row md:items-center md:justify-between">
+                <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 md:min-w-[220px]">
+                  Metric
+                  <select
+                    value={activeMetric.id}
+                    onChange={(event) => setChartMetric(event.target.value)}
+                    className="h-10 rounded-full border border-slate-200 bg-white px-3 text-[13px] font-medium normal-case tracking-normal text-slate-700 outline-none transition hover:border-slate-300 focus:border-[rgba(0,167,160,0.42)] focus:shadow-[0_0_0_4px_rgba(0,167,160,0.12)]"
+                  >
+                    {metricOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="flex rounded-full border border-slate-100 bg-stone-50 p-1">
+                  <ChartStyleButton active={chartStyle === "bars"} onClick={() => setChartStyle("bars")}>
+                    Bars
+                  </ChartStyleButton>
+                  <ChartStyleButton active={chartStyle === "columns"} onClick={() => setChartStyle("columns")}>
+                    Columns
+                  </ChartStyleButton>
+                  <ChartStyleButton active={chartStyle === "donut"} onClick={() => setChartStyle("donut")}>
+                    Donut
+                  </ChartStyleButton>
+                </div>
+              </div>
+
+              <DataChart
+                rows={chartRows}
+                style={chartStyle}
+                emptyText={chartScope === "posts" ? "No post engagement recorded yet." : text.noGroupData}
+              />
             </div>
-            <div className="surface-panel px-5 py-4">
-              <p className="section-kicker">{text.chartClicksByGroup}</p>
-              {groupClickBars.length ? (
-                <HorizontalRatioBars bars={groupClickBars} />
-              ) : (
-                <p className="mt-3 text-[13px] text-slate-500">{text.noGroupData}</p>
-              )}
-            </div>
+
+            <aside className="surface-panel px-5 py-5">
+              <p className="section-kicker">Response quality</p>
+              <h2 className="mt-2 text-[20px] font-semibold tracking-[-0.04em] text-black">
+                Signal check
+              </h2>
+              <p className="mt-1 text-[13px] leading-6 text-slate-500">
+                Key completion and calibration signals are grouped here so quality checks stay visible without opening a post drill-down.
+              </p>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="rounded-[16px] bg-stone-50 px-3 py-3">
+                  <p className="section-kicker">Fast</p>
+                  <p className="mt-1 text-[24px] font-semibold tracking-[-0.05em] text-black">{summary.fast_completions}</p>
+                </div>
+                <div className="rounded-[16px] bg-stone-50 px-3 py-3">
+                  <p className="section-kicker">Low interaction</p>
+                  <p className="mt-1 text-[24px] font-semibold tracking-[-0.05em] text-black">{summary.low_interaction_responses}</p>
+                </div>
+                <div className="rounded-[16px] bg-stone-50 px-3 py-3">
+                  <p className="section-kicker">Duplicates</p>
+                  <p className="mt-1 text-[24px] font-semibold tracking-[-0.05em] text-black">{summary.duplicate_comment_sessions}</p>
+                </div>
+                <div className="rounded-[16px] bg-stone-50 px-3 py-3">
+                  <p className="section-kicker">Gaze</p>
+                  <p className="mt-1 text-[24px] font-semibold tracking-[-0.05em] text-black">{summary.total_gaze_samples}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-[18px] bg-white">
+                <HorizontalRatioBars bars={qualityBars} />
+              </div>
+            </aside>
           </section>
 
-          <section className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-            <div className="surface-panel px-5 py-4">
+          <section className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <div className="surface-panel px-5 py-5">
+              <p className="section-kicker">Engagement mix</p>
+              <DataChart rows={engagementRows} style="donut" emptyText="No engagement recorded yet." />
+            </div>
+
+            <div className="surface-panel px-5 py-5">
               <p className="section-kicker">{text.insights}</p>
-              <ul className="mt-3 space-y-3">
-                <li className="flex flex-col gap-0.5 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <div className="rounded-[18px] bg-stone-50 px-4 py-4">
                   <span className="section-kicker">{text.topCohort}</span>
-                  <span className="text-[15px] font-semibold tracking-[-0.02em] text-black">
+                  <p className="mt-2 text-[17px] font-semibold tracking-[-0.03em] text-black">
                     {topGroup ? `Group ${topGroup.group_id}` : text.noGroupData}
-                  </span>
-                  <span className="text-[12px] leading-5 text-slate-500">
+                  </p>
+                  <p className="mt-1 text-[12px] leading-5 text-slate-500">
                     {topGroup
                       ? text.topCohortCopy.replace("{clicks}", String(topGroup.clicks)).replace("{comments}", String(topGroup.comments))
                       : text.topCohortEmpty}
-                  </span>
-                </li>
-                <li className="flex flex-col gap-0.5 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                  </p>
+                </div>
+                <div className="rounded-[18px] bg-stone-50 px-4 py-4">
                   <span className="section-kicker">{text.engagementTotals}</span>
-                  <span className="text-[13px] leading-6 text-slate-700">{engagementLine}</span>
-                </li>
-                <li className="flex flex-col gap-0.5">
+                  <p className="mt-2 text-[13px] leading-6 text-slate-700">{engagementLine}</p>
+                </div>
+                <div className="rounded-[18px] bg-stone-50 px-4 py-4">
                   <span className="section-kicker">{text.exportReadiness}</span>
-                  <span className="text-[13px] leading-6 text-slate-700">{exportReadinessLine}</span>
-                </li>
-              </ul>
+                  <p className="mt-2 text-[13px] leading-6 text-slate-700">{exportReadinessLine}</p>
+                </div>
+              </div>
 
               {summary.summary && (
                 <details className="mt-4 group">
@@ -862,208 +1109,6 @@ export default function AnalyticsPage() {
                   </summary>
                   <p className="mt-3 text-[13px] leading-6 text-slate-500">{summary.summary}</p>
                 </details>
-              )}
-            </div>
-
-            <div className="surface-panel overflow-hidden">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-                <p className="section-kicker">{text.groupComparison}</p>
-                {topGroup && (
-                  <span className="text-[11px] font-medium text-slate-400">
-                    {summary.group_breakdown.length} groups
-                  </span>
-                )}
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-[13px]">
-                  <thead>
-                    <tr className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                      <th className="px-5 py-2.5 font-semibold">{text.tableHeadGroup}</th>
-                      <th className="px-3 py-2.5 font-semibold">{text.tableHeadParticipants}</th>
-                      <th className="px-3 py-2.5 font-semibold">{text.tableHeadCompletion}</th>
-                      <th className="px-3 py-2.5 font-semibold">{text.tableHeadClicks}</th>
-                      <th className="px-3 py-2.5 font-semibold">{text.tableHeadLikes}</th>
-                      <th className="px-3 py-2.5 font-semibold">{text.tableHeadComments}</th>
-                      <th className="px-3 py-2.5 pr-5 font-semibold">{text.tableHeadShares}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summary.group_breakdown.map((group) => {
-                      const isTop = topGroup?.group_id === group.group_id;
-                      return (
-                        <tr
-                          key={group.group_id}
-                          className={`border-t border-slate-100 text-slate-600 ${
-                            isTop ? "bg-stone-50" : ""
-                          }`}
-                        >
-                          <td className={`px-5 py-3 font-semibold text-black ${isTop ? "border-l-2 border-black pl-[18px]" : ""}`}>
-                            Group {group.group_id}
-                          </td>
-                          <td className="px-3 py-3">{group.participants}</td>
-                          <td className="px-3 py-3">{formatPercent(group.completion_rate)}</td>
-                          <td className="px-3 py-3 font-medium text-black">{group.clicks}</td>
-                          <td className="px-3 py-3">{group.likes}</td>
-                          <td className="px-3 py-3">{group.comments}</td>
-                          <td className="px-3 py-3 pr-5">{group.shares}</td>
-                        </tr>
-                      );
-                    })}
-                    {!summary.group_breakdown.length && (
-                      <tr>
-                        <td colSpan={7} className="px-5 py-6 text-center text-[12px] text-slate-400">
-                          {text.noGroupData}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <section className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.25fr)_320px]">
-            <div className="surface-panel overflow-hidden">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-                <p className="section-kicker">Post performance</p>
-                <span className="text-[11px] font-medium text-slate-400">{summary.posts.length} posts</span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-[13px]">
-                  <thead>
-                    <tr className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                      <th className="px-5 py-2.5 font-semibold">Post</th>
-                      <th className="px-3 py-2.5 font-semibold">Clicks</th>
-                      <th className="px-3 py-2.5 font-semibold">Likes</th>
-                      <th className="px-3 py-2.5 font-semibold">Comments</th>
-                      <th className="px-3 py-2.5 font-semibold">Shares</th>
-                      <th className="px-3 py-2.5 pr-5 font-semibold">Groups</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summary.posts.map((post) => {
-                      const active = selectedPost?.post_id === post.post_id;
-                      return (
-                        <tr
-                          key={post.post_id}
-                          className={`cursor-pointer border-t border-slate-100 text-slate-600 transition hover:bg-stone-50 ${
-                            active ? "bg-stone-50" : ""
-                          }`}
-                          onClick={() => setSelectedPostId(post.post_id)}
-                        >
-                          <td className={`px-5 py-3 ${active ? "border-l-2 border-black pl-[18px]" : ""}`}>
-                            <p className="font-semibold text-black">{post.title}</p>
-                            <p className="mt-0.5 text-[11px] uppercase tracking-[0.12em] text-slate-400">
-                              {post.source || "Unknown source"}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3 font-medium text-black">{post.clicks}</td>
-                          <td className="px-3 py-3">{post.likes}</td>
-                          <td className="px-3 py-3">{post.comments}</td>
-                          <td className="px-3 py-3">{post.shares}</td>
-                          <td className="px-3 py-3 pr-5">
-                            {post.visible_groups?.length ? post.visible_groups.join(", ") : "All"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <aside className="surface-panel px-5 py-4">
-              <p className="section-kicker">Post drill-down</p>
-              {selectedPost ? (
-                <>
-                  <h2 className="mt-2 text-[18px] font-semibold tracking-[-0.03em] text-black">{selectedPost.title}</h2>
-                  <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-slate-400">
-                    {selectedPost.source || "Unknown source"}
-                  </p>
-
-                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
-                      <p className="section-kicker">Clicks</p>
-                      <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{selectedPost.clicks}</p>
-                    </div>
-                    <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
-                      <p className="section-kicker">Likes</p>
-                      <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{selectedPost.likes}</p>
-                    </div>
-                    <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
-                      <p className="section-kicker">Comments</p>
-                      <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{selectedPost.comments}</p>
-                    </div>
-                    <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
-                      <p className="section-kicker">Shares</p>
-                      <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{selectedPost.shares}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-3">
-                    <p className="section-kicker">Visibility</p>
-                    <p className="mt-1 text-[13px] leading-6 text-slate-600">
-                      {selectedPost.visible_groups?.length
-                        ? `Visible to groups ${selectedPost.visible_groups.join(", ")}`
-                        : "Visible to all participant groups"}
-                    </p>
-                  </div>
-
-                  <div className="mt-4">
-                    <p className="section-kicker">Participant comments</p>
-                    <div className="mt-2 space-y-2">
-                      {(commentsByPost[selectedPost.post_id] || []).slice(0, 3).map((comment) => (
-                        <div key={comment.id} className="rounded-[14px] border border-slate-100 bg-white px-3 py-3">
-                          <p className="text-[12px] font-semibold text-black">Participant response</p>
-                          <p className="mt-1 text-[13px] leading-6 text-slate-600">{comment.text}</p>
-                        </div>
-                      ))}
-                      {!(commentsByPost[selectedPost.post_id] || []).length && (
-                        <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-3 text-[13px] leading-6 text-slate-500">
-                          No participant comments captured for this post yet.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <p className="mt-3 text-[13px] leading-6 text-slate-500">
-                  Select a post row to inspect its engagement mix and comment sample.
-                </p>
-              )}
-            </aside>
-          </section>
-
-          <section className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-            <div className="surface-panel px-5 py-4">
-              <p className="section-kicker">Response quality</p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
-                  <p className="section-kicker">Fast completions</p>
-                  <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{summary.fast_completions}</p>
-                </div>
-                <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
-                  <p className="section-kicker">Low interaction</p>
-                  <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{summary.low_interaction_responses}</p>
-                </div>
-                <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
-                  <p className="section-kicker">Duplicate comments</p>
-                  <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{summary.duplicate_comment_sessions}</p>
-                </div>
-                <div className="rounded-[14px] border border-slate-100 bg-stone-50 px-3 py-2.5">
-                  <p className="section-kicker">Gaze samples</p>
-                  <p className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{summary.total_gaze_samples}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="surface-panel px-5 py-4">
-              <p className="section-kicker">{text.chartPostClicks}</p>
-              {postClickBars.length ? (
-                <HorizontalRatioBars bars={postClickBars} />
-              ) : (
-                <p className="mt-3 text-[13px] text-slate-500">No post engagement recorded yet.</p>
               )}
             </div>
           </section>
