@@ -14,6 +14,7 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import { ExternalPostImage } from "@/components/external-post-image";
+import { useLocale } from "@/components/locale-provider";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
 type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky" | "douyin";
@@ -124,7 +125,7 @@ function hostnameFromUrl(url: string) {
 
 export default function SurveyEditPage() {
   const router = useRouter();
-  const locale: string = "en";
+  const { locale } = useLocale();
   const params = useParams();
   const searchParams = useSearchParams();
   const surveyId = Number(params.id);

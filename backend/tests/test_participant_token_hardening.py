@@ -171,7 +171,7 @@ async def test_get_response_state_rejects_wrong_token():
     db = SequenceDB([ScalarOneResult(make_response(token="right-token"))])
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_response_state(10, participant_token="wrong-token", db=db)
+        await get_response_state(10, x_participant_token="wrong-token", db=db)
 
     assert exc_info.value.status_code == 404
 
@@ -222,7 +222,7 @@ async def test_delete_participant_comment_rejects_wrong_token():
     db = SequenceDB([ScalarOneResult(make_response(token="right-token"))])
 
     with pytest.raises(HTTPException) as exc_info:
-        await delete_participant_comment(10, 555, participant_token="wrong-token", db=db)
+        await delete_participant_comment(10, 555, x_participant_token="wrong-token", db=db)
 
     assert exc_info.value.status_code == 404
     assert db.deleted == []
@@ -282,7 +282,7 @@ async def test_get_response_state_accepts_correct_token():
         ]
     )
 
-    state = await get_response_state(10, participant_token="right-token", db=db)
+    state = await get_response_state(10, x_participant_token="right-token", db=db)
 
     assert state.liked_post_ids == [42]
     assert state.comments_by_post == {}
@@ -316,7 +316,7 @@ async def test_get_response_state_allows_completed_response():
         ]
     )
 
-    state = await get_response_state(10, participant_token="right-token", db=db)
+    state = await get_response_state(10, x_participant_token="right-token", db=db)
 
     assert state.liked_post_ids == []
 

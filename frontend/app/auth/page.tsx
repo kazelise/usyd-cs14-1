@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { ChartIcon, CheckCircleIcon, SurveyIcon, WorkspaceIcon } from "@/components/icons";
+import { useLocale } from "@/components/locale-provider";
 
 export default function AuthPage() {
   const router = useRouter();
-  const locale: string = "en";
+  const { locale } = useLocale();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,11 +69,6 @@ export default function AuthPage() {
           emailPlaceholder: "researcher@lab.edu",
           passwordPlaceholder: "Enter your password",
         };
-
-  useEffect(() => {
-    document.documentElement.lang = "en";
-    document.documentElement.dir = "ltr";
-  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -177,8 +173,9 @@ export default function AuthPage() {
             <form onSubmit={handleSubmit} className="mt-8 space-y-4">
               {!isLogin && (
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-600">{text.researcherName}</label>
+                  <label htmlFor="researcher-name" className="mb-2 block text-sm font-medium text-slate-600">{text.researcherName}</label>
                   <input
+                    id="researcher-name"
                     type="text"
                     placeholder={text.namePlaceholder}
                     value={name}
@@ -190,8 +187,9 @@ export default function AuthPage() {
               )}
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-600">{text.email}</label>
+                <label htmlFor="email-address" className="mb-2 block text-sm font-medium text-slate-600">{text.email}</label>
                 <input
+                  id="email-address"
                   type="email"
                   placeholder={text.emailPlaceholder}
                   value={email}
@@ -202,8 +200,9 @@ export default function AuthPage() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-600">{text.password}</label>
+                <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-600">{text.password}</label>
                 <input
+                  id="password"
                   type="password"
                   placeholder={text.passwordPlaceholder}
                   value={password}

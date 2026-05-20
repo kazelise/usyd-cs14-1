@@ -41,7 +41,7 @@ def test_analytics_summary_exposes_tracking_evidence_totals():
                 visible_groups=[1],
                 clicks=6,
                 likes=3,
-                comments=1,
+                comments=2,
                 shares=1,
                 participant_comment_count=1,
             )
@@ -50,6 +50,7 @@ def test_analytics_summary_exposes_tracking_evidence_totals():
     )
 
     assert summary.model_dump()["total_gaze_samples"] == 24
+    assert summary.posts[0].comments != summary.posts[0].participant_comment_count
 
 
 def test_analytics_response_scope_default_excludes_preview_only():

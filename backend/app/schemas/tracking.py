@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+MAX_SCREEN_COORDINATE = 20_000.0
+
 # ── Calibration ───────────────────────────────────────
 
 
@@ -122,8 +124,8 @@ class GazeDataPoint(BaseModel):
 
     post_id: int | None = Field(default=None, gt=0)
     timestamp_ms: int = Field(ge=0)
-    screen_x: float
-    screen_y: float
+    screen_x: float = Field(ge=0, le=MAX_SCREEN_COORDINATE)
+    screen_y: float = Field(ge=0, le=MAX_SCREEN_COORDINATE)
     left_iris_x: float | None = Field(default=None, ge=0, le=1)
     left_iris_y: float | None = Field(default=None, ge=0, le=1)
     right_iris_x: float | None = Field(default=None, ge=0, le=1)
@@ -148,8 +150,8 @@ class GazeBatchOut(BaseModel):
 class ClickDataPoint(BaseModel):
     post_id: int | None = Field(default=None, gt=0)
     timestamp_ms: int = Field(ge=0)
-    screen_x: float
-    screen_y: float
+    screen_x: float = Field(ge=0, le=MAX_SCREEN_COORDINATE)
+    screen_y: float = Field(ge=0, le=MAX_SCREEN_COORDINATE)
     target_element: str | None = Field(default=None, min_length=1, max_length=80)
 
 

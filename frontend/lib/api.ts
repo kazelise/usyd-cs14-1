@@ -1,4 +1,9 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const PARTICIPANT_TOKEN_HEADER = "X-Participant-Token";
+
+function participantAuthHeaders(participantToken: string): Record<string, string> {
+  return { [PARTICIPANT_TOKEN_HEADER]: participantToken };
+}
 
 type SurveyExportFilters = {
   condition?: number;
@@ -171,7 +176,9 @@ export const api = {
   getPublicSurvey: (shareCode: string, language?: string) =>
     request(`/surveys/public/${shareCode}${language ? `?language=${encodeURIComponent(language)}` : ""}`),
   getResponseState: (responseId: number, participantToken: string) =>
-    request(`/surveys/responses/${responseId}/state?participant_token=${encodeURIComponent(participantToken)}`),
+    request(`/surveys/responses/${responseId}/state`, {
+      headers: participantAuthHeaders(participantToken),
+    }),
   toggleLike: (responseId: number, postId: number, participantToken: string) =>
     request(`/surveys/responses/${responseId}/likes/toggle`, {
       method: "POST",
@@ -191,7 +198,10 @@ export const api = {
     body: JSON.stringify({ text, participant_token: participantToken }),
   }),
   deleteParticipantComment: (responseId: number, commentId: number, participantToken: string) =>
-    request(`/surveys/responses/${responseId}/comments/${commentId}?participant_token=${encodeURIComponent(participantToken)}`, { method: "DELETE" }),
+    request(`/surveys/responses/${responseId}/comments/${commentId}`, {
+      method: "DELETE",
+      headers: participantAuthHeaders(participantToken),
+    }),
   recordInteraction: (
     responseId: number,
     data: { post_id: number; action_type: string; comment_text?: string; participant_token: string }

@@ -239,7 +239,7 @@ async def test_get_response_state_rejects_wrong_token():
     db = SequenceDB([ScalarOneResult(_make_in_progress_response("right-token"))])
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_response_state(30, "wrong-token", db)
+        await get_response_state(30, x_participant_token="wrong-token", db=db)
 
     assert exc_info.value.status_code == 404
 
@@ -289,7 +289,7 @@ async def test_delete_participant_comment_rejects_wrong_token():
     db = SequenceDB([ScalarOneResult(_make_in_progress_response("right-token"))])
 
     with pytest.raises(HTTPException) as exc_info:
-        await delete_participant_comment(30, 5, "wrong-token", db)
+        await delete_participant_comment(30, 5, x_participant_token="wrong-token", db=db)
 
     assert exc_info.value.status_code == 404
 

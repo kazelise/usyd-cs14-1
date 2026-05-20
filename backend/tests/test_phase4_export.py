@@ -210,6 +210,7 @@ def make_payload() -> dict:
         filters=ExportFilters(assigned_group=2, language="en"),
         gaze_counts={101: 12},
         click_counts={101: 3},
+        participant_comments_by_response={},
         question_responses_by_response={
             101: [
                 {

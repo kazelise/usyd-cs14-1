@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.models.participant import ParticipantInteraction, SurveyResponse
+from app.models.participant import ParticipantComment, ParticipantInteraction, SurveyResponse
 from app.models.question import Question
 from app.models.question_response import QuestionResponse
 from app.models.survey import Survey, SurveyPost
@@ -64,6 +64,7 @@ CSV_HEADERS = [
     "gaze_count",
     "click_count",
     "participant_interactions",
+    "participant_comments",
     "question_responses",
     "displayed_posts",
 ]
@@ -228,6 +229,7 @@ def build_export_payload(
     filters: ExportFilters,
     gaze_counts: dict[int, int],
     click_counts: dict[int, int],
+    participant_comments_by_response: dict[int, list[dict[str, Any]]],
     question_responses_by_response: dict[int, list[dict[str, Any]]],
 ) -> dict[str, Any]:
     rows = []
@@ -258,6 +260,10 @@ def build_export_payload(
                 "gaze_count": gaze_counts.get(response.id, 0),
                 "click_count": click_counts.get(response.id, 0),
                 "participant_interactions": interactions,
+                # participant_comments carries the latest text for each comment, including edits.
+                # Use this in preference to comment_text in participant_interactions, which is frozen
+                # at creation time and does not reflect subsequent edits.
+                "participant_comments": participant_comments_by_response.get(response.id, []),
                 "question_responses": question_responses_by_response.get(response.id, []),
                 "displayed_posts": visible_displayed_posts(survey, response.assigned_group),
             }
@@ -307,6 +313,7 @@ async def load_survey_export(
 
     gaze_counts = await count_tracking_rows(db, GazeRecord, response_ids)
     click_counts = await count_tracking_rows(db, ClickRecord, response_ids)
+    participant_comments = await load_participant_comments(db, response_ids)
     question_responses = await load_question_responses(db, response_ids)
 
     return build_export_payload(
@@ -315,6 +322,7 @@ async def load_survey_export(
         filters=filters,
         gaze_counts=gaze_counts,
         click_counts=click_counts,
+        participant_comments_by_response=participant_comments,
         question_responses_by_response=question_responses,
     )
 
@@ -330,6 +338,31 @@ async def count_tracking_rows(
         .group_by(model.response_id)
     )
     return {response_id: count for response_id, count in result.all()}
+
+
+async def load_participant_comments(
+    db: AsyncSession, response_ids: list[int]
+) -> dict[int, list[dict[str, Any]]]:
+    """Return latest-text participant comments grouped by response_id."""
+    if not response_ids:
+        return {}
+    result = await db.execute(
+        select(ParticipantComment)
+        .where(ParticipantComment.response_id.in_(response_ids))
+        .order_by(ParticipantComment.response_id, ParticipantComment.created_at)
+    )
+    by_response: dict[int, list[dict[str, Any]]] = {}
+    for comment in result.scalars().all():
+        by_response.setdefault(comment.response_id, []).append(
+            {
+                "id": comment.id,
+                "post_id": comment.post_id,
+                "text": comment.text,
+                "created_at": isoformat(comment.created_at),
+                "updated_at": isoformat(comment.updated_at),
+            }
+        )
+    return by_response
 
 
 async def load_question_responses(
@@ -389,6 +422,9 @@ def export_payload_to_csv(payload: dict[str, Any]) -> str:
                 "click_count": response["click_count"],
                 "participant_interactions": json.dumps(
                     response["participant_interactions"], ensure_ascii=False
+                ),
+                "participant_comments": json.dumps(
+                    response["participant_comments"], ensure_ascii=False
                 ),
                 "question_responses": json.dumps(
                     response["question_responses"], ensure_ascii=False

@@ -13,16 +13,19 @@ Core flow:
 import random
 import secrets
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.auth import get_current_researcher
+from jose import JWTError, jwt as jose_jwt
+
+from app.auth import ALGORITHM, get_current_researcher
+from app.config import settings
 from app.database import get_db
 from app.models.participant import (
     ParticipantComment,
@@ -31,6 +34,7 @@ from app.models.participant import (
     SurveyResponse,
 )
 from app.models.question import Question
+from app.models.question_response import QuestionResponse
 from app.models.researcher import Researcher
 from app.models.survey import PostComment, Survey, SurveyPost
 from app.models.tracking import CalibrationSession, ClickRecord, GazeRecord
@@ -98,6 +102,86 @@ PARTICIPANT_POST_OVERRIDE_FIELDS = {
     "show_comments",
     "show_shares",
 }
+
+# Fields that, when changed on a published survey, would corrupt existing responses.
+_STRUCTURAL_SURVEY_FIELDS = frozenset(
+    {
+        "platform_style",
+        "platform_ui_style",
+        "num_groups",
+        "group_names",
+        "gaze_tracking_enabled",
+        "gaze_interval_ms",
+        "click_tracking_enabled",
+        "calibration_enabled",
+        "calibration_points",
+        "default_language",
+        "supported_languages",
+    }
+)
+
+
+def _require_researcher_jwt(authorization: str | None) -> None:
+    """Raise 403 if the Authorization header does not carry a valid researcher JWT."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=403, detail="Preview sessions require researcher authentication"
+        )
+    token = authorization.split(" ", 1)[1]
+    try:
+        jose_jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+    except (JWTError, Exception):
+        raise HTTPException(status_code=403, detail="Invalid or expired researcher token")
+
+
+def _validate_question_answer(question: Question, body: SubmitQuestionResponseRequest) -> None:
+    """Validate submitted answer content against the question type and config."""
+    qtype = question.question_type
+    config = question.config or {}
+
+    if qtype in ("text", "free_text"):
+        if not body.answer_text or not body.answer_text.strip():
+            raise HTTPException(status_code=422, detail="answer_text is required and must not be empty")
+
+    elif qtype in ("rating", "likert"):
+        if body.answer_value is None:
+            raise HTTPException(status_code=422, detail="answer_value is required for rating/likert questions")
+        min_val = int(config.get("min", 1))
+        max_val = int(config.get("max", 5))
+        if not (min_val <= body.answer_value <= max_val):
+            raise HTTPException(status_code=422, detail=f"answer_value must be between {min_val} and {max_val}")
+
+    elif qtype == "single_choice":
+        options = config.get("options", [])
+        if not isinstance(options, list) or not options:
+            raise HTTPException(status_code=422, detail="single_choice questions must define config.options")
+        if not body.answer_choices or len(body.answer_choices) != 1:
+            raise HTTPException(status_code=422, detail="single_choice requires exactly one selected option")
+        if body.answer_choices[0] not in options:
+            raise HTTPException(status_code=422, detail="Selected choice is not a valid option")
+
+    elif qtype == "multiple_choice":
+        options = config.get("options", [])
+        if not isinstance(options, list) or not options:
+            raise HTTPException(status_code=422, detail="multiple_choice questions must define config.options")
+        if not body.answer_choices:
+            raise HTTPException(status_code=422, detail="multiple_choice requires at least one selected option")
+        invalid = [c for c in body.answer_choices if c not in options]
+        if invalid:
+            raise HTTPException(status_code=422, detail=f"Invalid choices: {invalid}")
+
+
+async def _count_survey_responses(survey_id: int, db: AsyncSession) -> int:
+    result = await db.execute(
+        select(func.count(SurveyResponse.id)).where(SurveyResponse.survey_id == survey_id)
+    )
+    return result.scalar() or 0
+
+
+async def _ensure_no_survey_responses(survey_id: int, db: AsyncSession, detail: str) -> None:
+    if await _count_survey_responses(survey_id, db) > 0:
+        raise HTTPException(status_code=409, detail=detail)
+
 
 # ── Internal Helper Functions ──────────────────────────────────────────
 
@@ -329,7 +413,15 @@ async def update_survey(
 ):
     """Updates survey parameters while maintaining temporal audit trails."""
     survey = await get_survey_or_404(survey_id, researcher.id, db)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    if survey.status == "published":
+        blocked = _STRUCTURAL_SURVEY_FIELDS & updates.keys()
+        if blocked:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot change structural configuration on a published survey: {sorted(blocked)}",
+            )
+    for field, value in updates.items():
         setattr(survey, field, value)
     survey.updated_at = datetime.utcnow()
     await db.commit()
@@ -370,6 +462,11 @@ async def publish_survey(
         raise HTTPException(status_code=404, detail="Survey not found")
     if survey.status != "draft":
         raise HTTPException(status_code=409, detail="Only draft surveys can be published")
+    posts_count_q = await db.execute(
+        select(func.count(SurveyPost.id)).where(SurveyPost.survey_id == survey_id)
+    )
+    if (posts_count_q.scalar() or 0) == 0:
+        raise HTTPException(status_code=422, detail="Survey must have at least one post before publishing")
     survey.status = "published"
     if survey.published_at is None:
         survey.published_at = datetime.utcnow()
@@ -536,6 +633,11 @@ async def create_post(
     generates link previews.
     """
     await get_survey_or_404(survey_id, researcher.id, db)
+    await _ensure_no_survey_responses(
+        survey_id,
+        db,
+        "Cannot add posts after participant responses exist",
+    )
 
     # Fetch OG metadata from the URL
     og = await fetch_og_metadata(body.original_url)
@@ -607,6 +709,11 @@ async def update_post(
     post = result.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+    await _ensure_no_survey_responses(
+        survey_id,
+        db,
+        "Cannot change post configuration after participant responses exist",
+    )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(post, field, value)
     await db.flush()
@@ -622,13 +729,18 @@ async def delete_post(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a post from a survey."""
-    await get_survey_or_404(survey_id, researcher.id, db)
+    survey = await get_survey_or_404(survey_id, researcher.id, db)
     result = await db.execute(
         select(SurveyPost).where(SurveyPost.id == post_id, SurveyPost.survey_id == survey_id)
     )
     post = result.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+    await _ensure_no_survey_responses(
+        survey_id,
+        db,
+        "Cannot delete posts after participant responses exist",
+    )
     await db.delete(post)
 
 
@@ -674,6 +786,7 @@ async def add_comment(
 async def start_survey(
     share_code: str,
     body: StartSurveyRequest | None = None,
+    authorization: str | None = Header(default=None, alias="Authorization"),
     db: AsyncSession = Depends(get_db),
 ):
     """Start a survey as a participant.
@@ -701,6 +814,14 @@ async def start_survey(
         raise HTTPException(status_code=410, detail="Survey link has expired")
 
     language_code = normalize_survey_language(survey, body.language if body else None)
+
+    # Preview sessions must be initiated by an authenticated researcher, not anonymous participants.
+    # Frontend contract: when launching a preview via the share-code/start endpoint,
+    # the frontend must include `Authorization: Bearer <researcher_jwt>` in the request headers.
+    # The researcher JWT is obtained from the normal login flow (/api/v1/auth/login).
+    # preview_assigned_group is still optional; if omitted, random group assignment is used.
+    if body and (body.is_preview or body.preview_assigned_group is not None):
+        _require_researcher_jwt(authorization)
 
     # Resume path: when the client supplies a token from a prior start_survey
     # call and it matches an in_progress response for THIS survey, reuse that
@@ -895,12 +1016,14 @@ async def toggle_like(
 @router.get("/responses/{response_id}/state", response_model=ResponseStateOut)
 async def get_response_state(
     response_id: int,
-    participant_token: str = Query(min_length=1, max_length=128),
+    x_participant_token: Annotated[
+        str, Header(alias="X-Participant-Token", min_length=1, max_length=128)
+    ],
     db: AsyncSession = Depends(get_db),
 ):
     # State may legitimately be fetched after completion (e.g. resume after
     # tab close), so we only enforce token ownership, not in_progress status.
-    await get_participant_response_or_404(response_id, participant_token, db, require_active=False)
+    await get_participant_response_or_404(response_id, x_participant_token, db, require_active=False)
 
     likes_result = await db.execute(
         select(ParticipantLike.post_id).where(ParticipantLike.response_id == response_id)
@@ -991,6 +1114,94 @@ class CompleteResponseRequest(BaseModel):
     )
 
 
+async def _validate_completion_requirements(response: SurveyResponse, db: AsyncSession) -> None:
+    """Reject real participant completions that would produce unusable research rows."""
+    if response.is_preview:
+        return
+
+    survey_result = await db.execute(select(Survey).where(Survey.id == response.survey_id))
+    survey = survey_result.scalar_one_or_none()
+    if not survey:
+        raise HTTPException(status_code=404, detail="Survey not found")
+
+    if survey.calibration_enabled:
+        calibration_result = await db.execute(
+            select(CalibrationSession).where(CalibrationSession.response_id == response.id)
+        )
+        calibration = calibration_result.scalar_one_or_none()
+        calibration_ok = (
+            calibration is not None
+            and calibration.status == "completed"
+            and calibration.passed is not False
+            and calibration.quality != "poor"
+        )
+        if not calibration_ok:
+            raise HTTPException(
+                status_code=422,
+                detail="Webcam calibration must be completed before submitting this survey",
+            )
+
+    shown_post_ids = list(response.shown_post_order or [])
+    question_scope = [Question.survey_id == response.survey_id]
+    if shown_post_ids:
+        question_scope.append(or_(Question.post_id.is_(None), Question.post_id.in_(shown_post_ids)))
+    else:
+        question_scope.append(Question.post_id.is_(None))
+
+    question_result = await db.execute(select(Question.id).where(*question_scope))
+    required_question_ids = list(question_result.scalars().all())
+    if required_question_ids:
+        answer_result = await db.execute(
+            select(QuestionResponse.question_id).where(
+                QuestionResponse.response_id == response.id,
+                QuestionResponse.question_id.in_(required_question_ids),
+            )
+        )
+        answered_question_ids = set(answer_result.scalars().all())
+        missing_question_ids = [
+            question_id
+            for question_id in required_question_ids
+            if question_id not in answered_question_ids
+        ]
+        if missing_question_ids:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "missing_required_answers",
+                    "missing_question_ids": missing_question_ids,
+                },
+            )
+        return
+
+    if not shown_post_ids:
+        return
+
+    interaction_result = await db.execute(
+        select(ParticipantInteraction.id)
+        .where(ParticipantInteraction.response_id == response.id)
+        .limit(1)
+    )
+    if interaction_result.scalar_one_or_none() is not None:
+        return
+
+    like_result = await db.execute(
+        select(ParticipantLike.id).where(ParticipantLike.response_id == response.id).limit(1)
+    )
+    if like_result.scalar_one_or_none() is not None:
+        return
+
+    comment_result = await db.execute(
+        select(ParticipantComment.id).where(ParticipantComment.response_id == response.id).limit(1)
+    )
+    if comment_result.scalar_one_or_none() is not None:
+        return
+
+    raise HTTPException(
+        status_code=422,
+        detail="At least one post interaction or required answer is needed before completion",
+    )
+
+
 @router.post("/responses/{response_id}/complete")
 async def complete_response(
     response_id: int,
@@ -1002,6 +1213,8 @@ async def complete_response(
 
     if body.attention_summary is not None:
         await _apply_attention_summary(response, body.attention_summary, db)
+
+    await _validate_completion_requirements(response, db)
 
     # Enforcing server-side timestamps to prevent client-side manipulation
     now = datetime.utcnow()
@@ -1094,10 +1307,12 @@ async def update_participant_comment(
 async def delete_participant_comment(
     response_id: int,
     comment_id: int,
-    participant_token: str = Query(min_length=1, max_length=128),
+    x_participant_token: Annotated[
+        str, Header(alias="X-Participant-Token", min_length=1, max_length=128)
+    ],
     db: AsyncSession = Depends(get_db),
 ):
-    await get_participant_response_or_404(response_id, participant_token, db)
+    await get_participant_response_or_404(response_id, x_participant_token, db)
     result = await db.execute(
         select(ParticipantComment).where(
             ParticipantComment.id == comment_id, ParticipantComment.response_id == response_id
@@ -1332,7 +1547,16 @@ async def get_analytics_summary(
     avg_completion_minutes = (
         sum(completion_minutes) / len(completion_minutes) if completion_minutes else 0
     )
-    fast_completions = sum(1 for minutes in completion_minutes if minutes < 2)
+    # Include "flagged" (speed-test-failed) responses in fast_completions — they are by definition
+    # the fastest completions and must not vanish from the data quality dashboard.
+    fast_completions = sum(
+        1
+        for r in responses
+        if r.status in ("completed", "flagged")
+        and r.started_at
+        and r.completed_at
+        and (r.completed_at - r.started_at).total_seconds() / 60 < 2
+    )
 
     calibration_result = await db.execute(
         select(CalibrationSession)
@@ -1473,6 +1697,16 @@ async def get_analytics_summary(
             )
         )
 
+    researcher_comments_result = await db.execute(
+        select(PostComment.post_id, func.count(PostComment.id))
+        .join(SurveyPost, PostComment.post_id == SurveyPost.id)
+        .where(SurveyPost.survey_id == survey_id)
+        .group_by(PostComment.post_id)
+    )
+    researcher_comment_map = {
+        post_id: count for post_id, count in researcher_comments_result.all()
+    }
+
     posts_result = await db.execute(
         select(SurveyPost).where(SurveyPost.survey_id == survey_id).order_by(SurveyPost.order)
     )
@@ -1485,7 +1719,7 @@ async def get_analytics_summary(
             visible_groups=post.visible_to_groups,
             clicks=post_clicks_map.get(post.id, 0),
             likes=post_likes_map.get(post.id, 0),
-            comments=post_comment_map.get(post.id, 0),
+            comments=researcher_comment_map.get(post.id, 0),
             shares=post_shares_map.get(post.id, 0),
             participant_comment_count=post_comment_map.get(post.id, 0),
         )
@@ -1554,6 +1788,11 @@ async def create_question(
     researcher: Researcher = Depends(get_current_researcher),
 ):
     await get_survey_or_404(survey_id, researcher.id, db)
+    await _ensure_no_survey_responses(
+        survey_id,
+        db,
+        "Cannot add questions after participant responses exist",
+    )
     post = await db.get(SurveyPost, post_id)
     if not post or post.survey_id != survey_id:
         raise HTTPException(404, "Post not found")
@@ -1604,6 +1843,11 @@ async def update_question(
     q = await db.get(Question, question_id)
     if not q or q.post_id != post_id or q.survey_id != survey_id:
         raise HTTPException(404, "Question not found")
+    await _ensure_no_survey_responses(
+        survey_id,
+        db,
+        "Cannot change questions after participant responses exist",
+    )
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(q, k, v)
     await db.commit()
@@ -1628,6 +1872,11 @@ async def delete_question(
     q = await db.get(Question, question_id)
     if not q or q.post_id != post_id or q.survey_id != survey_id:
         raise HTTPException(404, "Question not found")
+    await _ensure_no_survey_responses(
+        survey_id,
+        db,
+        "Cannot delete questions after participant responses exist",
+    )
     await db.delete(q)
     await db.commit()
 
@@ -1640,6 +1889,11 @@ async def create_survey_question(
     researcher: Researcher = Depends(get_current_researcher),
 ):
     await get_survey_or_404(survey_id, researcher.id, db)
+    await _ensure_no_survey_responses(
+        survey_id,
+        db,
+        "Cannot add questions after participant responses exist",
+    )
     q = Question(survey_id=survey_id, post_id=None, **body.model_dump())
     db.add(q)
     await db.commit()
@@ -1674,6 +1928,11 @@ async def update_survey_question(
     q = await db.get(Question, question_id)
     if not q or q.survey_id != survey_id or q.post_id is not None:
         raise HTTPException(404, "Question not found")
+    await _ensure_no_survey_responses(
+        survey_id,
+        db,
+        "Cannot change questions after participant responses exist",
+    )
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(q, k, v)
     await db.commit()
@@ -1692,6 +1951,11 @@ async def delete_survey_question(
     q = await db.get(Question, question_id)
     if not q or q.survey_id != survey_id or q.post_id is not None:
         raise HTTPException(404, "Question not found")
+    await _ensure_no_survey_responses(
+        survey_id,
+        db,
+        "Cannot delete questions after participant responses exist",
+    )
     await db.delete(q)
     await db.commit()
 
@@ -1724,6 +1988,7 @@ async def submit_question_response(
         raise HTTPException(404, "Question not found")
     if question.survey_id != survey_response.survey_id:
         raise HTTPException(404, "Question not found")
+    _validate_question_answer(question, body)
     existing_answer = await db.execute(
         select(QuestionResponse).where(
             QuestionResponse.response_id == response_id,

@@ -26,9 +26,12 @@ services:
       - ./backend:/app
     environment:
       DATABASE_URL: postgresql+asyncpg://cs14:cs14_dev_password@db:5432/cs14_survey
-      SECRET_KEY: dev-secret-change-in-production
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
-      DEBUG: "true"
+      # Use a real SECRET_KEY in production. The demo default is allowed only when DEBUG=true.
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-in-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001}
+      # DEBUG=true allows the demo SECRET_KEY for local dev/testing.
+      # Set DEBUG=false with a real SECRET_KEY for production deployments.
+      DEBUG: ${DEBUG:-true}
     depends_on:
       db:
         condition: service_healthy

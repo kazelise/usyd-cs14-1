@@ -135,7 +135,7 @@ async def test_start_survey_returns_token_and_calibration_points_and_saves_metad
         user_agent="pytest-browser",
     )
 
-    response = await start_survey("share-code", body, db)
+    response = await start_survey("share-code", body, db=db)
 
     created_response = db.added[0]
     assert response.participant_token == "participant-token"
@@ -157,7 +157,7 @@ async def test_group_overrides_apply_to_payload_without_mutating_persisted_post(
     )
     db = StartSurveyDB(make_survey([post]))
 
-    response = await start_survey("share-code", StartSurveyRequest(), db)
+    response = await start_survey("share-code", StartSurveyRequest(), db=db)
 
     assert response.posts[0].display_likes == 999
     assert response.posts[0].display_shares == 42
@@ -173,7 +173,7 @@ async def test_start_survey_still_filters_visible_posts(monkeypatch):
     all_groups_post = make_post(3, order=3, visible_to_groups=None)
     db = StartSurveyDB(make_survey([group_one_post, group_two_post, all_groups_post]))
 
-    response = await start_survey("share-code", StartSurveyRequest(), db)
+    response = await start_survey("share-code", StartSurveyRequest(), db=db)
 
     assert [post.id for post in response.posts] == [2, 3]
 
@@ -291,7 +291,7 @@ async def test_start_survey_resumes_existing_in_progress_response(monkeypatch):
     response = await start_survey(
         "share-code",
         StartSurveyRequest(participant_token="resume-token"),
-        db,
+        db=db,
     )
 
     assert response.response_id == 42
@@ -331,7 +331,7 @@ async def test_start_survey_resume_signals_completed_calibration(monkeypatch):
     response = await start_survey(
         "share-code",
         StartSurveyRequest(participant_token="resume-token"),
-        db,
+        db=db,
     )
 
     assert response.calibration_completed is True
@@ -365,7 +365,7 @@ async def test_start_survey_resume_drops_in_progress_calibration(monkeypatch):
     response = await start_survey(
         "share-code",
         StartSurveyRequest(participant_token="resume-token"),
-        db,
+        db=db,
     )
 
     assert response.calibration_completed is False
@@ -382,7 +382,7 @@ async def test_start_survey_ignores_token_from_different_survey(monkeypatch):
     response = await start_survey(
         "share-code",
         StartSurveyRequest(participant_token="someone-elses-token"),
-        db,
+        db=db,
     )
 
     assert response.response_id == 999  # created fresh via mock
@@ -403,7 +403,7 @@ async def test_start_survey_ignores_completed_response_token(monkeypatch):
     response = await start_survey(
         "share-code",
         StartSurveyRequest(participant_token="stale-token"),
-        db,
+        db=db,
     )
 
     assert response.response_id == 999
@@ -416,7 +416,7 @@ async def test_start_survey_without_token_creates_new_response(monkeypatch):
     monkeypatch.setattr(surveys.random, "randint", lambda _start, _end: 1)
     db = ResumeStartSurveyDB(make_survey([make_post(1, order=1)]), None)
 
-    await start_survey("share-code", StartSurveyRequest(), db)
+    await start_survey("share-code", StartSurveyRequest(), db=db)
 
     assert db.execute_count == 1  # only the survey lookup, no resume SELECT
     assert len(db.added) == 1

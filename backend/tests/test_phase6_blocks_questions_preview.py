@@ -30,6 +30,9 @@ class ScalarResult:
     def scalar_one_or_none(self):
         return self.value
 
+    def scalar(self):
+        return self.value
+
 
 class Phase6DB:
     def __init__(self, survey: Survey, response: SurveyResponse | None = None):
@@ -39,7 +42,10 @@ class Phase6DB:
         self.commits = 0
 
     async def execute(self, statement):
+        statement_text = str(statement)
         froms = statement.get_final_froms() if hasattr(statement, "get_final_froms") else []
+        if "count(" in statement_text and "survey_responses" in statement_text:
+            return ScalarResult(0)
         if any(getattr(f, "name", None) == "question_responses" for f in froms):
             return ScalarResult(None)
         return ScalarResult(self.survey)
@@ -229,7 +235,7 @@ async def test_start_survey_returns_social_card_questions_and_condition_values(m
     survey = make_phase6_survey()
     db = Phase6DB(survey)
 
-    response = await start_survey("phase6-share", StartSurveyRequest(language="en"), db)
+    response = await start_survey("phase6-share", StartSurveyRequest(language="en"), db=db)
 
     assert response.participant_token == "phase6-token"
     assert response.assigned_group == 2
@@ -245,6 +251,20 @@ async def test_start_survey_returns_social_card_questions_and_condition_values(m
 
 @pytest.mark.asyncio
 async def test_preview_start_can_pin_condition_without_random_assignment(monkeypatch):
+    from datetime import timedelta
+
+    from jose import jwt as jose_jwt
+
+    from app.auth import ALGORITHM
+    from app.config import settings
+
+    # Researcher must supply a valid JWT to start a preview session.
+    token = jose_jwt.encode(
+        {"sub": "9", "exp": datetime.utcnow() + timedelta(hours=1)},
+        settings.SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
+
     def fail_random_assignment(_start, _end):
         raise AssertionError("preview sessions with a pinned group should not randomize")
 
@@ -255,7 +275,8 @@ async def test_preview_start_can_pin_condition_without_random_assignment(monkeyp
     response = await start_survey(
         "phase6-share",
         StartSurveyRequest(language="en", is_preview=True, preview_assigned_group=2),
-        db,
+        authorization=f"Bearer {token}",
+        db=db,
     )
 
     assert response.assigned_group == 2

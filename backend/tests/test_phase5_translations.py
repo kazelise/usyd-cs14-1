@@ -341,7 +341,7 @@ async def test_start_survey_returns_translated_posts_questions_and_saves_languag
     survey = make_translation_survey(with_translations=True)
     db = StartSurveyDB(survey)
 
-    response = await start_survey("phase5-share", StartSurveyRequest(language="zh"), db)
+    response = await start_survey("phase5-share", StartSurveyRequest(language="zh"), db=db)
 
     created_response = db.added[0]
     post = response.posts[0]
@@ -371,7 +371,7 @@ async def test_start_survey_missing_translation_falls_back_safely(monkeypatch):
     ]
     db = StartSurveyDB(survey)
 
-    response = await start_survey("phase5-share", StartSurveyRequest(language="zh"), db)
+    response = await start_survey("phase5-share", StartSurveyRequest(language="zh"), db=db)
 
     post = response.posts[0]
     assert post.display_title == "只有标题"

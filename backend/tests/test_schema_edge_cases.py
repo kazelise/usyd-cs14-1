@@ -61,12 +61,12 @@ class TestGazeDataPointEdgeCases:
         assert point.screen_x == 0.0
 
     def test_negative_coordinates(self):
-        point = GazeDataPoint(timestamp_ms=1000, screen_x=-100.0, screen_y=-50.0)
-        assert point.screen_x == -100.0
+        with pytest.raises(ValidationError):
+            GazeDataPoint(timestamp_ms=1000, screen_x=-100.0, screen_y=-50.0)
 
     def test_very_large_coordinates(self):
-        point = GazeDataPoint(timestamp_ms=1000, screen_x=99999.0, screen_y=99999.0)
-        assert point.screen_x == 99999.0
+        with pytest.raises(ValidationError):
+            GazeDataPoint(timestamp_ms=1000, screen_x=99999.0, screen_y=99999.0)
 
 
 class TestClickDataPointEdgeCases:

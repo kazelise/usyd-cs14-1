@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef, useState, type PointerEvent } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useLocale } from "@/components/locale-provider";
 import {
   ArchiveIcon,
   ChevronLeftIcon,
@@ -81,7 +82,7 @@ function SurveySidebarFilterNav({
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const locale: string = "en";
+  const { locale } = useLocale();
   const [authed, setAuthed] = useState(false);
   const [profileName, setProfileName] = useState("S");
   const [profileEmail, setProfileEmail] = useState("");
@@ -149,11 +150,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           nameRequired: "Name cannot be empty",
           logout: "Logout",
         };
-
-  useEffect(() => {
-    document.documentElement.lang = "en";
-    document.documentElement.dir = "ltr";
-  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");

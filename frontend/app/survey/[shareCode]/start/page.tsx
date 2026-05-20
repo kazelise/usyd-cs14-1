@@ -70,8 +70,13 @@ export default function StartScreen() {
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-4 py-2">
-            <GlobeIcon className="h-4 w-4 text-slate-500" />
+            <GlobeIcon className="h-4 w-4 text-slate-500" aria-hidden />
+            <label htmlFor="participant-locale-select" className="sr-only">
+              {t(locale, "language")}
+            </label>
             <select
+              id="participant-locale-select"
+              aria-label={t(locale, "language")}
               className="bg-transparent text-sm text-slate-500 outline-none"
               value={locale}
               onChange={(e) => {

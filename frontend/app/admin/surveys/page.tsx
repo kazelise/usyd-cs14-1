@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { PlusIcon, SearchIcon, SurveyIcon, UsersIcon } from "@/components/icons";
+import { useLocale } from "@/components/locale-provider";
+import type { Locale } from "@/lib/i18n";
 
 interface Survey {
   id: number;
@@ -21,8 +23,14 @@ function statusClasses(status: string) {
   return "status-pill status-pill-draft";
 }
 
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString("en-AU", {
+function dateLocaleTag(locale: Locale) {
+  if (locale === "zh") return "zh-CN";
+  if (locale === "ar") return "ar";
+  return "en";
+}
+
+function formatDate(date: string, locale: Locale) {
+  return new Date(date).toLocaleDateString(dateLocaleTag(locale), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -42,7 +50,7 @@ function statusLabel(status: string, text: { draft: string; published: string; c
 function SurveysPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const locale: string = "en";
+  const { locale } = useLocale();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -263,7 +271,7 @@ function SurveysPageContent() {
                       </div>
                     )}
                   </div>
-                  <span className="text-right">{text.created} {formatDate(survey.created_at)}</span>
+                  <span className="text-right">{text.created} {formatDate(survey.created_at, locale)}</span>
                 </div>
               </Link>
             ))}

@@ -511,12 +511,10 @@ export default function SurveyParticipantPage() {
   const previewGroupParam = search.get("group");
   const previewAssignedGroup = previewGroupParam ? Number(previewGroupParam) : null;
   const previewScope = Number.isFinite(previewAssignedGroup) ? previewAssignedGroup : "auto";
-  const savedLocale = typeof window !== "undefined" ? localStorage.getItem("locale") : null;
-  const initialLocale: Locale = isLocale(requestedLocale)
-    ? requestedLocale
-    : isLocale(savedLocale)
-      ? savedLocale
-      : "en";
+  // Use "en" fallback, not the live locale context: locale-provider hydrates
+  // from localStorage via useEffect, so using `locale` here would make
+  // initialLocale change post-mount and re-trigger the session init effect.
+  const initialLocale: Locale = isLocale(requestedLocale) ? requestedLocale : "en";
 
   const [session, setSession] = useState<SurveySession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -525,6 +523,7 @@ export default function SurveyParticipantPage() {
   const [actionError, setActionError] = useState("");
   const [calibrationDone, setCalibrationDone] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
+  const [clickedPosts, setClickedPosts] = useState<Set<number>>(new Set());
   const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
   const [showCommentInput, setShowCommentInput] = useState<number | null>(null);
   const [participantComments, setParticipantComments] = useState<Record<number, ParticipantComment[]>>({});
@@ -536,7 +535,11 @@ export default function SurveyParticipantPage() {
   const [shareSubmittingId, setShareSubmittingId] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const [completing, setCompleting] = useState(false);
+  const [likeSubmittingPosts, setLikeSubmittingPosts] = useState<Set<number>>(new Set());
+
   const clickBuffer = useRef<any[]>([]);
+  const likeInFlightRef = useRef<Set<number>>(new Set());
   const initializedSessionRef = useRef<string | null>(null);
   const gazePipVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -586,7 +589,7 @@ export default function SurveyParticipantPage() {
     responseId: session?.response_id ?? 0,
     participantToken: session?.participant_token ?? "",
     intervalMs: session?.gaze_interval_ms ?? 1000,
-    enabled: calibrationDone && !!session?.gaze_tracking_enabled,
+    enabled: !isPreviewSession && calibrationDone && !!session?.gaze_tracking_enabled,
     pipVideoRef: gazePipVideoRef,
   });
 
@@ -601,11 +604,13 @@ export default function SurveyParticipantPage() {
   }, [initialLocale, setLocale]);
 
   useEffect(() => {
-    const sessionScope = `${shareCode}:${isPreviewSession ? `preview:${previewScope}:${initialLocale}` : "live"}`;
+    const sessionScope = `${shareCode}:${isPreviewSession ? `preview:${previewScope}:${initialLocale}` : `live:${initialLocale}`}`;
     if (initializedSessionRef.current === sessionScope) return;
     initializedSessionRef.current = sessionScope;
 
     async function init() {
+      setLoading(true);
+      setError("");
       try {
         // Resume the same response (and A/B group) across tab closes by sending
         // back the participant_token cached on first visit. Backend ignores
@@ -632,14 +637,22 @@ export default function SurveyParticipantPage() {
             isPreviewSession && Number.isFinite(previewAssignedGroup) ? previewAssignedGroup as number : undefined,
         });
         setSession(result);
+        setClickedPosts(new Set());
+        setShareSessionRecorded({});
         localStorage.setItem(tokenStorageKey, result.participant_token);
         // Resume hint from backend: a prior calibration on this response was
         // already completed, so skip the calibration UI for the user. If the
         // researcher disabled calibration, raw gaze/click tracking can start
         // directly without showing the calibration screen.
-        if (result.calibration_completed || !result.calibration_required) {
+        if (result.is_preview || result.calibration_completed || !result.calibration_required) {
           setCalibrationDone(true);
         }
+
+        const submittedQuestionsKey = `answers:${result.response_id}:${result.participant_token}`;
+        const savedSubmittedQuestions = JSON.parse(localStorage.getItem(submittedQuestionsKey) || "[]");
+        setSubmittedQuestions(
+          new Set<number>(Array.isArray(savedSubmittedQuestions) ? savedSubmittedQuestions : []),
+        );
 
         try {
           const state = await api.getResponseState(result.response_id, result.participant_token);
@@ -647,7 +660,19 @@ export default function SurveyParticipantPage() {
           setParticipantComments(state.comments_by_post || {});
         } catch {}
       } catch (err: any) {
-        setError(err.message || t(initialLocale, "surveyNotFound"));
+        const message = err.message || t(initialLocale, "surveyNotFound");
+        if (
+          isPreviewSession &&
+          /auth|login|unauthorized|forbidden|not authenticated/i.test(message)
+        ) {
+          setError(
+            initialLocale === "zh"
+              ? "预览需要先以研究者身份登录，再从管理端打开预览链接。"
+              : "Preview requires a logged-in researcher session. Sign in from the admin area, then reopen this preview link.",
+          );
+        } else {
+          setError(message);
+        }
       } finally {
         setLoading(false);
       }
@@ -657,7 +682,7 @@ export default function SurveyParticipantPage() {
   }, [initialLocale, isPreviewSession, previewAssignedGroup, previewScope, shareCode]);
 
   useEffect(() => {
-    if (!session?.click_tracking_enabled) return;
+    if (!session?.click_tracking_enabled || completed) return;
 
     document.addEventListener("click", handleTrackedClick);
     const flushInterval = setInterval(() => {
@@ -670,6 +695,7 @@ export default function SurveyParticipantPage() {
       void flushClicks(session.response_id, session.participant_token);
     };
   }, [
+    completed,
     flushClicks,
     handleTrackedClick,
     session?.click_tracking_enabled,
@@ -677,8 +703,24 @@ export default function SurveyParticipantPage() {
     session?.response_id,
   ]);
 
+  function rememberSubmittedQuestion(questionId: number) {
+    setSubmittedQuestions((prev) => {
+      const next = new Set([...prev, questionId]);
+      if (session) {
+        localStorage.setItem(
+          `answers:${session.response_id}:${session.participant_token}`,
+          JSON.stringify([...next]),
+        );
+      }
+      return next;
+    });
+  }
+
   async function handleLike(postId: number) {
     if (!session) return;
+    if (likeInFlightRef.current.has(postId)) return;
+    likeInFlightRef.current.add(postId);
+    setLikeSubmittingPosts((prev) => new Set([...prev, postId]));
     setActionError("");
 
     setLikedPosts((prev) => {
@@ -698,6 +740,13 @@ export default function SurveyParticipantPage() {
         return next;
       });
       setActionError(err.message || t(locale, "networkRequestFailed"));
+    } finally {
+      likeInFlightRef.current.delete(postId);
+      setLikeSubmittingPosts((prev) => {
+        const next = new Set(prev);
+        next.delete(postId);
+        return next;
+      });
     }
   }
 
@@ -733,6 +782,7 @@ export default function SurveyParticipantPage() {
         action_type: "click",
         participant_token: session.participant_token,
       });
+      setClickedPosts((prev) => new Set([...prev, postId]));
     } catch (err: any) {
       setActionError(err.message || t(locale, "networkRequestFailed"));
     }
@@ -759,12 +809,14 @@ export default function SurveyParticipantPage() {
   }
 
   async function handleComplete() {
-    if (!session) return;
+    if (!session || completing) return;
+    setCompleting(true);
     setActionError("");
     try {
       await flushClicks(session.response_id, session.participant_token);
       await flushGaze();
-      const attentionSummary = session.gaze_tracking_enabled ? getGazeSummary() : null;
+      const attentionSummary =
+        !isPreviewSession && session.gaze_tracking_enabled ? getGazeSummary() : null;
       await api.completeSurvey(
         session.response_id,
         session.participant_token,
@@ -784,9 +836,27 @@ export default function SurveyParticipantPage() {
           ? `pt:${shareCode}:preview:${previewScope}:${initialLocale}`
           : `pt:${shareCode}`,
       );
+      localStorage.removeItem(`answers:${session.response_id}:${session.participant_token}`);
       setCompleted(true);
     } catch (err: any) {
-      setActionError(err.message || t(locale, "networkRequestFailed"));
+      const raw = err.message || "";
+      if (/calibration must be completed/i.test(raw)) {
+        setActionError(
+          locale === "zh"
+            ? "请先完成摄像头校准后再提交。"
+            : "Complete webcam calibration before submitting.",
+        );
+      } else if (/post interaction|required answer/i.test(raw)) {
+        setActionError(completionHint);
+      } else if (/missing_required_answers/i.test(raw)) {
+        setActionError(
+          locale === "zh" ? "仍有必答题未提交。" : "Some required question answers are still missing.",
+        );
+      } else {
+        setActionError(raw || t(locale, "networkRequestFailed"));
+      }
+    } finally {
+      setCompleting(false);
     }
   }
 
@@ -816,7 +886,7 @@ export default function SurveyParticipantPage() {
   if (!session) return null;
 
   // Show calibration if required and not yet completed
-  if (session.calibration_required && !calibrationDone) {
+  if (session.calibration_required && !calibrationDone && !isPreviewSession) {
     return (
       <CalibrationExperience
         responseId={session.response_id}
@@ -828,10 +898,46 @@ export default function SurveyParticipantPage() {
   }
 
   const totalPosts = session.posts.length;
-  const interactedPosts =
-    likedPosts.size +
-    Object.keys(participantComments).filter((key) => (participantComments[Number(key)] || []).length > 0).length;
-  const progressValue = totalPosts === 0 ? 0 : Math.min(100, Math.round((interactedPosts / totalPosts) * 100));
+  const requiredQuestionIds = [
+    ...(session.questions || []),
+    ...session.posts.flatMap((post) => post.questions || []),
+  ].map((question) => question.id);
+  const answeredQuestionCount = requiredQuestionIds.filter((questionId) =>
+    submittedQuestions.has(questionId),
+  ).length;
+  const commentedPostIds = Object.keys(participantComments)
+    .filter((key) => (participantComments[Number(key)] || []).length > 0)
+    .map(Number);
+  const sharedPostIds = Object.entries(shareSessionRecorded)
+    .filter(([, recorded]) => recorded)
+    .map(([postId]) => Number(postId));
+  const interactedPostIds = new Set([
+    ...likedPosts,
+    ...clickedPosts,
+    ...commentedPostIds,
+    ...sharedPostIds,
+  ]);
+  const activityUnits = totalPosts + requiredQuestionIds.length;
+  const completedUnits = Math.min(totalPosts, interactedPostIds.size) + answeredQuestionCount;
+  const progressValue =
+    activityUnits === 0 ? 100 : Math.min(100, Math.round((completedUnits / activityUnits) * 100));
+  const questionsComplete = answeredQuestionCount === requiredQuestionIds.length;
+  const engagementComplete =
+    requiredQuestionIds.length > 0 ? questionsComplete : totalPosts === 0 || interactedPostIds.size > 0;
+  const calibrationSatisfied =
+    isPreviewSession || !session.calibration_required || calibrationDone;
+  const canCompleteSurvey = isPreviewSession || (calibrationSatisfied && engagementComplete);
+  const completionHint = !calibrationSatisfied
+    ? locale === "zh"
+      ? "请先完成摄像头校准。"
+      : "Complete webcam calibration before submitting."
+    : locale === "zh"
+      ? requiredQuestionIds.length > 0
+        ? "请先提交所有题目答案。"
+        : "请先至少与一条帖子互动（点赞、评论、点击或分享）。"
+      : requiredQuestionIds.length > 0
+        ? "Submit every question answer before completing."
+        : "Interact with at least one post (like, comment, click, or share) before completing.";
   const researchNotes = [
     session.click_tracking_enabled ? t(locale, "noteClicks") : null,
     session.gaze_tracking_enabled ? t(locale, "noteGaze") : null,
@@ -839,12 +945,12 @@ export default function SurveyParticipantPage() {
   ].filter(Boolean) as string[];
   const interactionSummary =
     locale === "zh"
-      ? `已对 ${Math.min(totalPosts, Math.max(0, interactedPosts))} / ${totalPosts} 条帖子产生交互`
-      : `${Math.min(totalPosts, Math.max(0, interactedPosts))} / ${totalPosts} posts interacted with`;
+      ? `已完成 ${completedUnits} / ${activityUnits} 个必要动作`
+      : `${completedUnits} / ${activityUnits} required actions complete`;
   const recordedAcrossSummary =
     locale === "zh"
-      ? `已记录交互标记，覆盖 ${totalPosts} 条帖子`
-      : `Interaction markers recorded across ${totalPosts} posts`;
+      ? `${Math.min(totalPosts, interactedPostIds.size)} 条帖子有交互，${answeredQuestionCount} 道题已提交`
+      : `${Math.min(totalPosts, interactedPostIds.size)} posts interacted with, ${answeredQuestionCount} answers submitted`;
   const feedSkin: FeedSkin = platformUiStyleToFeedSkin(session.platform_ui_style)
     || ((session.platform_style || "x") as FeedSkin);
   const platform = getPlatformFeedStyle(feedSkin);
@@ -853,7 +959,7 @@ export default function SurveyParticipantPage() {
 
   return (
     <div className={`min-h-screen ${platform.pageClass}`}>
-      {calibrationDone && session.gaze_tracking_enabled && (
+      {!isPreviewSession && calibrationDone && session.gaze_tracking_enabled && (
         <GazeTrackingPip snapshot={gazeSnapshot} locale={locale} videoRef={gazePipVideoRef} />
       )}
       {toastMessage && (
@@ -886,10 +992,12 @@ export default function SurveyParticipantPage() {
                 {platform.name} feed
               </div>
               <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-4 py-2">
-                <GlobeIcon className="h-4 w-4 text-slate-500" />
+                <GlobeIcon className="h-4 w-4 text-slate-500" aria-hidden />
                 <select
-                  className="bg-transparent text-sm text-slate-500 outline-none"
+                  aria-label={t(locale, "language")}
+                  className="bg-transparent text-sm text-slate-500 outline-none disabled:cursor-default disabled:opacity-60"
                   value={locale}
+                  disabled
                   onChange={(e) => {
                     const next = e.target.value as Locale;
                     setLocale(next);
@@ -1071,7 +1179,7 @@ export default function SurveyParticipantPage() {
                                   answer_value: answer.value,
                                   answer_choices: answer.choices,
                                 });
-                                setSubmittedQuestions((prev) => new Set([...prev, q.id]));
+                                rememberSubmittedQuestion(q.id);
                               } catch (err: any) {
                                 setActionError(err.message || t(locale, "networkRequestFailed"));
                               }
@@ -1132,7 +1240,7 @@ export default function SurveyParticipantPage() {
                     >
                       {imageUrl && (
                         <div data-track="image" className={platform.imageWrapClass}>
-                          <ExternalPostImage src={imageUrl} className={getPostImageClass(feedSkin, platform.imageClass, postIndex)} />
+                          <ExternalPostImage src={imageUrl} alt={title} className={getPostImageClass(feedSkin, platform.imageClass, postIndex)} />
                         </div>
                       )}
                       <div className={platform.bodyClass}>
@@ -1164,10 +1272,12 @@ export default function SurveyParticipantPage() {
                     <div className={platform.actionGridClass}>
                       <button
                         data-track="like"
+                        type="button"
+                        disabled={likeSubmittingPosts.has(post.id)}
                         onClick={() => handleLike(post.id)}
                         className={`${platform.actionButtonClass} ${
                           isLiked ? platform.activeActionClass : ""
-                        }`}
+                        } disabled:opacity-60`}
                       >
                         {isLiked ? platformActionLabels.liked : platformActionLabels.like}
                       </button>
@@ -1261,14 +1371,14 @@ export default function SurveyParticipantPage() {
                     )}
 
                     {showCommentInput === post.id && (
-                      <div className="border-t border-slate-200 bg-white px-6 py-5">
+                      <div className={`border-t px-6 py-5 ${feedSkin === "douyin" ? "border-white/10 bg-[#111820]" : "border-slate-200 bg-white"}`}>
                         <div className="flex flex-col gap-3 md:flex-row">
                           <input
                             type="text"
                             value={commentInputs[post.id] || ""}
                             onChange={(e) => setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))}
                           placeholder={t(locale, "writeComment")}
-                          className="field-input flex-1"
+                          className={`field-input flex-1 ${feedSkin === "douyin" ? "border-white/15 bg-[#080b10] text-white placeholder:text-white/40" : ""}`}
                           onKeyDown={(e) => e.key === "Enter" && handleComment(post.id)}
                         />
                         <button onClick={() => handleComment(post.id)} className="primary-button min-w-[112px]">
@@ -1388,7 +1498,7 @@ export default function SurveyParticipantPage() {
                                           answer_value: answer.value,
                                           answer_choices: answer.choices,
                                         });
-                                        setSubmittedQuestions((prev) => new Set([...prev, q.id]));
+                                        rememberSubmittedQuestion(q.id);
                                       } catch (err: any) {
                                         setActionError(err.message || t(locale, "networkRequestFailed"));
                                       }
@@ -1413,7 +1523,7 @@ export default function SurveyParticipantPage() {
             <div className="surface-panel-soft px-6 py-6">
               <p className={`section-kicker ${platform.accentTextClass}`}>{t(locale, "progress")}</p>
               <p className="mt-3 text-[32px] font-semibold tracking-[-0.06em] text-[#163047]">
-                {Math.min(totalPosts, Math.max(0, interactedPosts))}
+                {completedUnits}
               </p>
               <p className="mt-2 text-[13px] leading-6 text-slate-500">{recordedAcrossSummary}</p>
               <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
@@ -1438,8 +1548,17 @@ export default function SurveyParticipantPage() {
                 <UsersIcon className="mt-1 h-4 w-4 text-slate-500" />
                 <p className="text-[14px] leading-7 text-slate-500">{t(locale, "stayInSurvey")}</p>
               </div>
-              <button onClick={handleComplete} className="primary-button mt-6 w-full py-3.5 text-[14px]">
-                {t(locale, "complete")}
+              {!canCompleteSurvey && (
+                <p className="mt-4 rounded-[14px] bg-amber-50 px-4 py-3 text-[13px] leading-6 text-amber-700">
+                  {completionHint}
+                </p>
+              )}
+              <button
+                onClick={handleComplete}
+                disabled={!canCompleteSurvey || completing}
+                className="primary-button mt-6 w-full py-3.5 text-[14px] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {completing ? t(locale, "completionSaving") : t(locale, "complete")}
               </button>
             </div>
           </aside>

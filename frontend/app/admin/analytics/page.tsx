@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { ChartIcon, ChevronDownIcon } from "@/components/icons";
+import { useLocale } from "@/components/locale-provider";
 
 type SurveyListItem = {
   id: number;
@@ -238,7 +239,7 @@ function DataChart({
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const locale: string = "en";
+  const { locale } = useLocale();
   const [surveys, setSurveys] = useState<SurveyListItem[]>([]);
   const [selectedSurveyId, setSelectedSurveyId] = useState<number | null>(null);
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
@@ -256,9 +257,10 @@ export default function AnalyticsPage() {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
-  const text =
-    locale === "zh"
-      ? {
+  const text = useMemo(
+    () =>
+      locale === "zh"
+        ? {
           failed: "加载分析失败",
           failedSummary: "加载分析摘要失败",
           loading: "正在加载分析",
@@ -281,6 +283,10 @@ export default function AnalyticsPage() {
           filtersActive: "项已应用",
           filtersClear: "清除",
           surveyLabel: "问卷",
+          filterGroupLabel: "分组",
+          filterLanguageLabel: "语言",
+          filterStatusLabel: "作答状态",
+          filterCalibrationLabel: "校准结果",
           allGroups: "全部分组",
           allLanguages: "全部语言",
           anyStatus: "全部状态",
@@ -306,6 +312,8 @@ export default function AnalyticsPage() {
           clicks: "点击",
           likes: "点赞",
           comments: "评论",
+          configuredComments: "预设评论",
+          participantComments: "参与者评论",
           shares: "分享",
           summary: "摘要",
           insights: "洞察",
@@ -356,6 +364,10 @@ export default function AnalyticsPage() {
           filtersActive: "applied",
           filtersClear: "Clear",
           surveyLabel: "Survey",
+          filterGroupLabel: "Group",
+          filterLanguageLabel: "Language",
+          filterStatusLabel: "Response status",
+          filterCalibrationLabel: "Calibration",
           allGroups: "All groups",
           allLanguages: "All languages",
           anyStatus: "Any status",
@@ -381,6 +393,8 @@ export default function AnalyticsPage() {
           clicks: "clicks",
           likes: "Likes",
           comments: "Comments",
+          configuredComments: "Configured comments",
+          participantComments: "Participant comments",
           shares: "Shares",
           summary: "Summary",
           insights: "Insights",
@@ -407,7 +421,9 @@ export default function AnalyticsPage() {
           exportFieldsHint:
             "Downloads include calibration summaries, attention-confidence metrics, gaze/click counts, interactions (with screen click coordinates), and answers. Column reference:",
           exportFieldsHintLink: "Data export guide",
-        };
+        },
+    [locale],
+  );
 
   useEffect(() => {
     let active = true;
@@ -530,13 +546,17 @@ export default function AnalyticsPage() {
 
   const postMetricOptions: MetricOption<PostAnalytics>[] = useMemo(
     () => [
-      { id: "clicks", label: "Clicks", getValue: (post) => post.clicks },
-      { id: "likes", label: "Likes", getValue: (post) => post.likes },
-      { id: "comments", label: "Researcher comments", getValue: (post) => post.comments },
-      { id: "participant_comment_count", label: "Participant comments", getValue: (post) => post.participant_comment_count },
-      { id: "shares", label: "Shares", getValue: (post) => post.shares },
+      { id: "clicks", label: text.clicks, getValue: (post) => post.clicks },
+      { id: "likes", label: text.likes, getValue: (post) => post.likes },
+      { id: "comments", label: text.configuredComments, getValue: (post) => post.comments },
+      {
+        id: "participant_comment_count",
+        label: text.participantComments,
+        getValue: (post) => post.participant_comment_count,
+      },
+      { id: "shares", label: text.shares, getValue: (post) => post.shares },
     ],
-    [],
+    [text],
   );
 
   const groupMetricOptions: MetricOption<GroupAnalytics>[] = useMemo(
@@ -860,7 +880,12 @@ export default function AnalyticsPage() {
 
           {filtersExpanded && (
             <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 lg:flex-row lg:flex-wrap lg:items-center">
+              <label htmlFor="analytics-filter-group" className="sr-only">
+                {text.filterGroupLabel}
+              </label>
               <select
+                id="analytics-filter-group"
+                aria-label={text.filterGroupLabel}
                 value={exportGroup}
                 onChange={(event) => setExportGroup(event.target.value)}
                 className="h-9 min-w-[130px] flex-1 rounded-full border border-slate-200 bg-white px-3 text-[12px] outline-none transition hover:border-slate-300 lg:flex-none"
@@ -872,7 +897,12 @@ export default function AnalyticsPage() {
                   </option>
                 ))}
               </select>
+              <label htmlFor="analytics-filter-language" className="sr-only">
+                {text.filterLanguageLabel}
+              </label>
               <select
+                id="analytics-filter-language"
+                aria-label={text.filterLanguageLabel}
                 value={exportLanguage}
                 onChange={(event) => setExportLanguage(event.target.value)}
                 className="h-9 min-w-[130px] flex-1 rounded-full border border-slate-200 bg-white px-3 text-[12px] outline-none transition hover:border-slate-300 lg:flex-none"
@@ -882,7 +912,12 @@ export default function AnalyticsPage() {
                 <option value="zh">中文</option>
                 <option value="ar">العربية</option>
               </select>
+              <label htmlFor="analytics-filter-status" className="sr-only">
+                {text.filterStatusLabel}
+              </label>
               <select
+                id="analytics-filter-status"
+                aria-label={text.filterStatusLabel}
                 value={exportStatus}
                 onChange={(event) => setExportStatus(event.target.value)}
                 className="h-9 min-w-[140px] flex-1 rounded-full border border-slate-200 bg-white px-3 text-[12px] outline-none transition hover:border-slate-300 lg:flex-none"
@@ -892,7 +927,12 @@ export default function AnalyticsPage() {
                 <option value="in_progress">{text.inProgressOnly}</option>
                 <option value="flagged">{text.flaggedOnly}</option>
               </select>
+              <label htmlFor="analytics-filter-calibration" className="sr-only">
+                {text.filterCalibrationLabel}
+              </label>
               <select
+                id="analytics-filter-calibration"
+                aria-label={text.filterCalibrationLabel}
                 value={exportCalibration}
                 onChange={(event) => setExportCalibration(event.target.value)}
                 className="h-9 min-w-[150px] flex-1 rounded-full border border-slate-200 bg-white px-3 text-[12px] outline-none transition hover:border-slate-300 lg:flex-none"

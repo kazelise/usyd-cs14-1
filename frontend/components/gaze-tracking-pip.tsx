@@ -41,6 +41,7 @@ export function GazeTrackingPip({ snapshot, locale, videoRef }: GazeTrackingPipP
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const [pos, setPos] = useState({ x: MARGIN, y: MARGIN });
   const [box, setBox] = useState({ w: 200, h: 260 });
+  const [collapsed, setCollapsed] = useState(false);
 
   const clampPos = useCallback(
     (x: number, y: number) => {
@@ -122,7 +123,7 @@ export function GazeTrackingPip({ snapshot, locale, videoRef }: GazeTrackingPipP
     <div
       data-gaze-pip
       ref={shellRef}
-      className="pointer-events-auto fixed z-[60] w-[min(42vw,200px)] select-none sm:w-[200px]"
+      className="pointer-events-auto fixed z-[60] w-[min(36vw,180px)] select-none sm:w-[200px]"
       style={{ left: pos.x, top: pos.y }}
       role="region"
       aria-label={t(locale, "trackingStatusTitle")}
@@ -144,42 +145,57 @@ export function GazeTrackingPip({ snapshot, locale, videoRef }: GazeTrackingPipP
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/80">
             {t(locale, "trackingStatusTitle")}
           </p>
-          <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden />
-        </div>
-        <div className="relative aspect-[16/10] bg-slate-950">
-          <video
-            ref={videoRef as Ref<HTMLVideoElement>}
-            className="h-full w-full scale-x-[-1] object-cover"
-            autoPlay
-            muted
-            playsInline
-          />
-          {snapshot.status === "lost" && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 px-2 text-center text-[10px] font-semibold leading-tight text-white">
-              {t(locale, "trackingStatusLost")}
-            </div>
-          )}
-        </div>
-        <div className="space-y-1 border-t border-white/10 bg-black/75 px-2 py-1.5 text-[10px] text-white/85">
-          <div className="flex items-center justify-between gap-2 font-medium">
-            <span className="truncate">{t(locale, labelKey)}</span>
-            <span className={snapshot.faceDetected ? "text-emerald-400" : "text-rose-400"}>
-              {snapshot.faceDetected ? "●" : "○"}
-            </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              aria-label={collapsed ? t(locale, "pipExpand") : t(locale, "pipMinimize")}
+              onClick={() => setCollapsed((c) => !c)}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="flex h-4 w-4 items-center justify-center rounded text-[8px] text-white/60 hover:bg-white/15 hover:text-white/90"
+            >
+              {collapsed ? "▲" : "▼"}
+            </button>
+            <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden />
           </div>
-          {snapshot.expectedSamples > 0 && (
-            <div>
-              <div className="mb-0.5 flex justify-between text-[9px] uppercase tracking-[0.12em] text-white/50">
-                <span>{t(locale, "trackingCoverageLabel")}</span>
-                <span>{coveragePct}%</span>
-              </div>
-              <div className="h-1 overflow-hidden rounded-full bg-white/15">
-                <div className="h-full rounded-full bg-emerald-500/90 transition-all" style={{ width: `${coveragePct}%` }} />
-              </div>
-            </div>
-          )}
-          <p className="leading-snug text-[9px] text-white/45">{t(locale, "trackingPrivacyNote")}</p>
         </div>
+        {!collapsed && (
+          <>
+            <div className="relative aspect-[16/10] bg-slate-950">
+              <video
+                ref={videoRef as Ref<HTMLVideoElement>}
+                className="h-full w-full scale-x-[-1] object-cover"
+                autoPlay
+                muted
+                playsInline
+              />
+              {snapshot.status === "lost" && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 px-2 text-center text-[10px] font-semibold leading-tight text-white">
+                  {t(locale, "trackingStatusLost")}
+                </div>
+              )}
+            </div>
+            <div className="space-y-1 border-t border-white/10 bg-black/75 px-2 py-1.5 text-[10px] text-white/85">
+              <div className="flex items-center justify-between gap-2 font-medium">
+                <span className="truncate">{t(locale, labelKey)}</span>
+                <span className={snapshot.faceDetected ? "text-emerald-400" : "text-rose-400"}>
+                  {snapshot.faceDetected ? "●" : "○"}
+                </span>
+              </div>
+              {snapshot.expectedSamples > 0 && (
+                <div>
+                  <div className="mb-0.5 flex justify-between text-[9px] uppercase tracking-[0.12em] text-white/50">
+                    <span>{t(locale, "trackingCoverageLabel")}</span>
+                    <span>{coveragePct}%</span>
+                  </div>
+                  <div className="h-1 overflow-hidden rounded-full bg-white/15">
+                    <div className="h-full rounded-full bg-emerald-500/90 transition-all" style={{ width: `${coveragePct}%` }} />
+                  </div>
+                </div>
+              )}
+              <p className="leading-snug text-[9px] text-white/45">{t(locale, "trackingPrivacyNote")}</p>
+            </div>
+          </>
+        )}
       </div>
       <p className="mt-1 text-center text-[9px] text-slate-500">{t(locale, "trackingPipDragHint")}</p>
     </div>

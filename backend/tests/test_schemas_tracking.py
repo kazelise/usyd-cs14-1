@@ -196,6 +196,20 @@ class TestGazeBatchRequest:
         with pytest.raises(ValidationError):
             GazeBatchRequest(data=[])
 
+    def test_rejects_impossible_screen_coordinates(self):
+        with pytest.raises(ValidationError):
+            GazeBatchRequest(
+                response_id=1,
+                participant_token="participant-token",
+                data=[{"timestamp_ms": 1000, "screen_x": -1.0, "screen_y": 200.0}],
+            )
+        with pytest.raises(ValidationError):
+            GazeBatchRequest(
+                response_id=1,
+                participant_token="participant-token",
+                data=[{"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 25_000.0}],
+            )
+
 
 class TestGazeBatchOut:
     """Tests for gaze batch response schema."""
@@ -250,6 +264,20 @@ class TestClickBatchRequest:
     def test_empty_batch(self):
         batch = ClickBatchRequest(response_id=1, participant_token="participant-token", data=[])
         assert len(batch.data) == 0
+
+    def test_rejects_impossible_screen_coordinates(self):
+        with pytest.raises(ValidationError):
+            ClickBatchRequest(
+                response_id=1,
+                participant_token="participant-token",
+                data=[{"timestamp_ms": 1000, "screen_x": -1.0, "screen_y": 200.0}],
+            )
+        with pytest.raises(ValidationError):
+            ClickBatchRequest(
+                response_id=1,
+                participant_token="participant-token",
+                data=[{"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 25_000.0}],
+            )
 
 
 class TestClickBatchOut:

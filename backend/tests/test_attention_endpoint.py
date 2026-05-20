@@ -127,6 +127,7 @@ async def test_submit_attention_summary_downgrades_when_face_missing():
 @pytest.mark.asyncio
 async def test_complete_response_attaches_attention_summary_when_provided():
     response = make_response()
+    response.is_preview = True
     # complete_response start time is in the past so it does not get flagged.
     response.started_at = datetime.utcnow() - timedelta(minutes=5)
     db = AttentionDB(response, make_calibration())

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { CheckCircleIcon, SurveyIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
+import { useLocale } from "@/components/locale-provider";
 
 type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
 type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky" | "douyin";
@@ -33,7 +34,7 @@ function platformUiStyleToFeedStyle(style: PlatformUiStyle): PlatformStyle {
 
 export default function NewSurveyPage() {
   const router = useRouter();
-  const locale: string = "en";
+  const { locale } = useLocale();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [platformStyle, setPlatformStyle] = useState<PlatformStyle>("x");
