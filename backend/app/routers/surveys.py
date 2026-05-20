@@ -17,12 +17,12 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from jose import JWTError
+from jose import jwt as jose_jwt
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
-from jose import JWTError, jwt as jose_jwt
 
 from app.auth import ALGORITHM, get_current_researcher
 from app.config import settings
@@ -141,31 +141,45 @@ def _validate_question_answer(question: Question, body: SubmitQuestionResponseRe
 
     if qtype in ("text", "free_text"):
         if not body.answer_text or not body.answer_text.strip():
-            raise HTTPException(status_code=422, detail="answer_text is required and must not be empty")
+            raise HTTPException(
+                status_code=422, detail="answer_text is required and must not be empty"
+            )
 
     elif qtype in ("rating", "likert"):
         if body.answer_value is None:
-            raise HTTPException(status_code=422, detail="answer_value is required for rating/likert questions")
+            raise HTTPException(
+                status_code=422, detail="answer_value is required for rating/likert questions"
+            )
         min_val = int(config.get("min", 1))
         max_val = int(config.get("max", 5))
         if not (min_val <= body.answer_value <= max_val):
-            raise HTTPException(status_code=422, detail=f"answer_value must be between {min_val} and {max_val}")
+            raise HTTPException(
+                status_code=422, detail=f"answer_value must be between {min_val} and {max_val}"
+            )
 
     elif qtype == "single_choice":
         options = config.get("options", [])
         if not isinstance(options, list) or not options:
-            raise HTTPException(status_code=422, detail="single_choice questions must define config.options")
+            raise HTTPException(
+                status_code=422, detail="single_choice questions must define config.options"
+            )
         if not body.answer_choices or len(body.answer_choices) != 1:
-            raise HTTPException(status_code=422, detail="single_choice requires exactly one selected option")
+            raise HTTPException(
+                status_code=422, detail="single_choice requires exactly one selected option"
+            )
         if body.answer_choices[0] not in options:
             raise HTTPException(status_code=422, detail="Selected choice is not a valid option")
 
     elif qtype == "multiple_choice":
         options = config.get("options", [])
         if not isinstance(options, list) or not options:
-            raise HTTPException(status_code=422, detail="multiple_choice questions must define config.options")
+            raise HTTPException(
+                status_code=422, detail="multiple_choice questions must define config.options"
+            )
         if not body.answer_choices:
-            raise HTTPException(status_code=422, detail="multiple_choice requires at least one selected option")
+            raise HTTPException(
+                status_code=422, detail="multiple_choice requires at least one selected option"
+            )
         invalid = [c for c in body.answer_choices if c not in options]
         if invalid:
             raise HTTPException(status_code=422, detail=f"Invalid choices: {invalid}")
@@ -466,7 +480,9 @@ async def publish_survey(
         select(func.count(SurveyPost.id)).where(SurveyPost.survey_id == survey_id)
     )
     if (posts_count_q.scalar() or 0) == 0:
-        raise HTTPException(status_code=422, detail="Survey must have at least one post before publishing")
+        raise HTTPException(
+            status_code=422, detail="Survey must have at least one post before publishing"
+        )
     survey.status = "published"
     if survey.published_at is None:
         survey.published_at = datetime.utcnow()
@@ -729,7 +745,7 @@ async def delete_post(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a post from a survey."""
-    survey = await get_survey_or_404(survey_id, researcher.id, db)
+    await get_survey_or_404(survey_id, researcher.id, db)
     result = await db.execute(
         select(SurveyPost).where(SurveyPost.id == post_id, SurveyPost.survey_id == survey_id)
     )
@@ -1023,7 +1039,9 @@ async def get_response_state(
 ):
     # State may legitimately be fetched after completion (e.g. resume after
     # tab close), so we only enforce token ownership, not in_progress status.
-    await get_participant_response_or_404(response_id, x_participant_token, db, require_active=False)
+    await get_participant_response_or_404(
+        response_id, x_participant_token, db, require_active=False
+    )
 
     likes_result = await db.execute(
         select(ParticipantLike.post_id).where(ParticipantLike.response_id == response_id)
@@ -1703,9 +1721,7 @@ async def get_analytics_summary(
         .where(SurveyPost.survey_id == survey_id)
         .group_by(PostComment.post_id)
     )
-    researcher_comment_map = {
-        post_id: count for post_id, count in researcher_comments_result.all()
-    }
+    researcher_comment_map = {post_id: count for post_id, count in researcher_comments_result.all()}
 
     posts_result = await db.execute(
         select(SurveyPost).where(SurveyPost.survey_id == survey_id).order_by(SurveyPost.order)

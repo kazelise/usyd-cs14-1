@@ -181,7 +181,9 @@ async def test_complete_response_accepts_any_post_interaction_when_no_questions_
             ScalarOneResult(response),
             ScalarOneResult(make_survey(calibration_enabled=False)),
             ScalarListResult([]),
-            ScalarOneResult(ParticipantInteraction(response_id=10, post_id=31, action_type="click")),
+            ScalarOneResult(
+                ParticipantInteraction(response_id=10, post_id=31, action_type="click")
+            ),
         ]
     )
 

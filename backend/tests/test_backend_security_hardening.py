@@ -13,23 +13,20 @@ from datetime import datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
-from pydantic import ValidationError
 
 from app.models.participant import SurveyResponse
 from app.models.question import Question
 from app.models.survey import Survey, SurveyPost
 from app.routers.surveys import (
+    _validate_question_answer,
     create_post,
     create_question,
     create_survey_question,
-    delete_question,
     delete_survey_question,
-    _validate_question_answer,
     publish_survey,
     start_survey,
     update_post,
     update_question,
-    update_survey_question,
     update_survey,
 )
 from app.schemas.survey import (
@@ -41,8 +38,7 @@ from app.schemas.survey import (
     UpdateQuestionRequest,
     UpdateSurveyRequest,
 )
-from app.services.export_service import build_export_payload, ExportFilters
-
+from app.services.export_service import ExportFilters, build_export_payload
 
 # ── Shared mock infrastructure ──────────────────────────────────────────────
 
@@ -105,6 +101,7 @@ class SequenceDB:
 
 def make_researcher():
     from app.models.researcher import Researcher
+
     return Researcher(
         id=1,
         email="r@example.com",
@@ -137,6 +134,7 @@ def make_survey(*, status="draft", num_groups=1) -> Survey:
 
 def test_settings_rejects_default_key_when_debug_false():
     from pydantic import ValidationError as PydanticValidationError
+
     from app.config import Settings
 
     with pytest.raises((PydanticValidationError, ValueError)):
@@ -254,9 +252,7 @@ def _make_question(qtype: str, config: dict | None = None) -> Question:
 
 def test_answer_validation_text_rejects_empty():
     q = _make_question("text")
-    body = SubmitQuestionResponseRequest(
-        question_id=1, participant_token="tok", answer_text="   "
-    )
+    body = SubmitQuestionResponseRequest(question_id=1, participant_token="tok", answer_text="   ")
     with pytest.raises(HTTPException) as exc_info:
         _validate_question_answer(q, body)
     assert exc_info.value.status_code == 422
@@ -264,9 +260,7 @@ def test_answer_validation_text_rejects_empty():
 
 def test_answer_validation_free_text_requires_content():
     q = _make_question("free_text")
-    body = SubmitQuestionResponseRequest(
-        question_id=1, participant_token="tok", answer_text=None
-    )
+    body = SubmitQuestionResponseRequest(question_id=1, participant_token="tok", answer_text=None)
     with pytest.raises(HTTPException):
         _validate_question_answer(q, body)
 
@@ -281,18 +275,14 @@ def test_answer_validation_text_accepts_nonempty():
 
 def test_answer_validation_likert_rejects_missing_value():
     q = _make_question("likert")
-    body = SubmitQuestionResponseRequest(
-        question_id=1, participant_token="tok", answer_value=None
-    )
+    body = SubmitQuestionResponseRequest(question_id=1, participant_token="tok", answer_value=None)
     with pytest.raises(HTTPException):
         _validate_question_answer(q, body)
 
 
 def test_answer_validation_rating_rejects_out_of_range():
     q = _make_question("rating", {"min": 1, "max": 5})
-    body = SubmitQuestionResponseRequest(
-        question_id=1, participant_token="tok", answer_value=6
-    )
+    body = SubmitQuestionResponseRequest(question_id=1, participant_token="tok", answer_value=6)
     with pytest.raises(HTTPException) as exc_info:
         _validate_question_answer(q, body)
     assert exc_info.value.status_code == 422
@@ -300,22 +290,16 @@ def test_answer_validation_rating_rejects_out_of_range():
 
 def test_answer_validation_likert_accepts_in_range():
     q = _make_question("likert", {"min": 1, "max": 7})
-    body = SubmitQuestionResponseRequest(
-        question_id=1, participant_token="tok", answer_value=4
-    )
+    body = SubmitQuestionResponseRequest(question_id=1, participant_token="tok", answer_value=4)
     _validate_question_answer(q, body)  # should not raise
 
 
 def test_answer_validation_likert_uses_default_range_when_no_config():
     q = _make_question("likert")  # no config
-    body_ok = SubmitQuestionResponseRequest(
-        question_id=1, participant_token="tok", answer_value=5
-    )
+    body_ok = SubmitQuestionResponseRequest(question_id=1, participant_token="tok", answer_value=5)
     _validate_question_answer(q, body_ok)
 
-    body_bad = SubmitQuestionResponseRequest(
-        question_id=1, participant_token="tok", answer_value=0
-    )
+    body_bad = SubmitQuestionResponseRequest(question_id=1, participant_token="tok", answer_value=0)
     with pytest.raises(HTTPException):
         _validate_question_answer(q, body_bad)
 
@@ -359,9 +343,7 @@ def test_answer_validation_single_choice_accepts_valid():
 
 def test_answer_validation_multiple_choice_rejects_empty():
     q = _make_question("multiple_choice", {"options": ["A", "B"]})
-    body = SubmitQuestionResponseRequest(
-        question_id=1, participant_token="tok", answer_choices=[]
-    )
+    body = SubmitQuestionResponseRequest(question_id=1, participant_token="tok", answer_choices=[])
     with pytest.raises(HTTPException):
         _validate_question_answer(q, body)
 
@@ -696,7 +678,6 @@ async def test_delete_survey_question_blocks_when_participant_responses_exist():
 
 def test_fast_completions_counts_flagged_responses():
     """A flagged (speed-test) response under 2 minutes must appear in fast_completions."""
-    from app.routers.surveys import analytics_response_scope
 
     # We can't unit-test get_analytics_summary without a real DB, but we can
     # verify the logic directly by inspecting the fast_completions branch.
@@ -704,16 +685,31 @@ def test_fast_completions_counts_flagged_responses():
     now = datetime.utcnow()
 
     completed_slow = SurveyResponse(
-        id=1, survey_id=7, participant_token="tok1", assigned_group=1,
-        status="completed", started_at=now - timedelta(minutes=10), completed_at=now,
+        id=1,
+        survey_id=7,
+        participant_token="tok1",
+        assigned_group=1,
+        status="completed",
+        started_at=now - timedelta(minutes=10),
+        completed_at=now,
     )
     completed_fast = SurveyResponse(
-        id=2, survey_id=7, participant_token="tok2", assigned_group=1,
-        status="completed", started_at=now - timedelta(seconds=90), completed_at=now,
+        id=2,
+        survey_id=7,
+        participant_token="tok2",
+        assigned_group=1,
+        status="completed",
+        started_at=now - timedelta(seconds=90),
+        completed_at=now,
     )
     flagged = SurveyResponse(
-        id=3, survey_id=7, participant_token="tok3", assigned_group=1,
-        status="flagged", started_at=now - timedelta(seconds=20), completed_at=now,
+        id=3,
+        survey_id=7,
+        participant_token="tok3",
+        assigned_group=1,
+        status="flagged",
+        started_at=now - timedelta(seconds=20),
+        completed_at=now,
         is_speed_test_failed=True,
     )
 
@@ -754,7 +750,15 @@ def test_export_payload_includes_participant_comments():
     response.interactions = []
     response.calibration_session = None
 
-    comments = [{"id": 1, "post_id": 5, "text": "edited text", "created_at": now.isoformat(), "updated_at": now.isoformat()}]
+    comments = [
+        {
+            "id": 1,
+            "post_id": 5,
+            "text": "edited text",
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+    ]
 
     payload = build_export_payload(
         survey,
