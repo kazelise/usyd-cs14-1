@@ -5,7 +5,12 @@ from datetime import datetime, timedelta
 import pytest
 from fastapi import HTTPException
 
-from app.models.participant import SurveyResponse
+from app.models.participant import (
+    ParticipantComment,
+    ParticipantInteraction,
+    ParticipantLike,
+    SurveyResponse,
+)
 from app.models.survey import Survey
 from app.models.tracking import CalibrationSession
 from app.routers.surveys import CompleteResponseRequest, complete_response
@@ -164,4 +169,71 @@ async def test_complete_response_requires_some_engagement_when_no_questions_exis
         )
 
     assert exc_info.value.status_code == 422
+    assert "post interaction" in exc_info.value.detail
     assert db.committed is False
+
+
+@pytest.mark.asyncio
+async def test_complete_response_accepts_any_post_interaction_when_no_questions_exist():
+    response = make_response()
+    db = CompletionDB(
+        [
+            ScalarOneResult(response),
+            ScalarOneResult(make_survey(calibration_enabled=False)),
+            ScalarListResult([]),
+            ScalarOneResult(ParticipantInteraction(response_id=10, post_id=31, action_type="click")),
+        ]
+    )
+
+    result = await complete_response(
+        10, CompleteResponseRequest(participant_token="participant-token"), db
+    )
+
+    assert result["status"] == "completed"
+    assert response.status == "completed"
+    assert db.committed is True
+
+
+@pytest.mark.asyncio
+async def test_complete_response_accepts_liked_post_when_no_questions_exist():
+    response = make_response()
+    db = CompletionDB(
+        [
+            ScalarOneResult(response),
+            ScalarOneResult(make_survey(calibration_enabled=False)),
+            ScalarListResult([]),
+            ScalarOneResult(None),
+            ScalarOneResult(ParticipantLike(response_id=10, post_id=31)),
+        ]
+    )
+
+    result = await complete_response(
+        10, CompleteResponseRequest(participant_token="participant-token"), db
+    )
+
+    assert result["status"] == "completed"
+    assert response.status == "completed"
+    assert db.committed is True
+
+
+@pytest.mark.asyncio
+async def test_complete_response_accepts_participant_comment_when_no_questions_exist():
+    response = make_response()
+    db = CompletionDB(
+        [
+            ScalarOneResult(response),
+            ScalarOneResult(make_survey(calibration_enabled=False)),
+            ScalarListResult([]),
+            ScalarOneResult(None),
+            ScalarOneResult(None),
+            ScalarOneResult(ParticipantComment(response_id=10, post_id=31, text="Useful")),
+        ]
+    )
+
+    result = await complete_response(
+        10, CompleteResponseRequest(participant_token="participant-token"), db
+    )
+
+    assert result["status"] == "completed"
+    assert response.status == "completed"
+    assert db.committed is True

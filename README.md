@@ -1,209 +1,232 @@
-# CS14-1 · Social Media Survey Platform
+# CS14-1 Social Media Survey Platform
 
-> COMP5703 Capstone — University of Sydney, S1 2026
+> COMP5703 Capstone, University of Sydney S1 2026.
 
-A research platform for studying how participants interact with social-media-style stimuli. Researchers paste real article URLs, the platform turns them into controllable feed posts (override headline / image / engagement counts, attach fake comments, gate by A/B group), then publishes a share link. Participants run through a guided session that records likes, comments, click positions, gaze samples, and webcam calibration quality — all anonymised under a per-session token.
+CS14 is a research platform for running controlled social-media-style survey
+studies. Researchers build multilingual feed experiments, publish participant
+links, collect anonymous behavioural data, and export the results for analysis.
 
-### Documentation map
+The product is designed for credibility, misinformation, and engagement-cue
+experiments where a researcher needs the look and rhythm of social feeds without
+sending participants into uncontrolled live platforms.
 
-| Surface | Where |
-| --- | --- |
-| Published handbook (architecture diagrams, acceptance matrix, researcher guides) | `https://cs14-docs.kazelis.top/` |
-| Repo markdown index | [`docs/README.md`](docs/README.md) |
-| Tracking & HTTP contracts | [`docs/tracking-api.md`](docs/tracking-api.md), [`docs/tracking-data-flow.md`](docs/tracking-data-flow.md) |
+## Current Demo
 
-### Demo Showcase
+| Surface | Link / command | Purpose |
+| --- | --- | --- |
+| Live application | <https://cs14.kazelis.top/> | Researcher admin and participant entry point |
+| Public handbook | <https://cs14-docs.kazelis.top/> | Researcher workflow, deployment, privacy, export, acceptance matrix |
+| OpenAPI / Swagger | <https://cs14.kazelis.top/docs> | Backend contract review |
+| Main participant seed | <https://cs14.kazelis.top/survey/CS14DEMO2026?lang=en> | Calibration, feed interaction, analytics walkthrough |
+| Demo runbook | [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md) | Presenter script, share-code matrix, smoke checks |
+| Public smoke test | `./scripts/verify_demo_public.sh` | Health check plus published demo share-code checks |
 
-| Surface | Where |
-| --- | --- |
-| **Live application** | <https://cs14.kazelis.top/> — researcher landing at `/auth` |
-| **Public handbook** | <https://cs14-docs.kazelis.top/> (`docs-site` source mirrors engineering + ops narratives) |
-| **Command-center runbook** | [`docs/DEMO_RUNBOOK.md`](docs/DEMO_RUNBOOK.md) — URLs, examiner script, seeded share-code matrix, exporter story |
+Researcher credentials for shared hosts are handled through the course/demo
+handoff process and environment-backed seed script. Do not commit personal
+passwords or production secrets to the repository.
 
-**Disposable researcher login (staging default)** — purely synthetic demos; rotations happen after wipes. Operators must inject the same identities via `DEMO_RESEARCHER_EMAIL` / `DEMO_RESEARCHER_PASSWORD` when running `python -m scripts.seed_client_demo` on shared hosts:
+## What The Platform Proves
 
-| Email | Password |
-| --- | --- |
-| `cs14.demopresenter@students.sydney.edu.au` | `Cs14DemoMay2026!` |
-
-**Participant gallery (seven fixed seeds)**:
-
-| Scenario | Share code |
-| --- | --- |
-| Main calibration + credibility deck | **CS14DEMO2026** |
-| X timeline · IG grid · RED collage · Truth · Bluesky · Douyin preview strip | **CS14X2026**, **CS14IG2026**, **CS14RED2026**, **CS14TRUTH26**, **CS14BSKY2026**, **CS14DOUYIN26** |
-
-**Credential policy:** If this table diverges from the environment you opened, escalate to COMP5703 leads for the refreshed pairing rather than circulating personal passwords. Local-only seeds still default to `cs14.demo@example.com`, which is harmless for Compose sandboxes only.
-
-Smoke without secrets: `./scripts/verify_demo_public.sh` (override `DEMO_HOST` / `DEMO_SCHEME` / `DEMO_SHARE_CODES`; defaults hit every seeded code twice per language).
-
-**Privacy & gaze (summary):** Webcam frames stay in the participant browser for MediaPipe. The API persists calibration verdicts, iris-relative gaze coordinates, clicks, and attention summaries—not raw video. Full narrative: [`docs-site/docs/guide/calibration-privacy.md`](docs-site/docs/guide/calibration-privacy.md) (same page under _Calibration & Privacy_ on the published site).
-
-**Demo vs disposable data:** `docker compose up` gives you Postgres + services with empty survey tables until you create studies in `/admin`. Anything you configure for screenshots or client demos should be treated as throwaway unless exported under your ethics/consent rules.
+- **Controlled social feeds:** paste or manually define article-like stimuli,
+  override headline/image/source/counters, add scripted comments, and choose a
+  platform-style presentation.
+- **Experimental conditions:** assign participants to A/B groups, show different
+  post variants per group, and preserve the assigned group across tab closes.
+- **Participant-safe runtime:** participants use a share link, choose language,
+  complete consent, optional calibration, feed tasks, and survey questions
+  without a participant account.
+- **Progress integrity:** required question answers must be submitted. If a
+  survey has no question blocks, any recorded post interaction is enough to
+  complete the run: like, participant comment, link click, or share.
+- **Attention evidence:** optional webcam calibration and browser-side tracking
+  produce numeric quality/gaze/click signals. Raw webcam video is not persisted.
+- **Researcher exports:** analytics and CSV/JSON exports support group, language,
+  completion status, calibration, and preview filters.
+- **Multilingual delivery:** English and Chinese are fully supported, with Arabic
+  RTL layout support for interface and smoke validation.
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/start-en.png" alt="Participant start screen — English" /></td>
-    <td><img src="docs/screenshots/start-ar.png" alt="Participant start screen — Arabic (RTL)" /></td>
+    <td><img src="docs/screenshots/start-en.png" alt="Participant start screen in English" /></td>
+    <td><img src="docs/screenshots/start-ar.png" alt="Participant start screen in Arabic RTL" /></td>
   </tr>
   <tr>
-    <td align="center"><sub>Participant start screen — English</sub></td>
-    <td align="center"><sub>Same screen in Arabic — full RTL layout flip</sub></td>
+    <td align="center"><sub>Participant start screen - English</sub></td>
+    <td align="center"><sub>Same flow in Arabic - RTL layout</sub></td>
   </tr>
 </table>
 
-## Quick start
+## Research Workflow
+
+| Step | Researcher action | Platform support |
+| --- | --- | --- |
+| 1. Design | Create a survey, languages, groups, and required question blocks | Admin survey builder and typed backend validation |
+| 2. Compose | Add social-style posts from URLs or manual content | Open Graph fetcher, fallback fields, comments, counters, image override |
+| 3. Preview | Check group/language rendering before publish | Preview routes that do not pollute final participant data |
+| 4. Publish | Share one public participant link | Stable share codes and token-bound resume behaviour |
+| 5. Run | Participant consents, calibrates if required, reads posts, answers tasks | Multilingual participant runtime, calibration UI, click/gaze batching |
+| 6. Analyse | Compare groups and inspect quality flags | Analytics dashboard, suspicious-session flags, CSV/JSON export |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Researcher["Researcher"] --> Admin["Next.js admin UI"]
+  Participant["Participant"] --> Runtime["Next.js participant runtime"]
+  Runtime --> Calibration["Browser calibration and tracking"]
+  Admin --> API["FastAPI service"]
+  Runtime --> API
+  Calibration --> API
+  API --> Postgres["PostgreSQL"]
+  API --> Export["CSV/JSON export service"]
+  Docs["VitePress docs site"] -. handover .-> Researcher
+```
+
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | Next.js 15, React 18, TypeScript, Tailwind CSS |
+| Backend | FastAPI, SQLAlchemy 2.0 async, Pydantic v2, Alembic |
+| Database | PostgreSQL 16 |
+| Tracking | MediaPipe Face Mesh in-browser, WebRTC camera permission, batched click/gaze APIs |
+| Docs | VitePress plus in-repo markdown runbooks |
+| DevOps | Docker Compose, Caddy/Cloudflare deployment notes, shell smoke checks |
+
+## Quick Start
+
+Run the whole stack locally:
 
 ```bash
 docker compose up -d
 ```
 
-| Service           | URL                         |
-| ----------------- | --------------------------- |
-| Frontend          | http://localhost:3000       |
-| Backend API       | http://localhost:8000       |
-| Swagger / OpenAPI | http://localhost:8000/docs  |
-| ReDoc             | http://localhost:8000/redoc |
+| Service | URL |
+| --- | --- |
+| Frontend | <http://localhost:3000> |
+| Backend API | <http://localhost:8000> |
+| Swagger / OpenAPI | <http://localhost:8000/docs> |
+| ReDoc | <http://localhost:8000/redoc> |
 
-First run takes a few minutes (image build + `alembic upgrade head` + `npm install`). Subsequent runs are instant — both backend (`uvicorn --reload`) and frontend (`next dev`) hot-reload on file changes via bind-mounted volumes, so editing source and seeing the change in the browser doesn't need a rebuild.
-
-To run only the database (and run backend / frontend on the host):
+First run builds images, installs frontend dependencies, applies Alembic
+migrations, and starts hot-reload services. Local Compose starts with an empty
+database unless you create surveys manually or run the demo seed:
 
 ```bash
-docker compose up db -d
-cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload
-cd frontend && npm install && npm run dev
+docker compose exec backend python -m scripts.seed_client_demo
 ```
 
-## What you get
+To run only Postgres in Docker and run app services on the host:
 
-### Researcher admin
+```bash
+docker compose up -d db
 
-<img src="docs/screenshots/auth-en.png" alt="Researcher sign-in" width="720" />
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
 
-- **Survey builder** at `/admin/surveys` — create / edit surveys, configure A/B groups, attach question blocks (`free_text` / `single_choice` / `multiple_choice` / `likert` / `rating`).
-- **Post composer** — paste a real news / article URL; backend fetches Open Graph metadata (title, hero image, source). Override any field, set fake `display_likes` / `display_comments_count` / `display_shares`, attach researcher-authored fake comments, and decide which A/B groups see which posts.
-- **Translations** at `/admin/surveys/{id}` — every post / comment / question block can carry per-language overrides. Bulk import / export via CSV or JSON (`GET/POST /surveys/{id}/translations`).
-- **Preview** without publishing — `GET /surveys/{id}/preview` renders the participant feed for a chosen group + language so you can test before sending the share link.
-- **Analytics** at `/admin/analytics` — completion rate, median session time, A/B-broken-down likes / comments / clicks, calibration pass rate, suspicious-session flags (sub-30s completion, all-empty interactions, duplicate comment text).
-- **Export** — `GET /surveys/{id}/export?format=csv|json` with filters by group / language / response status / calibration outcome. Each row is keyed by an anonymous participant ID derived from the per-session token; raw tokens never leave the database.
-- **Researcher guide** — see [`docs/researcher-user-guide.md`](docs/researcher-user-guide.md) for the survey-building, translation, publishing, testing, and export workflow.
-- **Deployment & demo** — see [`docs/README.md`](docs/README.md) for the doc index, [`docs/deployment.md`](docs/deployment.md) for production env vars, migrations, HTTPS/camera and CORS, and [`docs/DEMO_RUNBOOK.md`](docs/DEMO_RUNBOOK.md) for a 20-minute client meeting script.
-
-### Participant flow
-
-1. **Start screen** — survey title + estimated duration + explicit consent checkbox + language picker (EN / 中文 / العربية).
-2. **Webcam calibration** (when enabled on the survey) — camera permission, face-detection presence check, 9-point dot sequence using MediaPipe Face Mesh, quality score with pass / acceptable / poor verdict. See [`docs/tracking-design-decisions.md`](docs/tracking-design-decisions.md) for the scoring model.
-3. **Social feed** — each post rendered with the look of a real platform card: source badge, headline, hero image, like / comment / share counters. Inline question blocks below each post for survey responses.
-4. **Continuous capture** — gaze samples (1 Hz default, configurable per survey), click coordinates with `data-track` element labels (`headline` / `image` / `like_button` / `share_count`), interaction events (like, comment, share, click-through to the original article).
-5. **Resume across tab close** — `participant_token` cached client-side; reopening the share link reuses the same `response_id` and A/B group, and skips calibration if it already passed. No re-randomisation, no orphan responses.
-6. **Completion** — server-side timestamp diff checks for sub-30s sessions; flagged for researcher review.
-
-### Multilingual & RTL
-
-End-to-end multilingual support is a hard project requirement. Three locales are wired through `<html lang>` + `<html dir>` + Tailwind layouts:
-
-| Locale | Direction | Status                                  |
-| ------ | --------- | --------------------------------------- |
-| `en`   | LTR       | Full UI + content                       |
-| `zh`   | LTR       | Full UI + content                       |
-| `ar`   | RTL       | Full UI; awaiting native-speaker review |
-
-Switching to `ar` flips the entire layout right-to-left at first paint. An inline bootstrap script in `<head>` reads the cached locale and sets `dir` before React hydrates, so participants don't see the brief LTR flash that would otherwise show during reconciliation:
-
-<img src="docs/screenshots/auth-ar.png" alt="Auth landing in RTL" width="720" />
-
-Per-survey content (post titles, comments, question blocks) is stored in dedicated `*_translations` tables and fetched on demand based on the participant's locale — researchers can ship a single survey in multiple languages from one share link.
-
-### Calibration & tracking data model
-
-<details>
-<summary>Schema overview</summary>
-
-- `calibration_sessions` — one per `survey_response`, status `in_progress` / `completed`, expected point count, screen + camera dimensions, model (`mediapipe_face_mesh` by default), aggregate `quality_score`, `face_detection_rate`, `stability_score`.
-- `calibration_points` — one per recorded dot, `point_index` 1..N (per-survey), median iris coordinates per eye, raw sample list, per-point `valid` flag.
-- `gaze_records` — `(response_id, timestamp_ms)` and `(post_id, timestamp_ms)` compound indexes for time-series queries; iris X/Y coordinates plus screen X/Y per sample.
-- `click_records` — same composite indexes; `target_element` enum-ish string for heatmap categorisation.
-
-Full contract in [`docs/tracking-api.md`](docs/tracking-api.md) and [`docs/tracking-data-flow.md`](docs/tracking-data-flow.md).
-
-</details>
-
-## Tech stack
-
-| Layer    | Technology                                                    |
-| -------- | ------------------------------------------------------------- |
-| Frontend | Next.js 14 (App Router) · React 18 · TypeScript · Tailwind CSS |
-| Backend  | FastAPI · SQLAlchemy 2.0 (async) · Pydantic v2 · Alembic      |
-| Database | PostgreSQL 16                                                  |
-| Tracking | MediaPipe Face Mesh (browser) · WebRTC                         |
-| DevOps   | Docker Compose · GitHub Actions CI                             |
-
-## Project layout
-
+cd ../frontend
+npm install
+npm run dev
 ```
+
+## Validation
+
+Backend tests:
+
+```bash
+docker compose exec -T backend pytest -q
+```
+
+Frontend quality gate:
+
+```bash
+docker compose run --rm -T --no-deps frontend \
+  sh -c 'npm run lint && npm run build && npm audit --audit-level=moderate'
+```
+
+Public demo smoke:
+
+```bash
+DEMO_HOST=cs14.kazelis.top ./scripts/verify_demo_public.sh
+```
+
+Docs site:
+
+```bash
+cd docs-site
+npm install
+npm run build
+```
+
+## Privacy And Data Boundaries
+
+- Participant sessions are identified by anonymous per-session tokens.
+- Raw participant tokens are not included in researcher exports.
+- Webcam frames stay in the browser; the backend stores calibration verdicts,
+  numeric gaze/click samples, and quality summaries.
+- Clicks, comments, shares, and likes are recorded separately so analytics can
+  distinguish each participant behaviour during review and export.
+- Production deployments must set a real `SECRET_KEY`, `DEBUG=false`, and
+  appropriate `CORS_ORIGINS`. The root Compose defaults are for local development
+  only.
+
+See [docs-site/docs/guide/calibration-privacy.md](docs-site/docs/guide/calibration-privacy.md)
+and [docs/deployment.md](docs/deployment.md) for the full operational notes.
+
+## Repository Map
+
+```text
 backend/
   app/
-    routers/            FastAPI endpoints (auth · surveys · tracking)
-    schemas/            Pydantic request / response models
-    models/             SQLAlchemy ORM
-    services/           OG fetcher · translation pipeline · CSV/JSON export
-    utils/              Calibration quality scoring
-  alembic/versions/     Schema migrations
-  tests/                pytest — schema validation + router contract tests
+    routers/            FastAPI routes for auth, surveys, tracking, export
+    schemas/            Pydantic request/response contracts
+    models/             SQLAlchemy ORM models
+    services/           Open Graph fetch, translations, export
+    utils/              Calibration and attention quality scoring
+  alembic/versions/     Database migrations
+  scripts/              Demo data seed
+  tests/                Pytest contract and behaviour tests
+
 frontend/
   app/
-    admin/              Researcher dashboard + survey editor
-    survey/[shareCode]/ Participant runtime (start screen + feed + calibration)
-  components/           Calibration experience · locale provider · icons
-  lib/                  API client · i18n dictionaries
-docs/
-  README.md                      Index of all docs (start here for navigation)
-  deployment.md                  Production env, migrations, HTTPS/smoke checklist
-  DEMO_RUNBOOK.md                Client demo script (~20 minutes)
-  architecture.md                Subsystem overview
-  tracking-api.md                Tracking endpoint contracts (auth, error codes)
-  tracking-data-flow.md          DB schema & batch flow
-  tracking-design-decisions.md   Calibration scoring rationale
+    admin/              Researcher dashboard, survey builder, analytics
+    survey/[shareCode]/ Participant start page, feed runtime, calibration flow
+  components/           Calibration, gaze picture-in-picture, locale provider
+  lib/                  API client, dictionaries, MediaPipe loader
+
+docs/                   Markdown runbooks and engineering docs
+docs-site/              Published VitePress handbook source
+scripts/                Public smoke verifier
 ```
 
-## Module ownership
+## Documentation Map
 
-| Role             | Module                                                      |
-| ---------------- | ----------------------------------------------------------- |
-| Frontend A (×2)  | Researcher admin UI · survey editor · analytics             |
-| Frontend B (×2)  | Participant runtime · social feed · calibration UI          |
-| Backend A/B (×2) | Auth · survey/post CRUD · OG fetch · translations · export  |
-| Backend C (×2)   | Calibration · gaze tracking · click tracking · Swagger docs |
+| Document | Use it for |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Human-facing documentation index |
+| [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md) | Presenter script, seeded share codes, demo checks |
+| [docs/researcher-user-guide.md](docs/researcher-user-guide.md) | Survey creation, translations, publishing, export |
+| [docs/deployment.md](docs/deployment.md) | Production environment, migrations, HTTPS, CORS |
+| [docs/tracking-api.md](docs/tracking-api.md) | Tracking endpoint contracts and error behaviour |
+| [docs/tracking-data-flow.md](docs/tracking-data-flow.md) | Stored calibration/gaze/click data model |
+| [docs/tracking-design-decisions.md](docs/tracking-design-decisions.md) | Calibration quality scoring rationale |
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for branch / commit / PR conventions.
+Use `dev` as the integration branch. Keep changes scoped, run the validation
+commands above, and open pull requests with conventional commit-style titles.
 
 ```bash
-# create a feature branch from dev
-git checkout dev && git pull
-git checkout -b feature/<module>-<short-desc>
+git checkout dev
+git pull
+git checkout -b feature/<area>-<short-description>
 
-# work, commit (conventional style), push
-git push -u origin feature/<module>-<short-desc>
-
-# open a PR to dev — CI must pass + 1 approval, squash merge
+# work, test, commit
+git push -u origin feature/<area>-<short-description>
 gh pr create --base dev
-```
-
-Run the backend test suite before opening a PR:
-
-```bash
-cd backend && python -m pytest -q
-```
-
-Frontend type check:
-
-```bash
-cd frontend && npx tsc --noEmit
 ```
 
 ## License
 
-Coursework deliverable for COMP5703 — not licensed for redistribution.
+Coursework deliverable for COMP5703. Not licensed for redistribution.
