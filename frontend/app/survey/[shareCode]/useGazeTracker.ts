@@ -1,12 +1,42 @@
 "use client";
-import { useEffect, useRef, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { api } from "@/lib/api";
+import { acquireSharedFaceMesh, releaseSharedFaceMesh } from "@/lib/mediapipe-face-mesh";
+
+export type GazeTrackerStatus =
+  | "starting"
+  | "tracking"
+  | "weak"
+  | "lost"
+  | "stopped";
+
+export interface GazeTrackerSnapshot {
+  status: GazeTrackerStatus;
+  faceDetected: boolean;
+  expectedSamples: number;
+  detectedSamples: number;
+  activeMs: number;
+  missingMs: number;
+  noFacePeriods: number;
+  coverage: number;
+}
+
+export interface GazeTrackerSummary {
+  active_ms: number;
+  expected_samples: number;
+  detected_samples: number;
+  missing_ms: number;
+  no_face_periods: number;
+}
 
 interface GazeTrackerOptions {
   responseId: number;
+  participantToken: string;
   intervalMs: number;
   enabled: boolean;
   flushIntervalMs?: number;
+  /** When set, gaze capture uses this mounted `<video>` (e.g. picture-in-picture preview). */
+  pipVideoRef?: RefObject<HTMLVideoElement | null>;
 }
 
 // MediaPipe iris landmark indices
@@ -22,39 +52,60 @@ const LEFT_EYE_BOTTOM = 145;
 const RIGHT_EYE_TOP = 386;
 const RIGHT_EYE_BOTTOM = 374;
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-    const s = document.createElement("script");
-    s.src = src;
-    s.crossOrigin = "anonymous";
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.head.appendChild(s);
-  });
-}
+// How many consecutive missed-sample windows count as a "tracking dropout"
+// rather than a transient blink/turn-of-head.
+const DROPOUT_WINDOWS = 2;
+// How long (ms) we'll wait for the camera to deliver the first detection
+// before downgrading status from "starting" to "weak".
+const STARTUP_GRACE_MS = 2500;
 
 /**
  * Continuously captures gaze data during the survey using MediaPipe Face Mesh
  * for real iris tracking, then sends batches to POST /tracking/gaze.
  *
- * Uses the same approach as the team's Face & Iris Tracking Demo:
- * - MediaPipe Face Mesh with refineLandmarks for iris landmarks (468-477)
- * - Gaze estimation via iris-to-eye-corner ratio
- * - Webcam started internally when enabled=true, stopped on cleanup
+ * Beyond raw samples, the hook tracks per-window detection state so the UI
+ * can surface "face detected / weak / lost" indicators and the survey
+ * completion handler can persist a coverage-based confidence score. Raw
+ * webcam frames are never persisted or rendered — only numeric counts.
  */
 export function useGazeTracker({
   responseId,
+  participantToken,
   intervalMs,
   enabled,
   flushIntervalMs = 5000,
+  pipVideoRef,
 }: GazeTrackerOptions) {
   const bufferRef = useRef<any[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const usesExternalVideoRef = useRef(false);
   const faceMeshRef = useRef<any>(null);
+  const faceMeshOwnerRef = useRef<symbol | null>(null);
   const captureRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startedAtRef = useRef<number | null>(null);
+  const lastDetectedAtRef = useRef<number | null>(null);
+  const consecutiveMissesRef = useRef(0);
+  const inDropoutRef = useRef(false);
+  const summaryRef = useRef({
+    expectedSamples: 0,
+    detectedSamples: 0,
+    activeMs: 0,
+    missingMs: 0,
+    noFacePeriods: 0,
+  });
+
+  const [snapshot, setSnapshot] = useState<GazeTrackerSnapshot>({
+    status: "stopped",
+    faceDetected: false,
+    expectedSamples: 0,
+    detectedSamples: 0,
+    activeMs: 0,
+    missingMs: 0,
+    noFacePeriods: 0,
+    coverage: 0,
+  });
 
   // Latest tracking result updated by MediaPipe onResults callback
   const latestRef = useRef<{
@@ -92,100 +143,121 @@ export function useGazeTracker({
     const batch = [...bufferRef.current];
     bufferRef.current = [];
     try {
-      await api.recordGaze({ response_id: responseId, data: batch });
+      await api.recordGaze({ response_id: responseId, participant_token: participantToken, data: batch });
     } catch {
       bufferRef.current = [...batch, ...bufferRef.current];
     }
-  }, [responseId]);
+  }, [participantToken, responseId]);
+
+  const getSummary = useCallback((): GazeTrackerSummary => {
+    const summary = summaryRef.current;
+    return {
+      active_ms: Math.round(summary.activeMs),
+      expected_samples: summary.expectedSamples,
+      detected_samples: summary.detectedSamples,
+      missing_ms: Math.round(summary.missingMs),
+      no_face_periods: summary.noFacePeriods,
+    };
+  }, []);
 
   useEffect(() => {
-    if (!enabled || !responseId) return;
+    if (!enabled || !responseId || !participantToken) return;
 
     let cancelled = false;
     let cameraInstance: any = null;
 
+    // Reset summary for this session.
+    summaryRef.current = {
+      expectedSamples: 0,
+      detectedSamples: 0,
+      activeMs: 0,
+      missingMs: 0,
+      noFacePeriods: 0,
+    };
+    consecutiveMissesRef.current = 0;
+    inDropoutRef.current = false;
+    lastDetectedAtRef.current = null;
+    startedAtRef.current = Date.now();
+    setSnapshot((prev) => ({ ...prev, status: "starting", faceDetected: false }));
+
     async function start() {
-      // Load MediaPipe scripts
+      // Acquire the shared Face Mesh instance. The CDN WASM runtime is brittle when
+      // reinitialized after calibration, so calibration and gaze tracking reuse it.
+      const browserWindow = window as any;
+      let faceMesh: any;
       try {
-        await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js");
-        await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js");
+        const acquired = await acquireSharedFaceMesh((results: any) => {
+          if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+            latestRef.current = { ...latestRef.current, detected: false };
+            return;
+          }
+
+          const lm = results.multiFaceLandmarks[0];
+          const leftIris = lm[LEFT_IRIS_CENTER];
+          const rightIris = lm[RIGHT_IRIS_CENTER];
+
+          // Gaze estimation: iris position relative to eye corners
+          const leftOuter = lm[LEFT_EYE_OUTER];
+          const leftInner = lm[LEFT_EYE_INNER];
+          const rightOuter = lm[RIGHT_EYE_OUTER];
+          const rightInner = lm[RIGHT_EYE_INNER];
+
+          const leftRatioX = (leftIris.x - leftOuter.x) / (leftInner.x - leftOuter.x);
+          const rightRatioX = (rightIris.x - rightOuter.x) / (rightInner.x - rightOuter.x);
+
+          const leftTop = lm[LEFT_EYE_TOP];
+          const leftBottom = lm[LEFT_EYE_BOTTOM];
+          const rightTop = lm[RIGHT_EYE_TOP];
+          const rightBottom = lm[RIGHT_EYE_BOTTOM];
+
+          const leftRatioY = (leftIris.y - leftTop.y) / (leftBottom.y - leftTop.y);
+          const rightRatioY = (rightIris.y - rightTop.y) / (rightBottom.y - rightTop.y);
+
+          const gazeX = (leftRatioX + rightRatioX) / 2;
+          const gazeY = (leftRatioY + rightRatioY) / 2;
+
+          // Map to screen coordinates in the same orientation as the camera frame.
+          const screenX = Math.round(gazeX * window.innerWidth);
+          const screenY = Math.round(gazeY * window.innerHeight);
+
+          latestRef.current = {
+            detected: true,
+            leftIrisX: leftIris.x,
+            leftIrisY: leftIris.y,
+            rightIrisX: rightIris.x,
+            rightIrisY: rightIris.y,
+            screenX,
+            screenY,
+          };
+        });
+        faceMesh = acquired.faceMesh;
+        faceMeshOwnerRef.current = acquired.owner;
       } catch (err) {
         console.error("Failed to load MediaPipe for gaze tracking:", err);
+        setSnapshot((prev) => ({ ...prev, status: "lost", faceDetected: false }));
         return;
       }
-      if (cancelled) return;
-
-      const w = window as any;
-
-      // Initialize Face Mesh
-      const faceMesh = new w.FaceMesh({
-        locateFile: (file: string) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-      });
-      faceMesh.setOptions({
-        maxNumFaces: 1,
-        refineLandmarks: true,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-
-      faceMesh.onResults((results: any) => {
-        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-          latestRef.current = { ...latestRef.current, detected: false };
-          return;
-        }
-
-        const lm = results.multiFaceLandmarks[0];
-        const leftIris = lm[LEFT_IRIS_CENTER];
-        const rightIris = lm[RIGHT_IRIS_CENTER];
-
-        // Gaze estimation: iris position relative to eye corners
-        const leftOuter = lm[LEFT_EYE_OUTER];
-        const leftInner = lm[LEFT_EYE_INNER];
-        const rightOuter = lm[RIGHT_EYE_OUTER];
-        const rightInner = lm[RIGHT_EYE_INNER];
-
-        const leftRatioX = (leftIris.x - leftOuter.x) / (leftInner.x - leftOuter.x);
-        const rightRatioX = (rightIris.x - rightOuter.x) / (rightInner.x - rightOuter.x);
-
-        const leftTop = lm[LEFT_EYE_TOP];
-        const leftBottom = lm[LEFT_EYE_BOTTOM];
-        const rightTop = lm[RIGHT_EYE_TOP];
-        const rightBottom = lm[RIGHT_EYE_BOTTOM];
-
-        const leftRatioY = (leftIris.y - leftTop.y) / (leftBottom.y - leftTop.y);
-        const rightRatioY = (rightIris.y - rightTop.y) / (rightBottom.y - rightTop.y);
-
-        const gazeX = (leftRatioX + rightRatioX) / 2;
-        const gazeY = (leftRatioY + rightRatioY) / 2;
-
-        // Map to screen coordinates (mirrored horizontally)
-        const screenX = Math.round((1 - gazeX) * window.innerWidth);
-        const screenY = Math.round(gazeY * window.innerHeight);
-
-        latestRef.current = {
-          detected: true,
-          leftIrisX: leftIris.x,
-          leftIrisY: leftIris.y,
-          rightIrisX: rightIris.x,
-          rightIrisY: rightIris.y,
-          screenX,
-          screenY,
-        };
-      });
-
-      await faceMesh.initialize();
+      if (cancelled) {
+        releaseSharedFaceMesh(faceMeshOwnerRef.current);
+        faceMeshOwnerRef.current = null;
+        return;
+      }
       faceMeshRef.current = faceMesh;
-      if (cancelled) { faceMesh.close(); return; }
 
-      // Start webcam via MediaPipe Camera utility
-      const video = document.createElement("video");
-      video.setAttribute("playsinline", "");
-      video.setAttribute("autoplay", "");
-      video.muted = true;
+      const external = pipVideoRef?.current ?? null;
+      usesExternalVideoRef.current = Boolean(external);
+      const video =
+        external ??
+        (() => {
+          const el = document.createElement("video");
+          el.setAttribute("playsinline", "");
+          el.setAttribute("autoplay", "");
+          el.muted = true;
+          return el;
+        })();
       videoRef.current = video;
 
-      cameraInstance = new w.Camera(video, {
+      cameraInstance = new browserWindow.Camera(video, {
         onFrame: async () => {
           if (faceMeshRef.current) {
             try { await faceMeshRef.current.send({ image: video }); } catch {}
@@ -199,23 +271,76 @@ export function useGazeTracker({
         await cameraInstance.start();
       } catch (err) {
         console.error("Gaze tracker camera error:", err);
+        setSnapshot((prev) => ({ ...prev, status: "lost", faceDetected: false }));
         return;
       }
 
       // Periodically sample latest tracking data and buffer it
       captureRef.current = setInterval(() => {
         const data = latestRef.current;
-        if (!data.detected) return;
+        const summary = summaryRef.current;
+        summary.expectedSamples += 1;
+        summary.activeMs += intervalMs;
 
-        bufferRef.current.push({
-          post_id: getVisiblePostId(),
-          timestamp_ms: Date.now(),
-          screen_x: data.screenX,
-          screen_y: data.screenY,
-          left_iris_x: data.leftIrisX,
-          left_iris_y: data.leftIrisY,
-          right_iris_x: data.rightIrisX,
-          right_iris_y: data.rightIrisY,
+        if (data.detected) {
+          summary.detectedSamples += 1;
+          lastDetectedAtRef.current = Date.now();
+          if (inDropoutRef.current) {
+            inDropoutRef.current = false;
+          }
+          consecutiveMissesRef.current = 0;
+          bufferRef.current.push({
+            post_id: getVisiblePostId(),
+            timestamp_ms: Date.now(),
+            screen_x: data.screenX,
+            screen_y: data.screenY,
+            left_iris_x: data.leftIrisX,
+            left_iris_y: data.leftIrisY,
+            right_iris_x: data.rightIrisX,
+            right_iris_y: data.rightIrisY,
+          });
+        } else {
+          summary.missingMs += intervalMs;
+          consecutiveMissesRef.current += 1;
+          if (
+            !inDropoutRef.current
+            && consecutiveMissesRef.current >= DROPOUT_WINDOWS
+          ) {
+            inDropoutRef.current = true;
+            summary.noFacePeriods += 1;
+          }
+        }
+
+        // Compute a snapshot for the UI.
+        const coverage =
+          summary.expectedSamples === 0
+            ? 0
+            : summary.detectedSamples / summary.expectedSamples;
+        const sinceStart =
+          startedAtRef.current === null ? 0 : Date.now() - startedAtRef.current;
+        let status: GazeTrackerStatus;
+        if (data.detected) {
+          status = consecutiveMissesRef.current === 0 && coverage >= 0.6 ? "tracking" : "weak";
+        } else if (
+          lastDetectedAtRef.current === null
+          && sinceStart < STARTUP_GRACE_MS
+        ) {
+          status = "starting";
+        } else if (consecutiveMissesRef.current >= DROPOUT_WINDOWS) {
+          status = "lost";
+        } else {
+          status = "weak";
+        }
+
+        setSnapshot({
+          status,
+          faceDetected: data.detected,
+          expectedSamples: summary.expectedSamples,
+          detectedSamples: summary.detectedSamples,
+          activeMs: summary.activeMs,
+          missingMs: summary.missingMs,
+          noFacePeriods: summary.noFacePeriods,
+          coverage,
         });
       }, intervalMs);
 
@@ -231,11 +356,19 @@ export function useGazeTracker({
       if (flushTimerRef.current) clearInterval(flushTimerRef.current);
       flush();
       if (cameraInstance) { try { cameraInstance.stop(); } catch {} }
-      faceMeshRef.current?.close();
       faceMeshRef.current = null;
-      if (videoRef.current) { videoRef.current.srcObject = null; videoRef.current = null; }
+      releaseSharedFaceMesh(faceMeshOwnerRef.current);
+      faceMeshOwnerRef.current = null;
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        if (!usesExternalVideoRef.current) {
+          videoRef.current = null;
+        }
+      }
+      usesExternalVideoRef.current = false;
+      setSnapshot((prev) => ({ ...prev, status: "stopped", faceDetected: false }));
     };
-  }, [enabled, responseId, intervalMs, flushIntervalMs, flush, getVisiblePostId]);
+  }, [enabled, responseId, participantToken, intervalMs, flushIntervalMs, pipVideoRef, flush, getVisiblePostId]);
 
-  return { flush };
+  return { flush, snapshot, getSummary };
 }

@@ -7,7 +7,19 @@ and their interactions (likes, comments) with posts.
 import secrets
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, SmallInteger, String, Text, UniqueConstraint, JSON, Index, func, Boolean, Integer, Float
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -19,32 +31,53 @@ class SurveyResponse(Base):
     __tablename__ = "survey_responses"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    survey_id: Mapped[int] = mapped_column(ForeignKey("surveys.id"), nullable=False)
+    survey_id: Mapped[int] = mapped_column(
+        ForeignKey("surveys.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     participant_token: Mapped[str] = mapped_column(
         String(64), unique=True, default=lambda: secrets.token_urlsafe(32)
     )
 
     # ── A/B Group Assignment ─────────────────────────
-    assigned_group: Mapped[int] = mapped_column(SmallInteger, default=1)
+    assigned_group: Mapped[int] = mapped_column(SmallInteger, default=1, index=True)
+    randomization_seed: Mapped[str | None] = mapped_column(String(64))
+    shown_post_order: Mapped[list[int] | None] = mapped_column(JSON)
 
     # ── Participant Metadata ─────────────────────────
     user_agent: Mapped[str | None] = mapped_column(Text)
     screen_width: Mapped[int | None] = mapped_column()
     screen_height: Mapped[int | None] = mapped_column()
-    language: Mapped[str | None] = mapped_column(String(10))
+    language: Mapped[str | None] = mapped_column(String(10), index=True)
 
     # Anti-fraud/Privacy: Stores salted hash for IP/Fingerprint to ensure anonymity.
-    participant_fingerprint: Mapped[str | None] = mapped_column(String(128)) 
+    participant_fingerprint: Mapped[str | None] = mapped_column(String(128))
 
-    status: Mapped[str] = mapped_column(String(20), default="in_progress")
-    is_speed_test_failed: Mapped[bool] = mapped_column(Boolean, default=False) 
-    
+    status: Mapped[str] = mapped_column(String(20), default="in_progress", index=True)
+    is_preview: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", index=True
+    )
+    is_speed_test_failed: Mapped[bool] = mapped_column(Boolean, default=False)
+
     started_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     completed_at: Mapped[datetime | None] = mapped_column()
 
+    # ── Survey-time attention/gaze quality ──────────
+    # Populated by the participant client when the survey completes, so that
+    # the response carries a confidence signal even when raw gaze samples are
+    # too sparse or completely missing.
+    attention_active_ms: Mapped[int | None] = mapped_column(Integer)
+    attention_expected_samples: Mapped[int | None] = mapped_column(Integer)
+    attention_detected_samples: Mapped[int | None] = mapped_column(Integer)
+    attention_missing_ms: Mapped[int | None] = mapped_column(Integer)
+    attention_no_face_periods: Mapped[int | None] = mapped_column(Integer)
+    attention_coverage: Mapped[float | None] = mapped_column(Float)
+    attention_confidence: Mapped[float | None] = mapped_column(Float)
+    attention_quality: Mapped[str | None] = mapped_column(String(20))
+    attention_quality_reason: Mapped[str | None] = mapped_column(Text)
+
     # ── Flexible Research Data ───────────────────────
     # Allows storing extra variables without frequent schema changes.
-    extra_metadata: Mapped[dict | None] = mapped_column(JSON) 
+    extra_metadata: Mapped[dict | None] = mapped_column(JSON)
 
     survey: Mapped["Survey"] = relationship(back_populates="responses")  # noqa: F821
     interactions: Mapped[list["ParticipantInteraction"]] = relationship(
@@ -72,21 +105,19 @@ class ParticipantInteraction(Base):
     post_id: Mapped[int] = mapped_column(ForeignKey("survey_posts.id"), nullable=False, index=True)
     action_type: Mapped[str] = mapped_column(String(20), nullable=False)  # like / comment / click
     comment_text: Mapped[str | None] = mapped_column(Text)  # only if action_type == "comment"
-    
-     # Dwell time in milliseconds for precise attention measurement.
-    dwell_time_ms: Mapped[int | None] = mapped_column(Integer) 
-    
+
+    # Dwell time in milliseconds for precise attention measurement.
+    dwell_time_ms: Mapped[int | None] = mapped_column(Integer)
+
     # Coordinate data for generating interaction heatmaps[cite: 391, 421].
     click_x: Mapped[float | None] = mapped_column(Float)
     click_y: Mapped[float | None] = mapped_column(Float)
-    
+
     timestamp: Mapped[datetime] = mapped_column(server_default=func.now())
 
     response: Mapped["SurveyResponse"] = relationship(back_populates="interactions")
 
-    __table_args__ = (
-        Index("ix_participant_interactions_response_post", "response_id", "post_id"),
-    )
+    __table_args__ = (Index("ix_participant_interactions_response_post", "response_id", "post_id"),)
 
 
 class ParticipantLike(Base):
@@ -111,8 +142,6 @@ class ParticipantLike(Base):
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     response: Mapped["SurveyResponse"] = relationship()
-
-    
 
 
 class ParticipantComment(Base):

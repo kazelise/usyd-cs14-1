@@ -1,37 +1,51 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { t, type Locale } from "@/lib/i18n";
+import { useLocale } from "@/components/locale-provider";
+import { isLocale, t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, SurveyIcon } from "@/components/icons";
 
 export default function StartScreen() {
   const { shareCode } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { locale, setLocale } = useLocale();
+  const isPreview = searchParams.get("preview") === "1";
+  const previewGroup = searchParams.get("group") || "";
+  const queryLocale = searchParams.get("lang");
+  const previewCompletionKey =
+    isPreview ? `completed:${shareCode}:preview:${previewGroup || "auto"}:${locale}` : null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [locale, setLocale] = useState<Locale>("en");
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [consentError, setConsentError] = useState("");
   const [meta, setMeta] = useState<{ title: string; description?: string } | null>(null);
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? (localStorage.getItem("locale") as Locale | null) : null;
-    if (saved === "en" || saved === "zh") setLocale(saved);
+    if (isLocale(queryLocale)) setLocale(queryLocale);
+    else if (isLocale(saved)) setLocale(saved);
+  }, [queryLocale, setLocale]);
 
+  useEffect(() => {
     (async () => {
+      setLoading(true);
+      setError("");
       try {
-        const survey = await api.getPublicSurvey(shareCode as string);
+        const survey = await api.getPublicSurvey(shareCode as string, locale);
         setMeta(survey);
       } catch (e: any) {
-        setError(e.message || "Survey not found");
+        setError(e.message || t(locale, "surveyNotFound"));
       } finally {
         setLoading(false);
       }
     })();
-  }, [shareCode]);
+  }, [locale, shareCode]);
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center text-sm uppercase tracking-[0.24em] text-slate-400">Loading study</div>;
+    return <div className="flex min-h-screen items-center justify-center text-sm uppercase tracking-[0.24em] text-slate-400">{t(locale, "loadingStudy")}</div>;
   }
 
   if (error) {
@@ -43,66 +57,119 @@ export default function StartScreen() {
   const duration = 8;
 
   return (
-    <div className="min-h-screen px-4 py-8 lg:px-8 lg:py-10">
-      <div className="mx-auto max-w-5xl">
-        <div className="surface-panel overflow-hidden lg:grid lg:grid-cols-[1.05fr_0.95fr]">
-          <section className="bg-black px-8 py-10 text-white lg:px-10 lg:py-12">
-            <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-white/10">
-              <SurveyIcon className="h-5 w-5" />
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(0,167,160,0.10),_transparent_26%),linear-gradient(180deg,#f7fafc_0%,#edf3f8_100%)] px-4 py-8 lg:px-8 lg:py-10">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-4 flex items-center justify-between rounded-[16px] border border-slate-200 bg-white/80 px-5 py-3 text-[13px] text-slate-500 backdrop-blur">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0f3146] text-white">
+              <SurveyIcon className="h-4 w-4" />
             </div>
-            <p className="mt-8 text-[12px] font-semibold uppercase tracking-[0.24em] text-white/55">Participant study</p>
-            <h1 className="mt-4 text-[34px] font-semibold tracking-[-0.06em] text-white md:text-[40px]">{meta.title}</h1>
-            {meta.description && <p className="mt-5 max-w-xl text-[14px] leading-7 text-white/70">{meta.description}</p>}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{t(locale, "surveyExperience")}</p>
+              <p className="font-semibold text-[#163047]">{t(locale, "researchPlatform")}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-4 py-2">
+            <GlobeIcon className="h-4 w-4 text-slate-500" aria-hidden />
+            <label htmlFor="participant-locale-select" className="sr-only">
+              {t(locale, "language")}
+            </label>
+            <select
+              id="participant-locale-select"
+              aria-label={t(locale, "language")}
+              className="bg-transparent text-sm text-slate-500 outline-none"
+              value={locale}
+              onChange={(e) => {
+                const next = e.target.value as Locale;
+                setLocale(next);
+              }}
+            >
+              <option value="en">English</option>
+              <option value="zh">中文</option>
+              <option value="ar">العربية</option>
+            </select>
+          </div>
+        </div>
 
-            <div className="mt-10 grid gap-4 md:grid-cols-2">
-              <div className="rounded-[18px] border border-white/10 bg-white/5 px-5 py-5">
-                <p className="text-[12px] uppercase tracking-[0.22em] text-white/45">{t(locale, "estTime")}</p>
-                <p className="mt-3 text-[28px] font-semibold tracking-[-0.04em]">
+        <div className="surface-panel overflow-hidden lg:grid lg:grid-cols-[1.15fr_0.85fr]">
+          <section className="border-b border-slate-200 bg-[linear-gradient(135deg,#10324a_0%,#174867_48%,#0f3146_100%)] px-8 py-10 text-white lg:border-b-0 lg:border-r lg:px-12 lg:py-12">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.24em] text-[#8ddfda]">{t(locale, "participantStudy")}</p>
+            <h1 className="mt-4 max-w-[14ch] text-[36px] font-semibold leading-tight tracking-[-0.06em] text-white md:text-[44px]">
+              {meta.title}
+            </h1>
+            {meta.description && <p className="mt-5 max-w-2xl text-[15px] leading-8 text-white/74">{meta.description}</p>}
+
+            <div className="mt-10 grid gap-4 md:grid-cols-3">
+              <div className="rounded-[18px] border border-white/10 bg-white/8 px-5 py-5">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">{t(locale, "estTime")}</p>
+                <p className="mt-3 text-[28px] font-semibold tracking-[-0.04em] text-white">
                   {duration} {t(locale, "minutes")}
                 </p>
               </div>
-              <div className="rounded-[18px] border border-white/10 bg-white/5 px-5 py-5">
-                <p className="text-[12px] uppercase tracking-[0.22em] text-white/45">Interaction</p>
-                <p className="mt-3 text-[16px] font-medium leading-7 text-white">Browse, like, comment, and click naturally</p>
+              <div className="rounded-[18px] border border-white/10 bg-white/8 px-5 py-5">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">{t(locale, "format")}</p>
+                <p className="mt-3 text-[15px] font-medium leading-7 text-white">{t(locale, "formatValue")}</p>
+              </div>
+              <div className="rounded-[18px] border border-white/10 bg-white/8 px-5 py-5">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">{t(locale, "tracking")}</p>
+                <p className="mt-3 text-[15px] font-medium leading-7 text-white">{t(locale, "trackingValue")}</p>
               </div>
             </div>
           </section>
 
-          <section className="px-8 py-10 lg:px-10 lg:py-12">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="section-kicker">Before you begin</p>
-                <p className="section-title mt-3 md:text-[24px]">Study instructions</p>
-              </div>
-              <div className="flex items-center gap-3 rounded-full border bg-stone-50 px-4 py-2">
-                <GlobeIcon className="h-4 w-4 text-slate-500" />
-                <select
-                  className="bg-transparent text-sm text-slate-500 outline-none"
-                  value={locale}
-                  onChange={(e) => {
-                    const next = e.target.value as Locale;
-                    setLocale(next);
-                    localStorage.setItem("locale", next);
-                  }}
-                >
-                  <option value="en">English</option>
-                  <option value="zh">中文</option>
-                </select>
-              </div>
+          <section className="bg-[#fbfdff] px-8 py-10 lg:px-10 lg:py-12">
+            <div>
+              <p className="section-kicker text-[#00a7a0]">{t(locale, "beforeBegin")}</p>
+              <p className="section-title mt-3 md:text-[24px]">{t(locale, "participantInstructions")}</p>
+              <p className="mt-3 text-[14px] leading-7 text-slate-500">{t(locale, "participantInstructionsCopy")}</p>
             </div>
 
             <div className="mt-8 space-y-4">
-              {[t(locale, "subtitle"), t(locale, "consent"), "Use a desktop browser and allow camera access if prompted."].map((item) => (
-                <div key={item} className="flex gap-3 rounded-[18px] border bg-stone-50 px-4 py-4">
-                  <CheckCircleIcon className="mt-0.5 h-4 w-4 text-black" />
-                  <p className="text-[14px] leading-7 text-slate-500">{item}</p>
+              {[t(locale, "subtitle"), t(locale, "consent"), t(locale, "desktopCamera")].map((item) => (
+                <div key={item} className="rounded-[18px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(14,37,63,0.04)]">
+                  <div className="grid grid-cols-[20px_minmax(0,1fr)] items-start gap-3">
+                    <div className="mt-[2px] flex h-5 w-5 items-center justify-center rounded-full bg-[#e8fbfa] text-[#00a7a0]">
+                      <CheckCircleIcon className="h-3 w-3" />
+                    </div>
+                    <p className="text-[14px] leading-7 text-slate-600">{item}</p>
+                  </div>
                 </div>
               ))}
             </div>
 
+            <div className="mt-8 rounded-[18px] border border-slate-200 bg-slate-50 px-5 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{t(locale, "expectedSession")}</p>
+              <p className="mt-2 text-[14px] leading-7 text-slate-600">{t(locale, "expectedSessionCopy")}</p>
+            </div>
+
+            <label className="mt-5 grid cursor-pointer grid-cols-[20px_minmax(0,1fr)] items-start gap-3 rounded-[18px] border border-slate-200 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(14,37,63,0.04)]">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 accent-[#00a7a0]"
+                checked={consentAccepted}
+                onChange={(event) => {
+                  setConsentAccepted(event.target.checked);
+                  if (event.target.checked) setConsentError("");
+                }}
+              />
+              <span className="text-[14px] leading-7 text-slate-600">{t(locale, "consentCheckbox")}</span>
+            </label>
+            {consentError && <p className="mt-3 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-[13px] text-red-600">{consentError}</p>}
+
             <button
-              className="primary-button mt-8 w-full py-3"
-              onClick={() => router.push(`/survey/${shareCode}?lang=${locale}`)}
+              className={`primary-button mt-5 w-full py-3.5 text-[14px] ${consentAccepted ? "" : "opacity-60"}`}
+              onClick={() => {
+                if (!consentAccepted) {
+                  setConsentError(t(locale, "consentRequired"));
+                  return;
+                }
+                if (previewCompletionKey) localStorage.removeItem(previewCompletionKey);
+                else localStorage.removeItem(`completed:${shareCode}`);
+                const params = new URLSearchParams({ lang: locale });
+                if (isPreview) params.set("preview", "1");
+                if (previewGroup) params.set("group", previewGroup);
+                router.push(`/survey/${shareCode}?${params.toString()}`);
+              }}
             >
               {t(locale, "start")}
             </button>

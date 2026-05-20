@@ -1,15 +1,23 @@
 """Survey and post schemas. Owned by Backend A/B."""
 
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # ── Survey ────────────────────────────────────────────
+
+PlatformStyle = Literal["x", "facebook", "instagram", "xiaohongshu"]
+PlatformUiStyle = Literal[
+    "twitter", "facebook", "instagram", "xiaohongshu", "truth_social", "bluesky", "douyin"
+]
+DEFAULT_SUPPORTED_LANGUAGES = ["en", "ar", "zh"]
 
 
 class CreateSurveyRequest(BaseModel):
     title: str
     description: str | None = None
+    platform_style: PlatformStyle = "x"
     num_groups: int = 1
     group_names: dict | None = None  # {"1": "with_likes", "2": "no_likes"}
     gaze_tracking_enabled: bool = True
@@ -17,11 +25,17 @@ class CreateSurveyRequest(BaseModel):
     click_tracking_enabled: bool = True
     calibration_enabled: bool = True
     calibration_points: int = 9
+    platform_ui_style: PlatformUiStyle = "twitter"
+    default_language: str = "en"
+    supported_languages: list[str] = Field(
+        default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy()
+    )
 
 
 class UpdateSurveyRequest(BaseModel):
     title: str | None = None
     description: str | None = None
+    platform_style: PlatformStyle | None = None
     num_groups: int | None = None
     group_names: dict | None = None
     gaze_tracking_enabled: bool | None = None
@@ -29,6 +43,9 @@ class UpdateSurveyRequest(BaseModel):
     click_tracking_enabled: bool | None = None
     calibration_enabled: bool | None = None
     calibration_points: int | None = None
+    platform_ui_style: PlatformUiStyle | None = None
+    default_language: str | None = None
+    supported_languages: list[str] | None = None
 
 
 class SurveyOut(BaseModel):
@@ -37,6 +54,7 @@ class SurveyOut(BaseModel):
     description: str | None
     status: str
     share_code: str
+    platform_style: PlatformStyle = "x"
     num_groups: int
     group_names: dict | None
     gaze_tracking_enabled: bool
@@ -44,7 +62,13 @@ class SurveyOut(BaseModel):
     click_tracking_enabled: bool
     calibration_enabled: bool
     calibration_points: int
+    platform_ui_style: PlatformUiStyle = "twitter"
+    default_language: str = "en"
+    supported_languages: list[str] = Field(
+        default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy()
+    )
     share_code_expires_at: datetime | None = None
+    published_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     model_config = {"from_attributes": True}
@@ -62,23 +86,34 @@ class PublicSurveyOut(BaseModel):
     title: str
     description: str | None = None
     status: str
+    platform_style: PlatformStyle = "x"
+    language: str | None = None
+    fallback_language: str = "en"
+    default_language: str = "en"
+    supported_languages: list[str] = Field(
+        default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy()
+    )
+    translation_fallbacks: list[str] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
 
 # ── Question ─────────────────────────────────────────
 
 
+QuestionType = Literal["text", "free_text", "single_choice", "multiple_choice", "likert", "rating"]
+
+
 class CreateQuestionRequest(BaseModel):
     """Create a question attached to a survey post."""
 
-    question_type: str  # free_text / likert / multiple_choice
+    question_type: QuestionType
     text: str
     order: int
     config: dict | None = None  # e.g. {"min": 1, "max": 5} for likert
 
 
 class UpdateQuestionRequest(BaseModel):
-    question_type: str | None = None
+    question_type: QuestionType | None = None
     text: str | None = None
     order: int | None = None
     config: dict | None = None
@@ -86,12 +121,16 @@ class UpdateQuestionRequest(BaseModel):
 
 class QuestionOut(BaseModel):
     id: int
-    post_id: int
+    survey_id: int | None = None
+    post_id: int | None
     order: int
     question_type: str
     text: str
     config: dict | None
     created_at: datetime
+    language: str | None = None
+    fallback_language: str = "en"
+    translation_fallbacks: list[str] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
 
@@ -110,6 +149,9 @@ class CommentOut(BaseModel):
     author_name: str
     author_avatar_url: str | None
     text: str
+    language: str | None = None
+    fallback_language: str = "en"
+    translation_fallbacks: list[str] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
 
@@ -128,6 +170,9 @@ class UpdatePostRequest(BaseModel):
 
     display_title: str | None = None
     display_image_url: str | None = None
+    display_description: str | None = None
+    source_label: str | None = None
+    more_info_label: str | None = None
     display_likes: int | None = None
     display_comments_count: int | None = None
     display_shares: int | None = None
@@ -150,6 +195,8 @@ class PostOut(BaseModel):
     fetched_source: str | None
     display_title: str | None
     display_image_url: str | None
+    display_description: str | None = None
+    source_label: str | None = None
     display_likes: int
     display_comments_count: int
     display_shares: int
@@ -158,8 +205,12 @@ class PostOut(BaseModel):
     show_shares: bool
     visible_to_groups: list | None
     group_overrides: dict | None
-    comments: list[CommentOut] = []
-    questions: list[QuestionOut] = []
+    more_info_label: str | None = "More Information"
+    language: str | None = None
+    fallback_language: str = "en"
+    translation_fallbacks: list[str] = Field(default_factory=list)
+    comments: list[CommentOut] = Field(default_factory=list)
+    questions: list[QuestionOut] = Field(default_factory=list)
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -167,21 +218,83 @@ class PostOut(BaseModel):
 # ── Participant-Side ──────────────────────────────────
 
 
+class StartSurveyRequest(BaseModel):
+    language: str | None = None
+    screen_width: int | None = None
+    screen_height: int | None = None
+    user_agent: str | None = None
+    participant_token: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+        description=(
+            "Optional anonymous token from a previous start_survey call. "
+            "When supplied and matched against an in-progress response for this "
+            "share_code, the existing response is reused (same response_id, "
+            "same assigned_group, same calibration session). Lets a participant "
+            "resume after closing the tab without losing progress or being "
+            "re-randomized."
+        ),
+    )
+    is_preview: bool = False
+    preview_assigned_group: int | None = Field(
+        default=None,
+        ge=1,
+        description="Optional fixed condition/group used only for researcher preview sessions.",
+    )
+
+
 class StartSurveyResponse(BaseModel):
     response_id: int
+    participant_token: str
     survey_id: int
     assigned_group: int
+    randomization_seed: str | None = None
+    shown_post_order: list[int] = Field(default_factory=list)
+    is_preview: bool = False
+    platform_style: PlatformStyle = "x"
+    platform_ui_style: PlatformUiStyle = "twitter"
     calibration_required: bool
+    calibration_points: int
+    calibration_completed: bool = False
     gaze_tracking_enabled: bool
     gaze_interval_ms: int
     click_tracking_enabled: bool
+    language: str | None = None
+    fallback_language: str = "en"
+    default_language: str = "en"
+    supported_languages: list[str] = Field(
+        default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy()
+    )
     posts: list[PostOut]
+    questions: list[QuestionOut] = Field(default_factory=list)
+
+
+class SurveyPreviewResponse(BaseModel):
+    survey_id: int
+    assigned_group: int
+    platform_style: PlatformStyle = "x"
+    platform_ui_style: PlatformUiStyle = "twitter"
+    calibration_required: bool
+    calibration_points: int
+    gaze_tracking_enabled: bool
+    gaze_interval_ms: int
+    click_tracking_enabled: bool
+    language: str | None = None
+    fallback_language: str = "en"
+    default_language: str = "en"
+    supported_languages: list[str] = Field(
+        default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy()
+    )
+    posts: list[PostOut]
+    questions: list[QuestionOut] = Field(default_factory=list)
 
 
 class InteractionRequest(BaseModel):
     post_id: int
     action_type: str  # like / comment / click
     comment_text: str | None = None
+    participant_token: str = Field(min_length=1, max_length=128)
 
 
 class InteractionOut(BaseModel):
@@ -258,6 +371,7 @@ class SurveyAnalyticsOut(BaseModel):
     completion_rate: float
     avg_completion_minutes: float
     calibration_success_rate: float
+    total_gaze_samples: int
     total_clicks: int
     total_likes: int
     total_comments: int
@@ -267,12 +381,25 @@ class SurveyAnalyticsOut(BaseModel):
     duplicate_comment_sessions: int
     group_breakdown: list[GroupAnalyticsOut]
     posts: list[PostAnalyticsRowOut]
-    ai_summary: str
+    summary: str
+
 
 # ── Question Response ─────────────────────────────────
 
+
+class AttentionSummaryIn(BaseModel):
+    """Survey-time attention quality reported by the participant client."""
+
+    active_ms: int = Field(ge=0, le=24 * 60 * 60 * 1000)
+    expected_samples: int = Field(ge=0, le=1_000_000)
+    detected_samples: int = Field(ge=0, le=1_000_000)
+    missing_ms: int = Field(ge=0, le=24 * 60 * 60 * 1000)
+    no_face_periods: int = Field(default=0, ge=0, le=100_000)
+
+
 class SubmitQuestionResponseRequest(BaseModel):
     question_id: int
+    participant_token: str = Field(min_length=1, max_length=128)
     answer_text: str | None = None
     answer_value: int | None = None
     answer_choices: list | None = None

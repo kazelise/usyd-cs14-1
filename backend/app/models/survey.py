@@ -12,7 +12,7 @@ Design notes (from client meeting):
 import secrets
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, ForeignKey, SmallInteger, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, SmallInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -32,6 +32,12 @@ class Survey(Base):
         String(20), unique=True, default=lambda: secrets.token_urlsafe(12)
     )
     share_code_expires_at: Mapped[datetime | None] = mapped_column(default=None)
+    platform_ui_style: Mapped[str] = mapped_column(
+        String(40), default="twitter", server_default="twitter"
+    )
+    platform_style: Mapped[str] = mapped_column(String(32), default="x", server_default="x")
+    default_language: Mapped[str] = mapped_column(String(10), default="en", server_default="en")
+    supported_languages: Mapped[list[str]] = mapped_column(JSON, default=lambda: ["en", "ar", "zh"])
 
     # ── A/B Testing Configuration ────────────────────
     num_groups: Mapped[int] = mapped_column(SmallInteger, default=1)  # 1 = no A/B testing
@@ -48,12 +54,25 @@ class Survey(Base):
 
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
     researcher: Mapped["Researcher"] = relationship(back_populates="surveys")  # noqa: F821
     posts: Mapped[list["SurveyPost"]] = relationship(
         back_populates="survey", cascade="all, delete-orphan", order_by="SurveyPost.order"
     )
-    responses: Mapped[list["SurveyResponse"]] = relationship(back_populates="survey")  # noqa: F821
+    responses: Mapped[list["SurveyResponse"]] = relationship(  # noqa: F821
+        back_populates="survey", cascade="all, delete-orphan", passive_deletes=True
+    )
+    translations: Mapped[list["SurveyTranslation"]] = relationship(  # noqa: F821
+        back_populates="survey", cascade="all, delete-orphan"
+    )
+    questions: Mapped[list["Question"]] = relationship(  # noqa: F821
+        "Question",
+        primaryjoin="and_(Survey.id == Question.survey_id, Question.post_id.is_(None))",
+        cascade="all, delete-orphan",
+        order_by="Question.order",
+        overlaps="post,questions",
+    )
 
 
 class SurveyPost(Base):
@@ -82,6 +101,9 @@ class SurveyPost(Base):
     # ── Researcher Overrides (null = use fetched value) ─
     display_title: Mapped[str | None] = mapped_column(Text)
     display_image_url: Mapped[str | None] = mapped_column(Text)
+    display_description: Mapped[str | None] = mapped_column(Text)
+    source_label: Mapped[str | None] = mapped_column(String(255))
+    more_info_label: Mapped[str | None] = mapped_column(String(80))
 
     # ── Fake Engagement Numbers (set by researcher) ──
     display_likes: Mapped[int] = mapped_column(default=0)
@@ -105,6 +127,9 @@ class SurveyPost(Base):
     )
     questions: Mapped[list["Question"]] = relationship(  # noqa: F821
         back_populates="post", cascade="all, delete-orphan", order_by="Question.order"
+    )
+    translations: Mapped[list["PostTranslation"]] = relationship(  # noqa: F821
+        back_populates="post", cascade="all, delete-orphan"
     )
 
 

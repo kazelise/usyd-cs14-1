@@ -20,10 +20,16 @@ class TestFieldTypeCoercion:
     def test_quality_info_float_fields(self):
         info = QualityInfo(
             total_points=9,
+            expected_points=9,
             valid_points=9,
+            missing_points=0,
             avg_samples_per_point=12,
             face_detection_rate=1,
+            stability_score=1,
+            quality_score=100,
+            passed=True,
             overall_quality="good",
+            quality_reason="Calibration passed.",
         )
         assert info.avg_samples_per_point == 12.0
 
@@ -41,10 +47,16 @@ class TestSchemaSerialization:
     def test_quality_info_to_dict(self):
         info = QualityInfo(
             total_points=9,
+            expected_points=9,
             valid_points=8,
+            missing_points=0,
             avg_samples_per_point=11.5,
             face_detection_rate=0.92,
+            stability_score=0.9,
+            quality_score=90.0,
+            passed=True,
             overall_quality="good",
+            quality_reason="Calibration passed.",
         )
         data = info.model_dump()
         assert "overall_quality" in data
@@ -56,10 +68,16 @@ class TestSchemaSerialization:
             status="completed",
             quality=QualityInfo(
                 total_points=9,
+                expected_points=9,
                 valid_points=9,
+                missing_points=0,
                 avg_samples_per_point=12.0,
                 face_detection_rate=0.95,
+                stability_score=0.95,
+                quality_score=95.0,
+                passed=True,
                 overall_quality="good",
+                quality_reason="Calibration passed.",
             ),
             completed_at=datetime(2026, 4, 10, 10, 0, 0),
         )

@@ -26,13 +26,20 @@ class TestCreateCalibrationRequest:
     """Tests for calibration session creation schema."""
 
     def test_valid_minimal(self):
-        req = CreateCalibrationRequest(response_id=1, screen_width=1920, screen_height=1080)
+        req = CreateCalibrationRequest(
+            response_id=1,
+            participant_token="participant-token",
+            screen_width=1920,
+            screen_height=1080,
+        )
         assert req.response_id == 1
+        assert req.participant_token == "participant-token"
         assert req.camera_width is None
 
     def test_valid_with_camera(self):
         req = CreateCalibrationRequest(
             response_id=1,
+            participant_token="participant-token",
             screen_width=1920,
             screen_height=1080,
             camera_width=640,
@@ -47,7 +54,11 @@ class TestCreateCalibrationRequest:
 
     def test_missing_screen_height(self):
         with pytest.raises(ValidationError):
-            CreateCalibrationRequest(response_id=1, screen_width=1920)
+            CreateCalibrationRequest(
+                response_id=1,
+                participant_token="participant-token",
+                screen_width=1920,
+            )
 
 
 class TestIrisSample:
@@ -75,18 +86,15 @@ class TestIrisSample:
             face_detected=True,
             head_rotation={"pitch": 0.1, "yaw": -0.2, "roll": 0.0},
         )
-        assert sample.head_rotation["pitch"] == 0.1
+        assert sample.head_rotation.pitch == 0.1
 
     def test_face_not_detected(self):
         sample = IrisSample(
             timestamp_ms=2000,
-            left_iris_x=0.0,
-            left_iris_y=0.0,
-            right_iris_x=0.0,
-            right_iris_y=0.0,
             face_detected=False,
         )
         assert sample.face_detected is False
+        assert sample.left_iris_x is None
 
     def test_missing_required_fields(self):
         with pytest.raises(ValidationError):
@@ -109,26 +117,33 @@ class TestRecordCalibrationPointRequest:
             for i in range(10)
         ]
         req = RecordCalibrationPointRequest(
-            point_index=0,
+            participant_token="participant-token",
+            point_index=1,
             target_screen_x=100,
             target_screen_y=100,
             samples=samples,
         )
-        assert req.point_index == 0
+        assert req.point_index == 1
         assert len(req.samples) == 10
 
     def test_empty_samples_list(self):
-        req = RecordCalibrationPointRequest(
-            point_index=0,
-            target_screen_x=100,
-            target_screen_y=100,
-            samples=[],
-        )
-        assert len(req.samples) == 0
+        with pytest.raises(ValidationError):
+            RecordCalibrationPointRequest(
+                participant_token="participant-token",
+                point_index=1,
+                target_screen_x=100,
+                target_screen_y=100,
+                samples=[],
+            )
 
     def test_missing_point_index(self):
         with pytest.raises(ValidationError):
-            RecordCalibrationPointRequest(target_screen_x=100, target_screen_y=100, samples=[])
+            RecordCalibrationPointRequest(
+                participant_token="participant-token",
+                target_screen_x=100,
+                target_screen_y=100,
+                samples=[],
+            )
 
 
 class TestGazeDataPoint:
@@ -164,6 +179,7 @@ class TestGazeBatchRequest:
     def test_valid_batch(self):
         batch = GazeBatchRequest(
             response_id=1,
+            participant_token="participant-token",
             data=[
                 {"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 200.0},
                 {"timestamp_ms": 2000, "screen_x": 300.0, "screen_y": 400.0},
@@ -173,12 +189,26 @@ class TestGazeBatchRequest:
         assert len(batch.data) == 2
 
     def test_empty_batch(self):
-        batch = GazeBatchRequest(response_id=1, data=[])
+        batch = GazeBatchRequest(response_id=1, participant_token="participant-token", data=[])
         assert len(batch.data) == 0
 
     def test_missing_response_id(self):
         with pytest.raises(ValidationError):
             GazeBatchRequest(data=[])
+
+    def test_rejects_impossible_screen_coordinates(self):
+        with pytest.raises(ValidationError):
+            GazeBatchRequest(
+                response_id=1,
+                participant_token="participant-token",
+                data=[{"timestamp_ms": 1000, "screen_x": -1.0, "screen_y": 200.0}],
+            )
+        with pytest.raises(ValidationError):
+            GazeBatchRequest(
+                response_id=1,
+                participant_token="participant-token",
+                data=[{"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 25_000.0}],
+            )
 
 
 class TestGazeBatchOut:
@@ -218,6 +248,7 @@ class TestClickBatchRequest:
     def test_valid_batch(self):
         batch = ClickBatchRequest(
             response_id=1,
+            participant_token="participant-token",
             data=[
                 {"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 200.0},
                 {
@@ -231,8 +262,22 @@ class TestClickBatchRequest:
         assert len(batch.data) == 2
 
     def test_empty_batch(self):
-        batch = ClickBatchRequest(response_id=1, data=[])
+        batch = ClickBatchRequest(response_id=1, participant_token="participant-token", data=[])
         assert len(batch.data) == 0
+
+    def test_rejects_impossible_screen_coordinates(self):
+        with pytest.raises(ValidationError):
+            ClickBatchRequest(
+                response_id=1,
+                participant_token="participant-token",
+                data=[{"timestamp_ms": 1000, "screen_x": -1.0, "screen_y": 200.0}],
+            )
+        with pytest.raises(ValidationError):
+            ClickBatchRequest(
+                response_id=1,
+                participant_token="participant-token",
+                data=[{"timestamp_ms": 1000, "screen_x": 100.0, "screen_y": 25_000.0}],
+            )
 
 
 class TestClickBatchOut:
@@ -289,20 +334,32 @@ class TestQualityInfo:
     def test_good_quality(self):
         info = QualityInfo(
             total_points=9,
+            expected_points=9,
             valid_points=9,
+            missing_points=0,
             avg_samples_per_point=12.5,
             face_detection_rate=0.95,
+            stability_score=0.98,
+            quality_score=97.0,
+            passed=True,
             overall_quality="good",
+            quality_reason="Calibration passed.",
         )
         assert info.overall_quality == "good"
 
     def test_poor_quality(self):
         info = QualityInfo(
             total_points=9,
+            expected_points=9,
             valid_points=3,
+            missing_points=0,
             avg_samples_per_point=5.0,
             face_detection_rate=0.4,
+            stability_score=0.5,
+            quality_score=45.0,
+            passed=False,
             overall_quality="poor",
+            quality_reason="Calibration failed.",
         )
         assert info.overall_quality == "poor"
 
@@ -316,10 +373,16 @@ class TestCalibrationCompleteOut:
             status="completed",
             quality=QualityInfo(
                 total_points=9,
+                expected_points=9,
                 valid_points=8,
+                missing_points=0,
                 avg_samples_per_point=11.2,
                 face_detection_rate=0.92,
+                stability_score=0.94,
+                quality_score=91.0,
+                passed=True,
                 overall_quality="good",
+                quality_reason="Calibration passed.",
             ),
             completed_at=datetime(2026, 4, 1, 10, 5, 0),
         )
@@ -333,10 +396,16 @@ class TestCalibrationCompleteOut:
             status="completed",
             quality=QualityInfo(
                 total_points=9,
+                expected_points=9,
                 valid_points=2,
+                missing_points=0,
                 avg_samples_per_point=4.0,
                 face_detection_rate=0.3,
+                stability_score=0.4,
+                quality_score=35.0,
+                passed=False,
                 overall_quality="poor",
+                quality_reason="Calibration failed.",
             ),
             completed_at=datetime(2026, 4, 1, 10, 10, 0),
         )

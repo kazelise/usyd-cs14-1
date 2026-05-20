@@ -22,6 +22,8 @@ Thumbs.db
 .pytest_cache/
 htmlcov/
 pgdata/
+output/
 frontend/tsconfig.tsbuildinfo
 *.next.broken.*
 backend/.venv*/
+.alma-snapshots

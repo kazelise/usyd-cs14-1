@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { acquireSharedFaceMesh, releaseSharedFaceMesh } from "@/lib/mediapipe-face-mesh";
 
 const LEFT_IRIS = [468, 469, 470, 471, 472];
 const RIGHT_IRIS = [473, 474, 475, 476, 477];
@@ -12,17 +13,6 @@ const FACE_OVAL = [
   [172,58],[58,132],[132,93],[93,234],[234,127],[127,162],
   [162,21],[21,54],[54,103],[103,67],[67,109],[109,10],
 ];
-
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-    const s = document.createElement("script");
-    s.src = src; s.crossOrigin = "anonymous";
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.head.appendChild(s);
-  });
-}
 
 export default function DemoTrackingPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -36,6 +26,7 @@ export default function DemoTrackingPage() {
   const [metrics, setMetrics] = useState({ leftIris: "--", rightIris: "--", gaze: "--", face: "--" });
 
   const faceMeshRef = useRef<any>(null);
+  const faceMeshOwnerRef = useRef<symbol | null>(null);
   const cameraRef = useRef<any>(null);
   const fpsRef = useRef({ count: 0, last: performance.now(), fps: 0 });
   const showMeshRef = useRef(true);
@@ -47,22 +38,29 @@ export default function DemoTrackingPage() {
   useEffect(() => { showGazeRef.current = showGaze; }, [showGaze]);
 
   useEffect(() => {
-    async function init() {
-      await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js");
-      await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js");
+    let cancelled = false;
 
-      const w = window as any;
-      const fm = new w.FaceMesh({
-        locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-      });
-      fm.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-      fm.onResults(onResults);
-      await fm.initialize();
-      faceMeshRef.current = fm;
-      setStatus("Ready — click Start Camera");
+    async function init() {
+      try {
+        const acquired = await acquireSharedFaceMesh(onResults);
+        if (cancelled) {
+          releaseSharedFaceMesh(acquired.owner);
+          return;
+        }
+        faceMeshRef.current = acquired.faceMesh;
+        faceMeshOwnerRef.current = acquired.owner;
+        setStatus("Ready - click Start Camera");
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "MediaPipe failed to load.");
+      }
     }
     init();
-    return () => { cameraRef.current?.stop(); faceMeshRef.current?.close(); };
+    return () => {
+      cancelled = true;
+      cameraRef.current?.stop();
+      releaseSharedFaceMesh(faceMeshOwnerRef.current);
+      faceMeshOwnerRef.current = null;
+    };
   }, []);
 
   function onResults(results: any) {
@@ -91,7 +89,7 @@ export default function DemoTrackingPage() {
     const lm = results.multiFaceLandmarks[0];
 
     if (showMeshRef.current) {
-      ctx.strokeStyle = "rgba(100, 200, 255, 0.4)";
+      ctx.strokeStyle = "rgba(0, 167, 160, 0.42)";
       ctx.lineWidth = 1;
       for (const [i, j] of FACE_OVAL) {
         ctx.beginPath();
@@ -99,7 +97,7 @@ export default function DemoTrackingPage() {
         ctx.lineTo(lm[j].x * canvas.width, lm[j].y * canvas.height);
         ctx.stroke();
       }
-      ctx.fillStyle = "rgba(100, 200, 255, 0.25)";
+      ctx.fillStyle = "rgba(0, 132, 127, 0.28)";
       for (let i = 0; i < 468; i++) {
         ctx.beginPath();
         ctx.arc(lm[i].x * canvas.width, lm[i].y * canvas.height, 0.8, 0, 2 * Math.PI);
@@ -121,10 +119,10 @@ export default function DemoTrackingPage() {
         radius /= (indices.length - 1);
         ctx.beginPath();
         ctx.arc(center.x * canvas.width, center.y * canvas.height, radius, 0, 2 * Math.PI);
-        ctx.strokeStyle = "#00ff88"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.strokeStyle = "#00a7a0"; ctx.lineWidth = 2; ctx.stroke();
         ctx.beginPath();
         ctx.arc(center.x * canvas.width, center.y * canvas.height, 3, 0, 2 * Math.PI);
-        ctx.fillStyle = "#ff3232"; ctx.fill();
+        ctx.fillStyle = "#0f3146"; ctx.fill();
       }
     }
 
@@ -134,7 +132,7 @@ export default function DemoTrackingPage() {
     const rRatioY = (rightC.y - lm[386].y) / (lm[374].y - lm[386].y);
     const gazeX = (lRatioX + rRatioX) / 2;
     const gazeY = (lRatioY + rRatioY) / 2;
-    const screenX = Math.round((1 - gazeX) * window.innerWidth);
+    const screenX = Math.round(gazeX * window.innerWidth);
     const screenY = Math.round(gazeY * window.innerHeight);
 
     setMetrics({
@@ -158,7 +156,13 @@ export default function DemoTrackingPage() {
   async function startCamera() {
     if (!faceMeshRef.current || !videoRef.current) return;
     const w = window as any;
-    const cam = new w.Camera(videoRef.current, {
+    const CameraCtor = typeof w.Camera === "function" ? w.Camera : w.Camera?.Camera;
+    if (typeof CameraCtor !== "function") {
+      setStatus("MediaPipe camera utils failed to load.");
+      return;
+    }
+
+    const cam = new CameraCtor(videoRef.current, {
       onFrame: async () => {
         if (faceMeshRef.current) await faceMeshRef.current.send({ image: videoRef.current });
       },
@@ -180,19 +184,22 @@ export default function DemoTrackingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col items-center p-5">
-      <h1 className="text-2xl font-semibold mb-2">Face & Iris Tracking Demo</h1>
-      <p className="text-amber-300 text-sm mb-4">{status}</p>
-
-      <div className="relative rounded-xl overflow-hidden shadow-2xl">
-        <video ref={videoRef} width={640} height={480} autoPlay playsInline className="block" style={{ transform: "scaleX(-1)" }} />
-        <canvas ref={canvasRef} width={640} height={480} className="absolute top-0 left-0" style={{ transform: "scaleX(-1)" }} />
+    <div className="flex min-h-screen flex-col items-center bg-[var(--app-bg)] p-5 text-[var(--app-text)]">
+      <div className="mb-5 text-center">
+        <p className="section-kicker text-[var(--app-accent)]">Survey Engine</p>
+        <h1 className="page-title mt-2">Face & Iris Tracking Demo</h1>
+        <p className="mt-2 text-sm text-[var(--app-muted-strong)]">{status}</p>
       </div>
 
-      <div ref={gazeDotRef} className="fixed w-8 h-8 rounded-full border-2 border-red-500 bg-red-500/30 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[9999]" style={{ display: "none" }} />
+      <div className="surface-panel relative overflow-hidden bg-slate-950">
+        <video ref={videoRef} width={640} height={480} autoPlay playsInline className="block" />
+        <canvas ref={canvasRef} width={640} height={480} className="absolute top-0 left-0" />
+      </div>
 
-      <div className="mt-5 bg-[#16213e] rounded-xl p-5 w-[640px] max-w-[90vw]">
-        <h2 className="text-amber-300 font-medium mb-3">Real-time Metrics</h2>
+      <div ref={gazeDotRef} className="pointer-events-none fixed z-[9999] h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--app-accent)] bg-[rgba(0,167,160,0.22)] shadow-[0_0_28px_rgba(0,167,160,0.5)]" style={{ display: "none" }} />
+
+      <div className="surface-panel mt-5 w-[640px] max-w-[90vw] p-5">
+        <h2 className="section-title mb-3">Real-time Metrics</h2>
         <div className="grid grid-cols-2 gap-3">
           {[
             { label: "Left Iris (x, y)", value: metrics.leftIris },
@@ -200,30 +207,30 @@ export default function DemoTrackingPage() {
             { label: "Estimated Gaze (screen)", value: metrics.gaze },
             { label: "Face Detected / FPS", value: metrics.face },
           ].map((m) => (
-            <div key={m.label} className="bg-[#1a1a2e] rounded-lg px-4 py-3">
-              <p className="text-xs text-slate-500 uppercase">{m.label}</p>
-              <p className="text-lg font-semibold mt-1">{m.value}</p>
+            <div key={m.label} className="rounded-[16px] border bg-[var(--app-panel-muted)] px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--app-muted)]">{m.label}</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--app-text)]">{m.value}</p>
             </div>
           ))}
         </div>
 
-        <div className="mt-4 flex gap-5 text-sm">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={showMesh} onChange={(e) => setShowMesh(e.target.checked)} /> Face Mesh
+        <div className="mt-4 flex flex-wrap gap-5 text-sm text-[var(--app-muted-strong)]">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input className="accent-[var(--app-accent)]" type="checkbox" checked={showMesh} onChange={(e) => setShowMesh(e.target.checked)} /> Face Mesh
           </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={showIris} onChange={(e) => setShowIris(e.target.checked)} /> Iris Points
+          <label className="flex cursor-pointer items-center gap-2">
+            <input className="accent-[var(--app-accent)]" type="checkbox" checked={showIris} onChange={(e) => setShowIris(e.target.checked)} /> Iris Points
           </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={showGaze} onChange={(e) => setShowGaze(e.target.checked)} /> Gaze Dot
+          <label className="flex cursor-pointer items-center gap-2">
+            <input className="accent-[var(--app-accent)]" type="checkbox" checked={showGaze} onChange={(e) => setShowGaze(e.target.checked)} /> Gaze Dot
           </label>
         </div>
 
         <div className="mt-4 flex gap-3">
-          <button onClick={startCamera} disabled={running} className="px-5 py-2 rounded-lg bg-rose-500 text-white font-medium hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button onClick={startCamera} disabled={running} className="primary-button px-5 py-2 disabled:opacity-50">
             Start Camera
           </button>
-          <button onClick={stopCamera} disabled={!running} className="px-5 py-2 rounded-lg bg-[#16213e] text-white border border-slate-600 font-medium hover:bg-[#1a1a2e] disabled:opacity-50 disabled:cursor-not-allowed">
+          <button onClick={stopCamera} disabled={!running} className="secondary-button px-5 py-2 disabled:opacity-50">
             Stop
           </button>
         </div>

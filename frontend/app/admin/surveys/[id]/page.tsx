@@ -3,16 +3,42 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { buildTemplateFromSurvey, persistTemplate } from "@/lib/template-library";
 import {
   ChartIcon,
   CheckCircleIcon,
+  ChevronLeftIcon,
   LinkIcon,
   PlusIcon,
   SearchIcon,
   SurveyIcon,
   UsersIcon,
 } from "@/components/icons";
+import { ExternalPostImage } from "@/components/external-post-image";
+import { useLocale } from "@/components/locale-provider";
+
+type PlatformStyle = "x" | "facebook" | "instagram" | "xiaohongshu";
+type PlatformUiStyle = "twitter" | "facebook" | "instagram" | "xiaohongshu" | "truth_social" | "bluesky" | "douyin";
+
+const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string; description: string }[] = [
+  { value: "twitter", label: "X (Twitter)", description: "Compact text-first feed with repost-style interactions." },
+  { value: "facebook", label: "Facebook", description: "Familiar blue social feed with broad engagement controls." },
+  { value: "instagram", label: "Instagram", description: "Image-forward layout for visual post stimuli." },
+  { value: "truth_social", label: "Truth Social", description: "Navy-and-red Truth Social-style layout for political content stimuli." },
+  { value: "bluesky", label: "Bluesky", description: "Sky-blue minimal layout reminiscent of the Bluesky feed." },
+  { value: "xiaohongshu", label: "Xiaohongshu", description: "Lifestyle-card style suited to note-like social content." },
+  { value: "douyin", label: "Douyin / TikTok", description: "Dark vertical-video inspired feed for short-form social stimuli." },
+];
+
+const LANGUAGE_OPTIONS = [
+  { value: "en", label: "English" },
+  { value: "ar", label: "العربية" },
+  { value: "zh", label: "中文" },
+];
+
+function platformUiStyleToFeedStyle(style: PlatformUiStyle): PlatformStyle {
+  if (style === "facebook" || style === "instagram" || style === "xiaohongshu") return style;
+  return "x";
+}
 
 async function apiRequest(path: string, options: RequestInit = {}) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -33,9 +59,13 @@ interface Post {
   original_url: string;
   fetched_title: string | null;
   fetched_image_url: string | null;
+  fetched_description: string | null;
   fetched_source: string | null;
   display_title: string | null;
   display_image_url: string | null;
+  display_description: string | null;
+  source_label: string | null;
+  more_info_label: string | null;
   display_likes: number;
   display_comments_count: number;
   display_shares: number;
@@ -44,6 +74,17 @@ interface Post {
   show_shares: boolean;
   visible_to_groups: number[] | null;
   comments: { id: number; order: number; author_name: string; text: string }[];
+  questions: Question[];
+}
+
+interface Question {
+  id: number;
+  survey_id: number;
+  post_id: number | null;
+  order: number;
+  question_type: string;
+  text: string;
+  config: { min?: number; max?: number; min_label?: string; max_label?: string; options?: string[] } | null;
 }
 
 interface Survey {
@@ -52,12 +93,16 @@ interface Survey {
   description?: string | null;
   status: string;
   share_code: string;
+  platform_style?: PlatformStyle;
+  platform_ui_style?: PlatformUiStyle;
   num_groups: number;
   gaze_tracking_enabled?: boolean;
   gaze_interval_ms?: number;
   click_tracking_enabled?: boolean;
   calibration_enabled?: boolean;
   calibration_points?: number;
+  default_language?: string | null;
+  supported_languages?: string[] | null;
 }
 
 function statusClasses(status: string) {
@@ -70,8 +115,17 @@ function numberInputClass() {
   return "w-24 rounded-[16px] border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none";
 }
 
+function hostnameFromUrl(url: string) {
+  try {
+    return new URL(url).hostname || "Unknown";
+  } catch {
+    return "Unknown";
+  }
+}
+
 export default function SurveyEditPage() {
   const router = useRouter();
+  const { locale } = useLocale();
   const params = useParams();
   const searchParams = useSearchParams();
   const surveyId = Number(params.id);
@@ -89,6 +143,9 @@ export default function SurveyEditPage() {
   const [editComments, setEditComments] = useState(0);
   const [editShares, setEditShares] = useState(0);
   const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editSourceLabel, setEditSourceLabel] = useState("");
+  const [editMoreInfoLabel, setEditMoreInfoLabel] = useState("");
 
   const [editingGroups, setEditingGroups] = useState<number | null>(null);
   const [groupVisibility, setGroupVisibility] = useState<number[]>([]);
@@ -99,6 +156,15 @@ export default function SurveyEditPage() {
   const [commentPostId, setCommentPostId] = useState<number | null>(null);
   const [commentAuthor, setCommentAuthor] = useState("");
   const [commentText, setCommentText] = useState("");
+  const [questionPostId, setQuestionPostId] = useState<number | null>(null);
+  const [questionText, setQuestionText] = useState("");
+  const [questionType, setQuestionType] = useState("text");
+  const [questionOptions, setQuestionOptions] = useState("Yes, No");
+  const [questionMin, setQuestionMin] = useState(1);
+  const [questionMax, setQuestionMax] = useState(5);
+  const [questionMinLabel, setQuestionMinLabel] = useState("Strongly disagree");
+  const [questionMaxLabel, setQuestionMaxLabel] = useState("Strongly agree");
+  const [editingQuestion, setEditingQuestion] = useState<number | null>(null);
 
   const [stats, setStats] = useState<
     { post_id: number; likes: number; participant_comments: number; shares: number }[] | null
@@ -107,14 +173,222 @@ export default function SurveyEditPage() {
     Record<number, { id: number; post_id: number; text: string; created_at: string }[]>
   >({});
   const [isUnsavedDraft, setIsUnsavedDraft] = useState(initialUnsavedDraft);
-  const [templateSaved, setTemplateSaved] = useState(false);
+  const [translationLanguage, setTranslationLanguage] = useState("zh");
+  const [defaultLanguage, setDefaultLanguage] = useState("en");
+  const [supportedLanguages, setSupportedLanguages] = useState<string[]>(["en", "ar", "zh"]);
+  const [translationFile, setTranslationFile] = useState<File | null>(null);
+  const [translationBusy, setTranslationBusy] = useState(false);
+  const [translationStatus, setTranslationStatus] = useState("");
+  const [previewGroup, setPreviewGroup] = useState(1);
+  const [previewLanguage, setPreviewLanguage] = useState("en");
+  const [previewData, setPreviewData] = useState<{ posts: Post[]; questions: Question[]; assigned_group: number; platform_style?: PlatformStyle; language?: string | null } | null>(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
   const shouldDiscardDraftRef = useRef(initialUnsavedDraft);
   const discardRequestedRef = useRef(false);
+  const text =
+    locale === "zh"
+      ? {
+          deleteConfirm: "确定删除这条帖子吗？",
+          publishConfirm: "确定发布这份问卷吗？发布后参与者将可以访问。",
+          loading: "正在加载问卷",
+          workspace: "问卷工作台",
+          subtitle: "在把实验分享给参与者之前，先配置帖子、分组可见性和互动基线数值。",
+          linkCopied: "链接已复制",
+          copyParticipantLink: "复制参与者链接",
+          publishSurvey: "发布问卷",
+          saveDraft: "保存草稿",
+          postsConfigured: "已配置帖子",
+          groupVariants: "分组版本",
+          commentThreads: "评论线程",
+          visibleCards: "可见卡片",
+          addPost: "添加帖子",
+          addPostTitle: "粘贴新闻文章链接以创建帖子卡片",
+          platformStyle: "参与者信息流样式",
+          platformStyleCopy: "这会改变参与者看到的帖子卡片外观；研究数据结构保持一致。",
+          fetching: "抓取中...",
+          articleMetadata: "系统会从文章 metadata 中抓取标题、来源和图片。卡片出现后，你可以继续覆盖每组的数值和评论。",
+          untitled: "未命名",
+          delete: "删除",
+          visibleToGroups: "对以下分组可见：",
+          likes: "点赞",
+          comments: "评论",
+          shares: "分享",
+          visibleComments: "可见评论",
+          participantResponse: "参与者回应",
+          noCommentContent: "该帖子显示了评论数量，但还没有配置任何评论内容。",
+          overrideTitle: "覆盖标题",
+          saveValues: "保存数值",
+          cancel: "取消",
+          editNumbers: "编辑数值",
+          addComment: "添加评论",
+          editQuestions: "题目",
+          addQuestion: "添加题目",
+          editQuestion: "编辑题目",
+          questionText: "题目文本",
+          questionType: "题目类型",
+          questionOptions: "选项（用逗号分隔）",
+          ratingRange: "量表范围",
+          minLabel: "低端标签",
+          maxLabel: "高端标签",
+          saveQuestion: "保存题目",
+          deleteQuestion: "删除题目",
+          displayDescription: "显示描述",
+          sourceLabel: "来源标签",
+          moreInfoLabel: "更多信息按钮",
+          preview: "预览",
+          previewParticipant: "参与者预览",
+          previewGroup: "预览分组",
+          previewLanguage: "预览语言",
+          openTestSession: "打开测试会话",
+          testSessionCopy: "使用预览参数打开参与者流程；这些测试回答默认不会进入正式分析导出。",
+          previewMode: "预览模式",
+          loadPreview: "加载预览",
+          languageSettings: "参与者语言",
+          defaultLanguage: "默认语言",
+          supportedLanguages: "可用语言",
+          languageCopy: "英文和阿拉伯语会保持可用；中文如果已在问卷中使用也会保留。",
+          saveLanguages: "保存语言",
+          languagesSaved: "语言设置已保存",
+          abGroups: "A/B 分组",
+          groupVisibility: "分组可见性",
+          saveGroups: "保存分组",
+          moveUp: "上移",
+          moveDown: "下移",
+          commenterName: "评论者姓名",
+          commentText: "评论内容",
+          add: "添加",
+          noPosts: "还没有帖子卡片",
+          noPostsCopy: "在上方添加第一条文章链接，为这份问卷创建参与者信息流卡片。",
+          studySummary: "研究摘要",
+          surveyStatus: "问卷状态",
+          participantLink: "参与者链接",
+          linkAfterPublish: "发布后可获得链接",
+          abGroupCount: "A/B 分组",
+          checklist: "发布检查清单",
+          checklistItems: ["至少添加一张帖子卡片", "检查显示数值和评论内容"],
+          checklistSingle: "单组流程已就绪",
+          checklistMulti: "确认每条帖子对各分组的可见性",
+          observation: "观察",
+          observationCopy: "参与者互动会叠加到你预先配置的基线数值之上，因此已发布的信息流会看起来更真实，同时仍保持实验可控。",
+          translationsTitle: "翻译文件",
+          translationsCopy: "导出翻译模板，填入目标语言后再导入。",
+          targetLanguage: "目标语言",
+          exportJson: "导出 JSON",
+          exportCsv: "导出 CSV",
+          chooseTranslationFile: "选择 JSON 或 CSV 文件",
+          importFile: "导入文件",
+          translationExported: "翻译模板已导出",
+          translationImported: "翻译已导入",
+          noTranslationFile: "请先选择翻译文件。",
+        }
+      : {
+          deleteConfirm: "Delete this post?",
+          publishConfirm: "Publish this survey? Participants will be able to access it.",
+          loading: "Loading survey",
+          workspace: "Survey Workspace",
+          subtitle: "Configure the posts, group visibility, and engagement baselines before sharing the study with participants.",
+          linkCopied: "Link copied",
+          copyParticipantLink: "Copy participant link",
+          publishSurvey: "Publish Survey",
+          saveDraft: "Save Draft",
+          postsConfigured: "Posts configured",
+          groupVariants: "Group variants",
+          commentThreads: "Comment threads",
+          visibleCards: "Visible cards",
+          addPost: "Add Post",
+          addPostTitle: "Paste a news article URL to create a post card",
+          platformStyle: "Participant feed style",
+          platformStyleCopy: "Changes the post-card look participants see while keeping the research data structure consistent.",
+          fetching: "Fetching...",
+          articleMetadata: "The platform will fetch the headline, source, and image from the article metadata. You can override numbers and comments for each group after the card appears below.",
+          untitled: "Untitled",
+          delete: "Delete",
+          visibleToGroups: "Visible to groups:",
+          likes: "Likes",
+          comments: "Comments",
+          shares: "Shares",
+          visibleComments: "Visible comments",
+          participantResponse: "Participant response",
+          noCommentContent: "Comment count is visible, but no comment content has been configured for this post.",
+          overrideTitle: "Override title",
+          saveValues: "Save values",
+          cancel: "Cancel",
+          editNumbers: "Edit numbers",
+          addComment: "Add comment",
+          editQuestions: "Questions",
+          addQuestion: "Add question",
+          editQuestion: "Edit question",
+          questionText: "Question text",
+          questionType: "Question type",
+          questionOptions: "Options (comma-separated)",
+          ratingRange: "Rating range",
+          minLabel: "Low label",
+          maxLabel: "High label",
+          saveQuestion: "Save question",
+          deleteQuestion: "Delete question",
+          displayDescription: "Display description",
+          sourceLabel: "Source label",
+          moreInfoLabel: "More Information button",
+          preview: "Preview",
+          previewParticipant: "Participant preview",
+          previewGroup: "Preview group",
+          previewLanguage: "Preview language",
+          openTestSession: "Open test session",
+          testSessionCopy: "Launches the participant flow with preview parameters; these test responses are excluded from formal analytics exports by default.",
+          previewMode: "Preview mode",
+          loadPreview: "Load preview",
+          languageSettings: "Participant languages",
+          defaultLanguage: "Default language",
+          supportedLanguages: "Supported languages",
+          languageCopy: "English and Arabic remain available. Chinese stays enabled for surveys that already use it.",
+          saveLanguages: "Save languages",
+          languagesSaved: "Language settings saved",
+          abGroups: "A/B groups",
+          groupVisibility: "Group visibility",
+          saveGroups: "Save groups",
+          moveUp: "Move up",
+          moveDown: "Move down",
+          commenterName: "Commenter name",
+          commentText: "Comment text",
+          add: "Add",
+          noPosts: "No post cards yet",
+          noPostsCopy: "Add the first article URL above to create a participant-facing feed card for this survey.",
+          studySummary: "Study summary",
+          surveyStatus: "Survey status",
+          participantLink: "Participant link",
+          linkAfterPublish: "Link available after publish",
+          abGroupCount: "A/B groups",
+          checklist: "Publishing checklist",
+          checklistItems: ["Add at least one post card", "Review display counts and comment content"],
+          checklistSingle: "Single-group flow is ready",
+          checklistMulti: "Confirm group visibility for each post",
+          observation: "Observation",
+          observationCopy: "Participant reactions accumulate on top of your configured baseline values, so the published feed feels active while still remaining experimentally controlled.",
+          translationsTitle: "Translation files",
+          translationsCopy: "Export a translation template, fill the target language, then import it back.",
+          targetLanguage: "Target language",
+          exportJson: "Export JSON",
+          exportCsv: "Export CSV",
+          chooseTranslationFile: "Choose JSON or CSV file",
+          importFile: "Import file",
+          translationExported: "Translation template exported",
+          translationImported: "Translations imported",
+          noTranslationFile: "Choose a translation file first.",
+        };
 
   const loadData = useCallback(async () => {
     try {
       const [nextSurvey, nextPosts] = await Promise.all([api.getSurvey(surveyId), api.listPosts(surveyId)]);
       setSurvey(nextSurvey);
+      const nextDefaultLanguage = nextSurvey.default_language || "en";
+      const nextSupportedLanguages =
+        Array.isArray(nextSurvey.supported_languages) && nextSurvey.supported_languages.length
+          ? nextSurvey.supported_languages
+          : ["en", "ar", "zh"];
+      const normalizedLanguages = Array.from(new Set([nextDefaultLanguage, "en", "ar", ...nextSupportedLanguages]));
+      setDefaultLanguage(nextDefaultLanguage);
+      setSupportedLanguages(normalizedLanguages);
+      setPreviewLanguage((current) => (normalizedLanguages.includes(current) ? current : nextDefaultLanguage));
       setPosts(nextPosts);
     } catch (err: any) {
       const message = String(err?.message || "").toLowerCase();
@@ -207,7 +481,7 @@ export default function SurveyEditPage() {
   }
 
   async function deletePost(postId: number) {
-    if (!confirm("Delete this post?")) return;
+    if (!confirm(text.deleteConfirm)) return;
     await api.deletePost(surveyId, postId);
     await loadData();
   }
@@ -218,16 +492,102 @@ export default function SurveyEditPage() {
     setEditComments(post.display_comments_count);
     setEditShares(post.display_shares);
     setEditTitle(post.display_title || post.fetched_title || "");
+    setEditDescription(post.display_description || post.fetched_description || "");
+    setEditSourceLabel(post.source_label || post.fetched_source || "");
+    setEditMoreInfoLabel(post.more_info_label || "More Information");
   }
 
   async function saveEdit(postId: number) {
     await api.updatePost(surveyId, postId, {
       display_title: editTitle || null,
+      display_description: editDescription || null,
+      source_label: editSourceLabel || null,
+      more_info_label: editMoreInfoLabel || null,
       display_likes: editLikes,
       display_comments_count: editComments,
       display_shares: editShares,
     });
     setEditingPost(null);
+    await loadData();
+  }
+
+  async function movePost(postId: number, direction: "up" | "down") {
+    const currentIndex = posts.findIndex((post) => post.id === postId);
+    const swapIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (currentIndex < 0 || swapIndex < 0 || swapIndex >= posts.length) return;
+    const current = posts[currentIndex];
+    const swap = posts[swapIndex];
+    await Promise.all([
+      api.updatePost(surveyId, current.id, { order: swap.order }),
+      api.updatePost(surveyId, swap.id, { order: current.order }),
+    ]);
+    await loadData();
+  }
+
+  function questionConfig() {
+    if (questionType === "single_choice" || questionType === "multiple_choice") {
+      return { options: questionOptions.split(",").map((item) => item.trim()).filter(Boolean) };
+    }
+    if (questionType === "likert" || questionType === "rating") {
+      return {
+        min: questionMin,
+        max: questionMax,
+        min_label: questionMinLabel,
+        max_label: questionMaxLabel,
+      };
+    }
+    return null;
+  }
+
+  function resetQuestionForm() {
+    setQuestionPostId(null);
+    setEditingQuestion(null);
+    setQuestionText("");
+    setQuestionType("text");
+    setQuestionOptions("Yes, No");
+    setQuestionMin(1);
+    setQuestionMax(5);
+    setQuestionMinLabel("Strongly disagree");
+    setQuestionMaxLabel("Strongly agree");
+  }
+
+  function startAddQuestion(postId: number) {
+    resetQuestionForm();
+    setQuestionPostId(postId);
+  }
+
+  function startEditQuestion(question: Question) {
+    setQuestionPostId(question.post_id);
+    setEditingQuestion(question.id);
+    setQuestionText(question.text);
+    setQuestionType(question.question_type);
+    setQuestionOptions((question.config?.options || ["Yes", "No"]).join(", "));
+    setQuestionMin(question.config?.min || 1);
+    setQuestionMax(question.config?.max || 5);
+    setQuestionMinLabel(question.config?.min_label || "Strongly disagree");
+    setQuestionMaxLabel(question.config?.max_label || "Strongly agree");
+  }
+
+  async function saveQuestion(postId: number) {
+    const payload = {
+      question_type: questionType,
+      text: questionText,
+      order: editingQuestion
+        ? posts.find((post) => post.id === postId)?.questions.find((question) => question.id === editingQuestion)?.order || 1
+        : (posts.find((post) => post.id === postId)?.questions.length || 0) + 1,
+      config: questionConfig(),
+    };
+    if (editingQuestion) {
+      await api.updateQuestion(surveyId, postId, editingQuestion, payload);
+    } else {
+      await api.createQuestion(surveyId, postId, payload);
+    }
+    resetQuestionForm();
+    await loadData();
+  }
+
+  async function deleteQuestion(postId: number, questionId: number) {
+    await api.deleteQuestion(surveyId, postId, questionId);
     await loadData();
   }
 
@@ -282,7 +642,7 @@ export default function SurveyEditPage() {
   }
 
   async function publishSurvey() {
-    if (!confirm("Publish this survey? Participants will be able to access it.")) return;
+    if (!confirm(text.publishConfirm)) return;
     await api.publishSurvey(surveyId);
     setIsUnsavedDraft(false);
     shouldDiscardDraftRef.current = false;
@@ -292,25 +652,52 @@ export default function SurveyEditPage() {
 
   async function saveDraft() {
     if (!survey) return;
-    await api.updateSurvey(surveyId, { title: survey.title });
+    await api.updateSurvey(surveyId, {
+      title: survey.title,
+      platform_style: survey.platform_style ?? "x",
+      platform_ui_style: survey.platform_ui_style ?? "twitter",
+      default_language: defaultLanguage,
+      supported_languages: Array.from(new Set([defaultLanguage, ...supportedLanguages])),
+    });
     setIsUnsavedDraft(false);
     shouldDiscardDraftRef.current = false;
     router.replace(`/admin/surveys/${surveyId}`);
     await loadData();
   }
 
-  function saveAsTemplate() {
+  async function updatePlatformUiStyle(nextStyle: PlatformUiStyle) {
     if (!survey) return;
-    const name = window.prompt("Template name", `${survey.title} Template`);
-    if (!name?.trim()) return;
-    const template = buildTemplateFromSurvey({
-      name: name.trim(),
-      survey,
-      posts,
-    });
-    persistTemplate(template);
-    setTemplateSaved(true);
-    window.setTimeout(() => setTemplateSaved(false), 2200);
+    const nextFeedStyle = platformUiStyleToFeedStyle(nextStyle);
+    setSurvey({ ...survey, platform_ui_style: nextStyle, platform_style: nextFeedStyle });
+    try {
+      const updated = await api.updateSurvey(surveyId, {
+        platform_ui_style: nextStyle,
+        platform_style: nextFeedStyle,
+      });
+      setSurvey(updated);
+    } catch (err: any) {
+      setError(err.message || "Failed to update platform UI style");
+    }
+  }
+
+  async function updateLanguageSettings() {
+    if (!survey) return;
+    const languages = Array.from(new Set([defaultLanguage, "en", "ar", ...supportedLanguages]));
+    setSupportedLanguages(languages);
+    try {
+      const updated = await api.updateSurvey(surveyId, {
+        default_language: defaultLanguage,
+        supported_languages: languages,
+      });
+      setSurvey({
+        ...updated,
+        default_language: updated.default_language ?? defaultLanguage,
+        supported_languages: updated.supported_languages ?? languages,
+      });
+      setTranslationStatus(text.languagesSaved);
+    } catch (err: any) {
+      setTranslationStatus(err.message || "Failed to save language settings");
+    }
   }
 
   async function copyShareUrl(url: string) {
@@ -321,19 +708,99 @@ export default function SurveyEditPage() {
     } catch {}
   }
 
+  function downloadTextFile(content: string, filename: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportTranslations(format: "json" | "csv") {
+    setTranslationBusy(true);
+    setTranslationStatus("");
+    try {
+      if (format === "json") {
+        const payload = await api.exportTranslationsJson(surveyId, translationLanguage);
+        downloadTextFile(
+          JSON.stringify(payload, null, 2),
+          `survey-${surveyId}-translations-${translationLanguage}.json`,
+          "application/json",
+        );
+      } else {
+        const csv = await api.exportTranslationsCsv(surveyId, translationLanguage);
+        downloadTextFile(
+          csv,
+          `survey-${surveyId}-translations-${translationLanguage}.csv`,
+          "text/csv;charset=utf-8",
+        );
+      }
+      setTranslationStatus(text.translationExported);
+    } catch (err: any) {
+      setTranslationStatus(err.message || "Translation export failed");
+    } finally {
+      setTranslationBusy(false);
+    }
+  }
+
+  async function importTranslations() {
+    if (!translationFile) {
+      setTranslationStatus(text.noTranslationFile);
+      return;
+    }
+    setTranslationBusy(true);
+    setTranslationStatus("");
+    try {
+      const content = await translationFile.text();
+      const isCsv = translationFile.name.toLowerCase().endsWith(".csv") || translationFile.type.includes("csv");
+      if (isCsv) {
+        await api.importTranslationsCsv(surveyId, content, translationLanguage);
+      } else {
+        const payload = JSON.parse(content);
+        if (!payload.language_code && !payload.language) {
+          payload.language_code = translationLanguage;
+        }
+        await api.importTranslationsJson(surveyId, payload);
+      }
+      setTranslationFile(null);
+      setTranslationStatus(text.translationImported);
+    } catch (err: any) {
+      setTranslationStatus(err.message || "Translation import failed");
+    } finally {
+      setTranslationBusy(false);
+    }
+  }
+
+  async function loadPreview() {
+    setPreviewBusy(true);
+    try {
+      const preview = await api.previewSurvey(surveyId, previewGroup, previewLanguage);
+      setPreviewData(preview);
+    } catch (err: any) {
+      setTranslationStatus(err.message || "Preview failed");
+    } finally {
+      setPreviewBusy(false);
+    }
+  }
+
   if (!survey) {
-    return <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">Loading survey</p>;
+    return <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{text.loading}</p>;
   }
 
   const shareUrl =
     typeof window !== "undefined" ? `${window.location.origin}/survey/${survey.share_code}/start` : "";
+  const previewSessionUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/survey/${survey.share_code}/start?preview=1&group=${previewGroup}&lang=${previewLanguage}`
+      : "";
   const publishedPosts = posts.filter((post) => !post.visible_to_groups || post.visible_to_groups.length > 0).length;
   const totalComments = posts.reduce(
     (sum, post) =>
       sum +
       post.comments.length +
-      (participantCommentsByPost[post.id]?.length || 0) +
-      (stats?.find((item) => item.post_id === post.id)?.participant_comments || 0),
+      (participantCommentsByPost[post.id]?.length || 0),
     0,
   );
 
@@ -341,36 +808,32 @@ export default function SurveyEditPage() {
     <div className="space-y-8">
       <section className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="section-kicker">Survey Workspace</p>
+          <p className="section-kicker">{text.workspace}</p>
           <h1 className="page-title mt-3">{survey.title}</h1>
           <p className="page-subtitle mt-3 max-w-3xl">
-            Configure the posts, group visibility, and engagement baselines before sharing the study with participants.
+            {text.subtitle}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button onClick={saveAsTemplate} className="secondary-button">
-            {templateSaved ? "Template Saved" : "Save as Template"}
-          </button>
           {survey.status === "published" && shareUrl && (
             <button
+              type="button"
               onClick={() => copyShareUrl(shareUrl)}
-              className="secondary-button h-[56px] w-[130px] justify-center gap-2 px-3"
+              className="secondary-button inline-flex min-h-[48px] w-full max-w-[min(100%,220px)] shrink-0 items-center justify-center gap-2 whitespace-nowrap px-4 py-3 sm:w-auto sm:max-w-none"
             >
               <LinkIcon className="h-4 w-4 shrink-0" />
-              <span className="text-center text-[13px] leading-4">
-                {copiedShare ? "Link copied" : "Copy participant link"}
-              </span>
+              <span className="text-[13px] leading-tight">{copiedShare ? text.linkCopied : text.copyParticipantLink}</span>
             </button>
           )}
           {survey.status === "draft" && (
             <button onClick={publishSurvey} disabled={posts.length === 0} className="primary-button">
-              Publish Survey
+              {text.publishSurvey}
             </button>
           )}
           {survey.status === "draft" ? (
             <button onClick={saveDraft} className="secondary-button">
-              Save Draft
+              {text.saveDraft}
             </button>
           ) : (
             <span className={statusClasses(survey.status)}>{survey.status}</span>
@@ -380,19 +843,19 @@ export default function SurveyEditPage() {
 
       <section className="grid gap-4 xl:grid-cols-4">
         <div className="metric-panel">
-          <p className="section-kicker">Posts configured</p>
+          <p className="section-kicker">{text.postsConfigured}</p>
           <p className="metric-value">{posts.length}</p>
         </div>
         <div className="metric-panel">
-          <p className="section-kicker">Group variants</p>
+          <p className="section-kicker">{text.groupVariants}</p>
           <p className="metric-value">{survey.num_groups}</p>
         </div>
         <div className="metric-panel">
-          <p className="section-kicker">Comment threads</p>
+          <p className="section-kicker">{text.commentThreads}</p>
           <p className="metric-value">{totalComments}</p>
         </div>
         <div className="rounded-[18px] bg-black px-5 py-4 text-white shadow-[0_28px_60px_rgba(17,24,39,0.14)]">
-          <p className="section-kicker text-white/55">Visible cards</p>
+          <p className="section-kicker text-white/55">{text.visibleCards}</p>
           <p className="metric-value-inverse">{publishedPosts}</p>
         </div>
       </section>
@@ -401,9 +864,9 @@ export default function SurveyEditPage() {
         <section className="surface-panel px-6 py-6 md:px-7 md:py-7">
           <div className="flex items-start justify-between gap-6">
             <div>
-              <p className="section-kicker">Add Post</p>
+              <p className="section-kicker">{text.addPost}</p>
               <h2 className="section-title mt-3 md:text-[24px]">
-                Paste a news article URL to generate a post card
+                {text.addPostTitle}
               </h2>
             </div>
             <div className="hidden h-12 w-12 items-center justify-center rounded-[16px] bg-stone-100 text-slate-500 md:flex">
@@ -422,27 +885,26 @@ export default function SurveyEditPage() {
                 required
               />
               <button type="submit" disabled={addingPost} className="primary-button min-w-[160px]">
-                {addingPost ? "Fetching..." : "Add Post"}
+                {addingPost ? text.fetching : text.addPost}
               </button>
             </div>
             {error && <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-            <p className="section-copy">
-              The platform will fetch the headline, source, and image automatically. You can override numbers and
-              comments for each group after the card appears below.
-            </p>
+            <p className="section-copy">{text.articleMetadata}</p>
           </form>
         </section>
       )}
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-6">
-          {posts.map((post) => {
+          {posts.map((post, postIndex) => {
             const stat = stats?.find((item) => item.post_id === post.id);
             const totalLikes = (post.display_likes || 0) + (stat?.likes || 0);
             const totalCountComments = (post.display_comments_count || 0) + (stat?.participant_comments || 0);
             const totalShares = (post.display_shares || 0) + (stat?.shares || 0);
-            const title = post.display_title || post.fetched_title || "Untitled";
-            const source = post.fetched_source || new URL(post.original_url).hostname;
+            const title = post.display_title || post.fetched_title || text.untitled;
+            const source = post.source_label || post.fetched_source || hostnameFromUrl(post.original_url);
+            const description = post.display_description || post.fetched_description;
+            const moreInfoLabel = post.more_info_label || "More Information";
             const imageUrl = post.display_image_url || post.fetched_image_url;
 
             return (
@@ -450,7 +912,7 @@ export default function SurveyEditPage() {
                 <div className="grid gap-5 p-5 md:grid-cols-[200px_minmax(0,1fr)] md:p-6">
                   <div className="overflow-hidden rounded-[18px] bg-stone-100">
                     {imageUrl ? (
-                      <img src={imageUrl} alt="" className="h-full min-h-[170px] w-full object-cover" />
+                      <ExternalPostImage src={imageUrl} className="h-full min-h-[170px] w-full object-cover" />
                     ) : (
                       <div className="flex min-h-[170px] items-center justify-center bg-stone-100 text-slate-400">
                         <SurveyIcon className="h-7 w-7" />
@@ -465,6 +927,7 @@ export default function SurveyEditPage() {
                         <h3 className="mt-3 text-[18px] font-semibold leading-tight tracking-[-0.05em] text-black md:text-[20px]">
                           {title}
                         </h3>
+                        {description && <p className="mt-3 text-[13px] leading-6 text-slate-500">{description}</p>}
                         <a
                           href={post.original_url}
                           target="_blank"
@@ -472,23 +935,45 @@ export default function SurveyEditPage() {
                           className="mt-3 inline-flex max-w-full items-center gap-2 truncate text-[13px] text-slate-500 underline decoration-black/10 underline-offset-4"
                         >
                           <LinkIcon className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{post.original_url}</span>
+                          <span className="truncate">{moreInfoLabel}</span>
                         </a>
                       </div>
 
                       {survey.status === "draft" && (
-                        <button
-                          onClick={() => deletePost(post.id)}
-                          className="rounded-full border px-4 py-2 text-[13px] font-medium text-slate-500 transition hover:bg-black/[0.03] hover:text-black"
-                        >
-                          Delete
-                        </button>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button
+                            type="button"
+                            title={text.moveUp}
+                            aria-label={text.moveUp}
+                            disabled={postIndex === 0}
+                            onClick={() => movePost(post.id, "up")}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition hover:bg-black/[0.03] hover:text-black disabled:cursor-not-allowed disabled:opacity-35"
+                          >
+                            <ChevronLeftIcon className="h-4 w-4 rotate-90" />
+                          </button>
+                          <button
+                            type="button"
+                            title={text.moveDown}
+                            aria-label={text.moveDown}
+                            disabled={postIndex === posts.length - 1}
+                            onClick={() => movePost(post.id, "down")}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition hover:bg-black/[0.03] hover:text-black disabled:cursor-not-allowed disabled:opacity-35"
+                          >
+                            <ChevronLeftIcon className="h-4 w-4 -rotate-90" />
+                          </button>
+                          <button
+                            onClick={() => deletePost(post.id)}
+                            className="rounded-full border px-4 py-2 text-[13px] font-medium text-slate-500 transition hover:bg-black/[0.03] hover:text-black"
+                          >
+                            {text.delete}
+                          </button>
+                        </div>
                       )}
                     </div>
 
                     {post.visible_to_groups && (
                       <p className="mt-4 text-[13px] leading-6 text-slate-500">
-                        Visible to groups: <span className="font-medium text-black">{post.visible_to_groups.join(", ")}</span>
+                        {text.visibleToGroups} <span className="font-medium text-black">{post.visible_to_groups.join(", ")}</span>
                       </p>
                     )}
                   </div>
@@ -497,7 +982,7 @@ export default function SurveyEditPage() {
                 <div className="grid gap-4 border-y bg-stone-50 px-5 py-4 md:grid-cols-3 md:px-6">
                   {post.show_likes && (
                     <div>
-                      <p className="section-kicker">Likes</p>
+                      <p className="section-kicker">{text.likes}</p>
                       <p className="mt-2 text-[26px] font-semibold tracking-[-0.04em] text-black">
                         {totalLikes.toLocaleString()}
                       </p>
@@ -505,13 +990,13 @@ export default function SurveyEditPage() {
                   )}
                   {post.show_comments && (
                     <div>
-                      <p className="section-kicker">Comments</p>
+                      <p className="section-kicker">{text.comments}</p>
                       <p className="mt-2 text-[26px] font-semibold tracking-[-0.04em] text-black">{totalCountComments}</p>
                     </div>
                   )}
                   {post.show_shares && (
                     <div>
-                      <p className="section-kicker">Shares</p>
+                      <p className="section-kicker">{text.shares}</p>
                       <p className="mt-2 text-[26px] font-semibold tracking-[-0.04em] text-black">{totalShares}</p>
                     </div>
                   )}
@@ -519,7 +1004,7 @@ export default function SurveyEditPage() {
 
                 {(post.comments.length > 0 || (participantCommentsByPost[post.id]?.length || 0) > 0) && (
                   <div className="space-y-3 px-5 py-5 md:px-6">
-                    <p className="section-kicker">Visible comments</p>
+                    <p className="section-kicker">{text.visibleComments}</p>
 
                     {post.comments.map((comment) => (
                       <div key={`r-${comment.id}`} className="rounded-[18px] border bg-stone-50 px-4 py-4">
@@ -532,7 +1017,7 @@ export default function SurveyEditPage() {
                       <div key={`p-${comment.id}`} className="rounded-[18px] border bg-white px-4 py-4">
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <p className="text-[13px] font-semibold text-black">Participant response</p>
+                            <p className="text-[13px] font-semibold text-black">{text.participantResponse}</p>
                             <p className="mt-1 text-[13px] leading-6 text-slate-600">{comment.text}</p>
                           </div>
                           <p className="text-xs text-slate-400">{new Date(comment.created_at).toLocaleString()}</p>
@@ -547,12 +1032,103 @@ export default function SurveyEditPage() {
                   if (totalCountComments > 0 && !hasContent) {
                     return (
                       <div className="px-5 py-5 text-[13px] leading-6 text-slate-500 md:px-6">
-                        Comment count is visible, but no comment content has been configured for this post.
+                        {text.noCommentContent}
                       </div>
                     );
                   }
                   return null;
                 })()}
+
+                {(post.questions.length > 0 || survey.status === "draft") && (
+                  <div className="border-t px-5 py-5 md:px-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="section-kicker">{text.editQuestions}</p>
+                      {survey.status === "draft" && (
+                        <button type="button" onClick={() => startAddQuestion(post.id)} className="secondary-button px-4 py-2 text-[13px]">
+                          {text.addQuestion}
+                        </button>
+                      )}
+                    </div>
+                    {post.questions.length > 0 && (
+                      <div className="mt-4 space-y-3">
+                        {post.questions.map((question) => (
+                          <div key={question.id} className="rounded-[16px] border bg-stone-50 px-4 py-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <p className="text-[13px] font-semibold text-black">{question.text}</p>
+                                <p className="mt-1 text-[12px] text-slate-500">{question.question_type}</p>
+                                {question.config?.options && (
+                                  <p className="mt-2 text-[12px] leading-5 text-slate-500">{question.config.options.join(", ")}</p>
+                                )}
+                              </div>
+                              {survey.status === "draft" && (
+                                <div className="flex shrink-0 gap-2">
+                                  <button type="button" onClick={() => startEditQuestion(question)} className="secondary-button px-3 py-2 text-[12px]">
+                                    {text.editQuestion}
+                                  </button>
+                                  <button type="button" onClick={() => deleteQuestion(post.id, question.id)} className="secondary-button px-3 py-2 text-[12px]">
+                                    {text.deleteQuestion}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {survey.status === "draft" && questionPostId === post.id && (
+                      <div className="mt-4 space-y-3 rounded-[16px] border bg-white p-4">
+                        <input
+                          type="text"
+                          value={questionText}
+                          onChange={(event) => setQuestionText(event.target.value)}
+                          placeholder={text.questionText}
+                          className="field-input"
+                        />
+                        <select value={questionType} onChange={(event) => setQuestionType(event.target.value)} className="field-input">
+                          <option value="text">Text</option>
+                          <option value="single_choice">Single choice</option>
+                          <option value="multiple_choice">Multiple choice</option>
+                          <option value="likert">Likert</option>
+                          <option value="rating">Rating</option>
+                        </select>
+                        {(questionType === "single_choice" || questionType === "multiple_choice") && (
+                          <input
+                            type="text"
+                            value={questionOptions}
+                            onChange={(event) => setQuestionOptions(event.target.value)}
+                            placeholder={text.questionOptions}
+                            className="field-input"
+                          />
+                        )}
+                        {(questionType === "likert" || questionType === "rating") && (
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <label className="space-y-2 text-sm text-slate-500">
+                              <span>{text.ratingRange}</span>
+                              <div className="flex gap-2">
+                                <input type="number" value={questionMin} onChange={(event) => setQuestionMin(Number(event.target.value))} className={numberInputClass()} />
+                                <input type="number" value={questionMax} onChange={(event) => setQuestionMax(Number(event.target.value))} className={numberInputClass()} />
+                              </div>
+                            </label>
+                            <div className="grid gap-2">
+                              <input type="text" value={questionMinLabel} onChange={(event) => setQuestionMinLabel(event.target.value)} placeholder={text.minLabel} className="field-input" />
+                              <input type="text" value={questionMaxLabel} onChange={(event) => setQuestionMaxLabel(event.target.value)} placeholder={text.maxLabel} className="field-input" />
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-3">
+                          <button type="button" disabled={!questionText.trim()} onClick={() => saveQuestion(post.id)} className="primary-button">
+                            {text.saveQuestion}
+                          </button>
+                          <button type="button" onClick={resetQuestionForm} className="secondary-button">
+                            {text.cancel}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {survey.status === "draft" && (
                   <div className="border-t px-5 py-5 md:px-6">
@@ -562,12 +1138,34 @@ export default function SurveyEditPage() {
                           type="text"
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
-                          placeholder="Override title"
+                          placeholder={text.overrideTitle}
                           className="field-input"
                         />
+                        <textarea
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          placeholder={text.displayDescription}
+                          className="field-input min-h-[92px]"
+                        />
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <input
+                            type="text"
+                            value={editSourceLabel}
+                            onChange={(e) => setEditSourceLabel(e.target.value)}
+                            placeholder={text.sourceLabel}
+                            className="field-input"
+                          />
+                          <input
+                            type="text"
+                            value={editMoreInfoLabel}
+                            onChange={(e) => setEditMoreInfoLabel(e.target.value)}
+                            placeholder={text.moreInfoLabel}
+                            className="field-input"
+                          />
+                        </div>
                         <div className="flex flex-wrap gap-3">
                           <label className="space-y-2 text-sm text-slate-500">
-                            <span className="block">Likes</span>
+                            <span className="block">{text.likes}</span>
                             <input
                               type="number"
                               value={editLikes}
@@ -576,7 +1174,7 @@ export default function SurveyEditPage() {
                             />
                           </label>
                           <label className="space-y-2 text-sm text-slate-500">
-                            <span className="block">Comments</span>
+                            <span className="block">{text.comments}</span>
                             <input
                               type="number"
                               value={editComments}
@@ -585,7 +1183,7 @@ export default function SurveyEditPage() {
                             />
                           </label>
                           <label className="space-y-2 text-sm text-slate-500">
-                            <span className="block">Shares</span>
+                            <span className="block">{text.shares}</span>
                             <input
                               type="number"
                               value={editShares}
@@ -596,17 +1194,17 @@ export default function SurveyEditPage() {
                         </div>
                         <div className="flex flex-wrap gap-3">
                           <button onClick={() => saveEdit(post.id)} className="primary-button">
-                            Save values
+                            {text.saveValues}
                           </button>
                           <button onClick={() => setEditingPost(null)} className="secondary-button">
-                            Cancel
+                            {text.cancel}
                           </button>
                         </div>
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-3">
                         <button onClick={() => startEdit(post)} className="secondary-button">
-                          Edit numbers
+                          {text.editNumbers}
                         </button>
                         <button
                           onClick={() => {
@@ -616,11 +1214,11 @@ export default function SurveyEditPage() {
                           }}
                           className="secondary-button"
                         >
-                          Add comment
+                          {text.addComment}
                         </button>
                         {survey.num_groups > 1 && (
                           <button onClick={() => startEditGroups(post)} className="secondary-button">
-                            A/B groups
+                            {text.abGroups}
                           </button>
                         )}
                       </div>
@@ -630,7 +1228,7 @@ export default function SurveyEditPage() {
 
                 {editingGroups === post.id && survey.num_groups > 1 && (
                   <div className="border-t bg-stone-50 px-5 py-5 md:px-6">
-                    <p className="section-kicker">Group visibility</p>
+                    <p className="section-kicker">{text.groupVisibility}</p>
                     <div className="mt-4 flex flex-wrap gap-3">
                       {Array.from({ length: survey.num_groups }, (_, index) => index + 1).map((group) => (
                         <label key={group} className="flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-[13px]">
@@ -658,7 +1256,7 @@ export default function SurveyEditPage() {
                             <p className="text-[13px] font-semibold text-black">Group {group}</p>
                             <div className="mt-4 flex flex-wrap gap-3">
                               <label className="space-y-2 text-sm text-slate-500">
-                                <span className="block">Likes</span>
+                                <span className="block">{text.likes}</span>
                                 <input
                                   type="number"
                                   value={groupOverrides[String(group)]?.display_likes ?? 0}
@@ -675,7 +1273,7 @@ export default function SurveyEditPage() {
                                 />
                               </label>
                               <label className="space-y-2 text-sm text-slate-500">
-                                <span className="block">Comments</span>
+                                <span className="block">{text.comments}</span>
                                 <input
                                   type="number"
                                   value={groupOverrides[String(group)]?.display_comments_count ?? 0}
@@ -692,7 +1290,7 @@ export default function SurveyEditPage() {
                                 />
                               </label>
                               <label className="space-y-2 text-sm text-slate-500">
-                                <span className="block">Shares</span>
+                                <span className="block">{text.shares}</span>
                                 <input
                                   type="number"
                                   value={groupOverrides[String(group)]?.display_shares ?? 0}
@@ -715,10 +1313,10 @@ export default function SurveyEditPage() {
 
                     <div className="mt-5 flex flex-wrap gap-3">
                       <button onClick={() => saveGroupSettings(post.id)} className="primary-button">
-                        Save groups
+                        {text.saveGroups}
                       </button>
                       <button onClick={() => setEditingGroups(null)} className="secondary-button">
-                        Cancel
+                        {text.cancel}
                       </button>
                     </div>
                   </div>
@@ -731,7 +1329,7 @@ export default function SurveyEditPage() {
                         type="text"
                         value={commentAuthor}
                         onChange={(e) => setCommentAuthor(e.target.value)}
-                        placeholder="Commenter name"
+                        placeholder={text.commenterName}
                         className="field-input"
                         required
                       />
@@ -739,16 +1337,16 @@ export default function SurveyEditPage() {
                         type="text"
                         value={commentText}
                         onChange={(e) => setCommentText(e.target.value)}
-                        placeholder="Comment text"
+                        placeholder={text.commentText}
                         className="field-input"
                         required
                       />
                       <div className="flex gap-3">
                         <button type="submit" className="primary-button">
-                          Add
+                          {text.add}
                         </button>
                         <button type="button" onClick={() => setCommentPostId(null)} className="secondary-button">
-                          Cancel
+                          {text.cancel}
                         </button>
                       </div>
                     </div>
@@ -763,9 +1361,9 @@ export default function SurveyEditPage() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-stone-100 text-slate-500">
                 <PlusIcon className="h-8 w-8" />
               </div>
-              <h2 className="mt-6 text-[24px] font-semibold tracking-[-0.04em] text-black">No post cards yet</h2>
+              <h2 className="mt-6 text-[24px] font-semibold tracking-[-0.04em] text-black">{text.noPosts}</h2>
               <p className="mx-auto mt-3 max-w-xl text-[14px] leading-7 text-slate-500">
-                Add the first article URL above to generate a participant-facing feed card for this survey.
+                {text.noPostsCopy}
               </p>
             </div>
           )}
@@ -773,33 +1371,246 @@ export default function SurveyEditPage() {
 
         <aside className="space-y-6">
           <div className="surface-panel px-6 py-6">
-            <p className="section-kicker">Study summary</p>
+            <p className="section-kicker">{text.studySummary}</p>
             <div className="mt-6 space-y-5">
               <div>
-                <p className="text-[13px] text-slate-500">Survey status</p>
+                <p className="text-[13px] text-slate-500">{text.surveyStatus}</p>
                 <p className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-black">{survey.status}</p>
               </div>
               <div>
-                <p className="text-[13px] text-slate-500">Participant link</p>
-                <p className="mt-1 break-all text-[13px] leading-6 text-black">{shareUrl || "Link available after publish"}</p>
+                <p className="text-[13px] text-slate-500">{text.participantLink}</p>
+                <p className="mt-1 break-all text-[13px] leading-6 text-black">{shareUrl || text.linkAfterPublish}</p>
               </div>
               <div>
-                <p className="text-[13px] text-slate-500">A/B groups</p>
+                <p className="text-[13px] text-slate-500">{text.abGroupCount}</p>
                 <p className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-black">{survey.num_groups}</p>
               </div>
             </div>
           </div>
 
           <div className="surface-panel-soft px-6 py-6">
-            <p className="section-kicker">Publishing checklist</p>
+            <p className="section-kicker">{text.platformStyle}</p>
+            <select
+              value={survey.platform_ui_style ?? "twitter"}
+              onChange={(event) => updatePlatformUiStyle(event.target.value as PlatformUiStyle)}
+              className="field-input mt-5 h-11 text-[13px]"
+              disabled={survey.status !== "draft"}
+            >
+              {PLATFORM_UI_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-3 text-[13px] leading-6 text-slate-500">
+              {PLATFORM_UI_OPTIONS.find((option) => option.value === (survey.platform_ui_style ?? "twitter"))?.description}
+            </p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-500">{text.platformStyleCopy}</p>
+          </div>
+
+          <div className="surface-panel-soft px-6 py-6">
+            <p className="section-kicker">{text.languageSettings}</p>
+            <label className="mt-5 block space-y-2 text-[13px] text-slate-500">
+              <span>{text.defaultLanguage}</span>
+              <select
+                value={defaultLanguage}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setDefaultLanguage(next);
+                  setSupportedLanguages((prev) => Array.from(new Set([...prev, next])));
+                }}
+                className="field-input h-11 text-[13px]"
+                disabled={survey.status !== "draft"}
+              >
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="mt-4">
+              <span className="block text-[13px] text-slate-500">{text.supportedLanguages}</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {LANGUAGE_OPTIONS.map((option) => {
+                  const checked = supportedLanguages.includes(option.value);
+                  const locked = option.value === defaultLanguage || option.value === "en" || option.value === "ar";
+                  return (
+                    <label
+                      key={option.value}
+                      className={`flex items-center gap-2 rounded-full border px-3 py-2 text-[13px] ${
+                        checked ? "border-[#9ddfd8] bg-white text-[#0f3146]" : "border-slate-200 bg-white/70 text-slate-500"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={locked || survey.status !== "draft"}
+                        onChange={(event) => {
+                          setSupportedLanguages((prev) =>
+                            event.target.checked
+                              ? Array.from(new Set([...prev, option.value]))
+                              : prev.filter((item) => item !== option.value),
+                          );
+                        }}
+                      />
+                      {option.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <p className="mt-3 text-[13px] leading-6 text-slate-500">{text.languageCopy}</p>
+            {survey.status === "draft" && (
+              <button type="button" onClick={updateLanguageSettings} className="secondary-button mt-4 w-full justify-center">
+                {text.saveLanguages}
+              </button>
+            )}
+          </div>
+
+          <div className="surface-panel-soft px-6 py-6">
+            <p className="section-kicker">{text.previewParticipant}</p>
+            <label className="mt-5 block space-y-2 text-[13px] text-slate-500">
+              <span>{text.previewGroup}</span>
+              <select value={previewGroup} onChange={(event) => setPreviewGroup(Number(event.target.value))} className="field-input h-11 text-[13px]">
+                {Array.from({ length: survey.num_groups }, (_, index) => index + 1).map((group) => (
+                  <option key={group} value={group}>Group {group}</option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-4 block space-y-2 text-[13px] text-slate-500">
+              <span>{text.previewLanguage}</span>
+              <select value={previewLanguage} onChange={(event) => setPreviewLanguage(event.target.value)} className="field-input h-11 text-[13px]">
+                {LANGUAGE_OPTIONS.filter((option) => supportedLanguages.includes(option.value)).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={loadPreview} disabled={previewBusy} className="primary-button mt-4 w-full justify-center">
+              {previewBusy ? text.fetching : text.loadPreview}
+            </button>
+            {previewSessionUrl && (
+              <a
+                href={previewSessionUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="secondary-button mt-3 w-full justify-center text-center"
+              >
+                {text.openTestSession}
+              </a>
+            )}
+            <p className="mt-3 text-[12px] leading-5 text-slate-500">{text.testSessionCopy}</p>
+            {previewData && (
+              <div className="mt-5 space-y-3">
+                <div className="rounded-[16px] border border-[#9ddfd8] bg-[#effcfb] px-4 py-3 text-[12px] font-medium text-[#0f3146]">
+                  {text.previewMode}: Group {previewData.assigned_group} · {previewData.language || previewLanguage}
+                </div>
+                {previewData.posts.slice(0, 3).map((post) => {
+                  const previewTitle = post.display_title || post.fetched_title || text.untitled;
+                  const previewSource = post.source_label || post.fetched_source || "";
+                  const previewDescription = post.display_description || post.fetched_description;
+                  const previewImage = post.display_image_url || post.fetched_image_url;
+                  return (
+                    <div key={post.id} className="overflow-hidden rounded-[16px] border bg-white">
+                      {previewImage && <ExternalPostImage src={previewImage} className="h-28 w-full object-cover" />}
+                      <div className="px-4 py-4">
+                      <p className="section-kicker">{previewSource}</p>
+                      <p className="mt-2 text-[14px] font-semibold leading-6 text-black">{previewTitle}</p>
+                      {previewDescription && <p className="mt-2 text-[12px] leading-5 text-slate-500">{previewDescription}</p>}
+                      <p className="mt-2 text-[12px] text-slate-500">
+                        {post.display_likes} {text.likes} · {post.display_comments_count} {text.comments} · {post.display_shares} {text.shares}
+                      </p>
+                      {post.comments.length > 0 && <p className="mt-2 text-[12px] leading-5 text-slate-500">{post.comments[0].text}</p>}
+                      {post.questions.length > 0 && <p className="mt-2 text-[12px] font-medium text-[#00847f]">{post.questions[0].text}</p>}
+                      </div>
+                    </div>
+                  );
+                })}
+                {previewData.questions.length > 0 && (
+                  <div className="rounded-[16px] border bg-white px-4 py-4">
+                    <p className="section-kicker">{text.editQuestions}</p>
+                    <p className="mt-2 text-[13px] leading-6 text-slate-500">{previewData.questions.map((question) => question.text).join(" · ")}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="surface-panel-soft px-6 py-6">
+            <p className="section-kicker">{text.translationsTitle}</p>
+            <p className="mt-3 text-[14px] leading-7 text-slate-500">{text.translationsCopy}</p>
+
+            <label className="mt-5 block space-y-2 text-[13px] text-slate-500">
+              <span>{text.targetLanguage}</span>
+              <select
+                value={translationLanguage}
+                onChange={(event) => setTranslationLanguage(event.target.value)}
+                className="field-input h-11 text-[13px]"
+              >
+                <option value="zh">中文</option>
+                <option value="ar">العربية</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => exportTranslations("json")}
+                disabled={translationBusy}
+                className="secondary-button justify-center px-3 text-[13px]"
+              >
+                {text.exportJson}
+              </button>
+              <button
+                type="button"
+                onClick={() => exportTranslations("csv")}
+                disabled={translationBusy}
+                className="secondary-button justify-center px-3 text-[13px]"
+              >
+                {text.exportCsv}
+              </button>
+            </div>
+
+            <label className="mt-4 block rounded-[16px] border border-dashed border-slate-200 bg-white px-4 py-4 text-[13px] leading-6 text-slate-500">
+              <span>{translationFile?.name || text.chooseTranslationFile}</span>
+              <input
+                key={translationFile ? "translation-file-selected" : "translation-file-empty"}
+                type="file"
+                accept=".json,.csv,application/json,text/csv"
+                className="sr-only"
+                onChange={(event) => setTranslationFile(event.target.files?.[0] || null)}
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={importTranslations}
+              disabled={translationBusy}
+              className="primary-button mt-4 w-full justify-center"
+            >
+              {text.importFile}
+            </button>
+            {translationStatus && (
+              <p className="mt-3 rounded-[14px] border border-slate-200 bg-white px-3 py-2 text-[12px] leading-5 text-slate-500">
+                {translationStatus}
+              </p>
+            )}
+          </div>
+
+          <div className="surface-panel-soft px-6 py-6">
+            <p className="section-kicker">{text.checklist}</p>
             <div className="mt-5 space-y-4">
               {[
-                "Add at least one article-derived post card",
-                "Review display counts and comment content",
-                survey.num_groups > 1 ? "Confirm group visibility for each post" : "Single-group flow is ready",
+                ...text.checklistItems,
+                survey.num_groups > 1 ? text.checklistMulti : text.checklistSingle,
               ].map((item) => (
-                <div key={item} className="flex gap-3">
-                  <CheckCircleIcon className="mt-0.5 h-4 w-4 text-black" />
+                <div key={item} className="grid grid-cols-[20px_minmax(0,1fr)] items-start gap-3">
+                  <div className="mt-[2px] flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                    <CheckCircleIcon className="h-3.5 w-3.5" />
+                  </div>
                   <p className="text-[14px] leading-7 text-slate-500">{item}</p>
                 </div>
               ))}
@@ -807,15 +1618,12 @@ export default function SurveyEditPage() {
           </div>
 
           <div className="surface-panel-soft px-6 py-6">
-            <p className="section-kicker">Observation</p>
+            <p className="section-kicker">{text.observation}</p>
             <div className="mt-4 flex items-start gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-stone-100 text-slate-500">
                 <ChartIcon className="h-4 w-4" />
               </div>
-              <p className="text-[14px] leading-7 text-slate-500">
-                Participant reactions accumulate on top of your configured baseline values, so the published feed feels
-                active while still remaining experimentally controlled.
-              </p>
+              <p className="text-[14px] leading-7 text-slate-500">{text.observationCopy}</p>
             </div>
           </div>
         </aside>
