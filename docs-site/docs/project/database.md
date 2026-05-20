@@ -56,4 +56,3 @@ erDiagram
 - The fake engagement numbers shown to participants live on `survey_posts`; actual participant behavior lives in participant tables.
 - Translations are JSON field maps so the admin can export/import CSV/JSON without a new column for every copy field.
 - Attention confidence is stored on `survey_responses` so CSV/JSON exports can filter or down-weight lower-quality responses without recomputing every gaze sample.
-

@@ -70,4 +70,3 @@ Open `Admin -> Analytics` to review:
 - Quality flags such as very fast completions or low-interaction sessions
 
 Use the export filters to download CSV or JSON datasets by participant group, language, response status, or calibration outcome. Exported participant identifiers are anonymized; raw participant tokens are not exposed in the export.
-

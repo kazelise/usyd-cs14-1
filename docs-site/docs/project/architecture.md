@@ -60,4 +60,3 @@ sequenceDiagram
 - **Platform style is a research variable.** `platform_ui_style` controls the participant visual treatment while `platform_style` remains a legacy compatibility field.
 - **Camera data is minimized.** The browser uses webcam frames locally for MediaPipe detection, but the backend stores numeric calibration/gaze records and confidence summaries, not raw video.
 - **Exports are research-first.** CSV/JSON include response metadata, group/language filters, calibration status, attention confidence, interactions, gaze, and click evidence.
-

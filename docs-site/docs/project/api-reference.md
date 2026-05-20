@@ -81,4 +81,3 @@ All routes are under `/api/v1`. Researcher endpoints require a bearer token. Pub
 | `GET` | `/surveys/{survey_id}/participant-comments` | Return participant comments for qualitative review. |
 | `GET` | `/surveys/{survey_id}/engagement-stats` | Return post/group engagement stats. |
 | `GET` | `/surveys/{survey_id}/export?format=csv|json` | Export responses, answers, interactions, calibration, gaze, clicks, and confidence fields. |
-

@@ -53,4 +53,3 @@ Typical interpretation:
 Use this wording with the client:
 
 > During the survey we collect numeric gaze/attention samples and a response-level confidence score. If the participant leaves the frame or covers their eyes, the final response is still saved but is marked lower confidence for analysis and export.
-

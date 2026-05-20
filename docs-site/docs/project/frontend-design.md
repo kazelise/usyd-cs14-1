@@ -41,4 +41,3 @@ Design principles:
 ## Why `platform_ui_style` Exists
 
 `platform_style` is the older compatibility field used by the backend and legacy UI choices. `platform_ui_style` is the actual participant visual treatment, so newer styles such as Truth Social, Bluesky, and Douyin/TikTok can map back to compatible legacy values while still rendering a distinct participant experience.
-
