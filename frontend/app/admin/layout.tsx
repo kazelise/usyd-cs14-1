@@ -157,15 +157,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!token) {
       router.replace("/auth");
     } else {
-      setAuthed(true);
       api
         .me()
         .then((researcher) => {
           setProfileName(researcher.name || "S");
           setDraftName(researcher.name || "");
           setProfileEmail(researcher.email || "");
+          setAuthed(true);
         })
         .catch(() => {
+          localStorage.removeItem("token");
           router.replace("/auth");
         });
     }

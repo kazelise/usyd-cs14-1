@@ -469,6 +469,8 @@ export default function AnalyticsPage() {
     if (!selectedSurveyId) return;
     let active = true;
     setLoadingSummary(true);
+    setSummary(null);
+    setError("");
     api.getSurveyAnalytics(selectedSurveyId, exportFilters)
       .then((res) => {
         if (!active) return;
@@ -476,6 +478,7 @@ export default function AnalyticsPage() {
       })
       .catch((err: any) => {
         if (!active) return;
+        setSummary(null);
         setError(err.message || text.failedSummary);
       })
       .finally(() => {
@@ -629,7 +632,7 @@ export default function AnalyticsPage() {
   }, [summary]);
 
   function exportSummary() {
-    if (!summary || !selectedSurvey) return;
+    if (!summary || !selectedSurvey || loadingSummary || error) return;
     const payload = {
       survey: selectedSurvey,
       summary,
@@ -639,7 +642,7 @@ export default function AnalyticsPage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${selectedSurvey.title.replace(/\s+/g, "-").toLowerCase()}-analytics.json`;
+    anchor.download = `${selectedSurvey.title.replace(/\s+/g, "-").replace(/[^\w.-]+/g, "-").toLowerCase()}-analytics.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -655,8 +658,8 @@ export default function AnalyticsPage() {
   }
 
   async function exportResearchData(format: "csv" | "json") {
-    if (!selectedSurvey) return;
-    const filenameBase = selectedSurvey.title.replace(/\s+/g, "-").toLowerCase();
+    if (!selectedSurvey || !summary || loadingSummary || error) return;
+    const filenameBase = selectedSurvey.title.replace(/\s+/g, "-").replace(/[^\w.-]+/g, "-").toLowerCase();
     try {
       if (format === "csv") {
         const csv = await api.exportSurveyDataCsv(selectedSurvey.id, exportFilters);
@@ -742,7 +745,7 @@ export default function AnalyticsPage() {
             type="button"
             onClick={() => setExportMenuOpen((open) => !open)}
             className="primary-button min-w-[148px] gap-1.5"
-            disabled={!summary}
+            disabled={!summary || loadingSummary || !!error}
             aria-haspopup="menu"
             aria-expanded={exportMenuOpen}
           >

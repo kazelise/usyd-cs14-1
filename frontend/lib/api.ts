@@ -37,6 +37,14 @@ function analyticsSummaryPath(id: number, filters: SurveyExportFilters = {}) {
     : `/surveys/${id}/analytics-summary`;
 }
 
+function handleUnauthorized() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("token");
+  if (window.location.pathname !== "/auth") {
+    window.location.href = "/auth";
+  }
+}
+
 function errorMessageFromPayload(payload: any, fallback: string) {
   const detail = payload?.detail ?? payload?.error?.message;
   if (typeof detail === "string") return detail;
@@ -65,6 +73,7 @@ async function request(path: string, options: RequestInit = {}) {
     throw new Error("Network request failed. Please try again.");
   }
   if (!res.ok) {
+    if (res.status === 401) handleUnauthorized();
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(errorMessageFromPayload(err, "Request failed"));
   }
@@ -86,6 +95,7 @@ async function requestText(path: string, options: RequestInit = {}) {
     throw new Error("Network request failed. Please try again.");
   }
   if (!res.ok) {
+    if (res.status === 401) handleUnauthorized();
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(errorMessageFromPayload(err, "Request failed"));
   }
@@ -103,7 +113,7 @@ export const api = {
     request("/auth/me", { method: "PATCH", body: JSON.stringify(data) }),
 
   // Surveys
-  listSurveys: () => request("/surveys"),
+  listSurveys: () => request("/surveys?limit=1000"),
   createSurvey: (data: any) =>
     request("/surveys", { method: "POST", body: JSON.stringify(data) }),
   getSurvey: (id: number) => request(`/surveys/${id}`),
