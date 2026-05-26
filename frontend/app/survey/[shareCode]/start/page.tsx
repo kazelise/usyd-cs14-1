@@ -15,8 +15,12 @@ export default function StartScreen() {
   const isPreview = searchParams.get("preview") === "1";
   const previewGroup = searchParams.get("group") || "";
   const queryLocale = searchParams.get("lang");
+  // Mirror the runner's normalization (page.tsx): a non-numeric group collapses
+  // to "auto", so the completion key cleared here matches the one the runner reads.
+  const previewGroupNum = previewGroup ? Number(previewGroup) : null;
+  const previewScope = Number.isFinite(previewGroupNum) ? previewGroupNum : "auto";
   const previewCompletionKey =
-    isPreview ? `completed:${shareCode}:preview:${previewGroup || "auto"}:${locale}` : null;
+    isPreview ? `completed:${shareCode}:preview:${previewScope}:${locale}` : null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
