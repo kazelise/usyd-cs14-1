@@ -883,14 +883,17 @@ async def start_survey(
     calibration_completed = False
     if response is None:
         randomization_seed = secrets.token_hex(16)
+        # Guard against legacy/out-of-band rows where num_groups < 1, which would
+        # otherwise make random.randint(1, num_groups) raise and 500 the start call.
+        group_count = survey.num_groups if survey.num_groups and survey.num_groups >= 1 else 1
         if body and body.is_preview and body.preview_assigned_group is not None:
-            if body.preview_assigned_group > survey.num_groups:
+            if body.preview_assigned_group > group_count:
                 raise HTTPException(
                     status_code=400, detail="preview_assigned_group exceeds survey group count"
                 )
             assigned_group = body.preview_assigned_group
         else:
-            assigned_group = random.randint(1, survey.num_groups)
+            assigned_group = random.randint(1, group_count)
         shown_posts = build_participant_posts(survey, assigned_group, language_code)
         response = SurveyResponse(
             survey_id=survey.id,
