@@ -15,7 +15,7 @@ from app.main import app
 from app.models.participant import ParticipantInteraction, SurveyResponse
 from app.models.researcher import Researcher
 from app.models.survey import Survey, SurveyPost
-from app.models.tracking import CalibrationSession
+from app.models.tracking import CalibrationSession, GazeRecord
 from app.services.export_service import (
     CSV_HEADERS,
     ExportFilters,
@@ -65,6 +65,30 @@ class ExportEndpointDB:
         self.calls = 0
         self.survey = make_survey()
         self.response = make_response(101)
+        self.gaze_records = [
+            GazeRecord(
+                response_id=101,
+                post_id=11,
+                timestamp_ms=1000,
+                screen_x=100.0,
+                screen_y=200.0,
+                left_iris_x=0.1,
+                left_iris_y=0.2,
+                right_iris_x=0.3,
+                right_iris_y=0.4,
+            ),
+            GazeRecord(
+                response_id=101,
+                post_id=11,
+                timestamp_ms=2000,
+                screen_x=110.0,
+                screen_y=210.0,
+                left_iris_x=0.11,
+                left_iris_y=0.21,
+                right_iris_x=0.31,
+                right_iris_y=0.41,
+            ),
+        ]
 
     async def execute(self, _statement):
         self.calls += 1
@@ -75,6 +99,8 @@ class ExportEndpointDB:
         if self.calls == 3:
             return ExecuteResult(rows=[(101, 12)])
         if self.calls == 4:
+            return ExecuteResult(scalars=self.gaze_records)
+        if self.calls == 5:
             return ExecuteResult(rows=[(101, 3)])
         return ExecuteResult(rows=[])
 
@@ -209,6 +235,30 @@ def make_payload() -> dict:
         [make_response(101)],
         filters=ExportFilters(assigned_group=2, language="en"),
         gaze_counts={101: 12},
+        gaze_samples_by_response={
+            101: [
+                {
+                    "timestamp_ms": 1000,
+                    "post_id": 11,
+                    "screen_x": 100.0,
+                    "screen_y": 200.0,
+                    "left_iris_x": 0.1,
+                    "left_iris_y": 0.2,
+                    "right_iris_x": 0.3,
+                    "right_iris_y": 0.4,
+                },
+                {
+                    "timestamp_ms": 2000,
+                    "post_id": 11,
+                    "screen_x": 110.0,
+                    "screen_y": 210.0,
+                    "left_iris_x": 0.11,
+                    "left_iris_y": 0.21,
+                    "right_iris_x": 0.31,
+                    "right_iris_y": 0.41,
+                },
+            ]
+        },
         click_counts={101: 3},
         participant_comments_by_response={},
         question_responses_by_response={
@@ -270,6 +320,8 @@ def test_json_export_endpoint_returns_structured_export():
     body = response.json()
     assert body["survey_id"] == 7
     assert body["responses"][0]["gaze_count"] == 12
+    assert len(body["responses"][0]["gaze_samples"]) == 2
+    assert body["responses"][0]["gaze_samples"][0]["timestamp_ms"] == 1000
     assert body["responses"][0]["click_count"] == 3
     assert body["responses"][0]["calibration"]["passed"] is True
 
@@ -355,6 +407,10 @@ def test_json_export_shape_tracking_summary_and_anonymization():
     assert exported["attention"]["expected_samples"] == 60
     assert exported["attention"]["missing_ms"] == 5_000
     assert exported["gaze_count"] == 12
+    assert len(exported["gaze_samples"]) == 2
+    assert exported["gaze_samples"][0]["timestamp_ms"] == 1000
+    assert exported["gaze_samples"][0]["screen_x"] == 100.0
+    assert exported["gaze_samples"][0]["screen_y"] == 200.0
     assert exported["click_count"] == 3
     assert exported["participant_interactions"][0]["action_type"] == "like"
     assert exported["question_responses"][0]["answer_text"] == "Interesting"
@@ -383,5 +439,10 @@ def test_csv_export_headers_and_flattened_summary_fields():
     assert rows[0]["attention_expected_samples"] == "60"
     assert rows[0]["gaze_count"] == "12"
     assert rows[0]["click_count"] == "3"
+    gaze_samples = json.loads(rows[0]["gaze_samples"])
+    assert len(gaze_samples) == 2
+    assert gaze_samples[0]["timestamp_ms"] == 1000
+    assert gaze_samples[0]["screen_x"] == 100.0
+    assert gaze_samples[0]["screen_y"] == 200.0
     assert json.loads(rows[0]["participant_interactions"])[0]["action_type"] == "like"
     assert json.loads(rows[0]["question_responses"])[0]["answer_text"] == "Interesting"

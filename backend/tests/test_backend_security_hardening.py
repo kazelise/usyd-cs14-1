@@ -765,6 +765,7 @@ def test_export_payload_includes_participant_comments():
         [response],
         filters=ExportFilters(),
         gaze_counts={},
+        gaze_samples_by_response={},
         click_counts={},
         participant_comments_by_response={99: comments},
         question_responses_by_response={},

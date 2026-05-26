@@ -62,6 +62,7 @@ CSV_HEADERS = [
     "attention_no_face_periods",
     "attention_quality_reason",
     "gaze_count",
+    "gaze_samples",
     "click_count",
     "participant_interactions",
     "participant_comments",
@@ -228,6 +229,7 @@ def build_export_payload(
     *,
     filters: ExportFilters,
     gaze_counts: dict[int, int],
+    gaze_samples_by_response: dict[int, list[dict[str, Any]]],
     click_counts: dict[int, int],
     participant_comments_by_response: dict[int, list[dict[str, Any]]],
     question_responses_by_response: dict[int, list[dict[str, Any]]],
@@ -258,6 +260,7 @@ def build_export_payload(
                 "calibration": calibration,
                 "attention": serialize_attention(response),
                 "gaze_count": gaze_counts.get(response.id, 0),
+                "gaze_samples": gaze_samples_by_response.get(response.id, []),
                 "click_count": click_counts.get(response.id, 0),
                 "participant_interactions": interactions,
                 # participant_comments carries the latest text for each comment, including edits.
@@ -312,6 +315,7 @@ async def load_survey_export(
     response_ids = [response.id for response in responses]
 
     gaze_counts = await count_tracking_rows(db, GazeRecord, response_ids)
+    gaze_samples = await load_gaze_samples(db, response_ids)
     click_counts = await count_tracking_rows(db, ClickRecord, response_ids)
     participant_comments = await load_participant_comments(db, response_ids)
     question_responses = await load_question_responses(db, response_ids)
@@ -321,6 +325,7 @@ async def load_survey_export(
         responses,
         filters=filters,
         gaze_counts=gaze_counts,
+        gaze_samples_by_response=gaze_samples,
         click_counts=click_counts,
         participant_comments_by_response=participant_comments,
         question_responses_by_response=question_responses,
@@ -338,6 +343,34 @@ async def count_tracking_rows(
         .group_by(model.response_id)
     )
     return {response_id: count for response_id, count in result.all()}
+
+
+async def load_gaze_samples(
+    db: AsyncSession, response_ids: list[int]
+) -> dict[int, list[dict[str, Any]]]:
+    """Return raw per-sample gaze records grouped by response_id."""
+    if not response_ids:
+        return {}
+    result = await db.execute(
+        select(GazeRecord)
+        .where(GazeRecord.response_id.in_(response_ids))
+        .order_by(GazeRecord.response_id, GazeRecord.timestamp_ms)
+    )
+    by_response: dict[int, list[dict[str, Any]]] = {}
+    for record in result.scalars().all():
+        by_response.setdefault(record.response_id, []).append(
+            {
+                "timestamp_ms": record.timestamp_ms,
+                "post_id": record.post_id,
+                "screen_x": record.screen_x,
+                "screen_y": record.screen_y,
+                "left_iris_x": record.left_iris_x,
+                "left_iris_y": record.left_iris_y,
+                "right_iris_x": record.right_iris_x,
+                "right_iris_y": record.right_iris_y,
+            }
+        )
+    return by_response
 
 
 async def load_participant_comments(
@@ -419,6 +452,7 @@ def export_payload_to_csv(payload: dict[str, Any]) -> str:
                 "attention_no_face_periods": attention.get("no_face_periods"),
                 "attention_quality_reason": attention.get("quality_reason"),
                 "gaze_count": response["gaze_count"],
+                "gaze_samples": json.dumps(response["gaze_samples"], ensure_ascii=False),
                 "click_count": response["click_count"],
                 "participant_interactions": json.dumps(
                     response["participant_interactions"], ensure_ascii=False
