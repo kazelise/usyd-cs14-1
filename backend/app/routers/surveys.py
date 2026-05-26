@@ -1563,6 +1563,7 @@ async def get_analytics_summary(
     survey_id: int,
     include_preview: bool = False,
     assigned_group: int | None = None,
+    condition: int | None = None,
     language: str | None = None,
     response_status: str | None = None,
     calibration_passed: bool | None = None,
@@ -1576,10 +1577,14 @@ async def get_analytics_summary(
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found")
 
+    # Mirror the export filter contract: `assigned_group` takes precedence,
+    # falling back to `condition` so both query params behave identically.
+    effective_group = assigned_group if assigned_group is not None else condition
+
     scope = analytics_response_scope(
         survey_id,
         include_preview=include_preview,
-        assigned_group=assigned_group,
+        assigned_group=effective_group,
         language=language,
         response_status=response_status,
         calibration_passed=calibration_passed,

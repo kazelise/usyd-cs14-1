@@ -18,7 +18,7 @@ class CreateSurveyRequest(BaseModel):
     title: str
     description: str | None = None
     platform_style: PlatformStyle = "x"
-    num_groups: int = 1
+    num_groups: int = Field(default=1, ge=1, le=10)
     group_names: dict | None = None  # {"1": "with_likes", "2": "no_likes"}
     gaze_tracking_enabled: bool = True
     gaze_interval_ms: int = 1000
@@ -36,7 +36,7 @@ class UpdateSurveyRequest(BaseModel):
     title: str | None = None
     description: str | None = None
     platform_style: PlatformStyle | None = None
-    num_groups: int | None = None
+    num_groups: int | None = Field(default=None, ge=1, le=10)
     group_names: dict | None = None
     gaze_tracking_enabled: bool | None = None
     gaze_interval_ms: int | None = None
