@@ -473,6 +473,9 @@ export default function SurveyEditPage() {
       await api.createPost(surveyId, { original_url: newUrl, order: posts.length + 1 });
       setNewUrl("");
       await loadData();
+      setIsUnsavedDraft(false);
+      shouldDiscardDraftRef.current = false;
+      router.replace(`/admin/surveys/${surveyId}`);
     } catch (err: any) {
       setError(err.message);
     } finally {
