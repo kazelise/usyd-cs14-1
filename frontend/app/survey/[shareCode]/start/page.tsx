@@ -164,7 +164,7 @@ export default function StartScreen() {
                   return;
                 }
                 if (previewCompletionKey) localStorage.removeItem(previewCompletionKey);
-                else localStorage.removeItem(`completed:${shareCode}`);
+                else localStorage.removeItem(`completed:${shareCode}:${locale}`);
                 const params = new URLSearchParams({ lang: locale });
                 if (isPreview) params.set("preview", "1");
                 if (previewGroup) params.set("group", previewGroup);
