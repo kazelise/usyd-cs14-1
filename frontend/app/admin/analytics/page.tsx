@@ -249,6 +249,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState("");
+  const [exportError, setExportError] = useState("");
   const [exportGroup, setExportGroup] = useState("");
   const [exportLanguage, setExportLanguage] = useState("");
   const [exportStatus, setExportStatus] = useState("");
@@ -659,6 +660,7 @@ export default function AnalyticsPage() {
 
   async function exportResearchData(format: "csv" | "json") {
     if (!selectedSurvey || !summary || loadingSummary || error) return;
+    setExportError("");
     const filenameBase = selectedSurvey.title.replace(/\s+/g, "-").replace(/[^\w.-]+/g, "-").toLowerCase();
     try {
       if (format === "csv") {
@@ -673,7 +675,7 @@ export default function AnalyticsPage() {
         "application/json",
       );
     } catch (err: any) {
-      setError(err.message || text.failedExport);
+      setExportError(err.message || text.failedExport);
     }
   }
 
@@ -977,6 +979,7 @@ export default function AnalyticsPage() {
       )}
 
       {error && <p className="mt-4 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+      {exportError && <p className="mt-4 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{exportError}</p>}
 
       {error ? null : loadingSummary || !summary ? (
         <p className="pt-14 text-sm uppercase tracking-[0.14em] text-slate-400">{text.loadingSummary}</p>

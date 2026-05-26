@@ -692,6 +692,15 @@ export default function SurveyEditPage() {
     await loadData();
   }
 
+  // Once any real edit has been persisted, the draft is no longer a throwaway:
+  // stop the unsaved-draft auto-discard from deleting it on navigation.
+  function disarmDraftDiscard() {
+    if (!shouldDiscardDraftRef.current) return;
+    setIsUnsavedDraft(false);
+    shouldDiscardDraftRef.current = false;
+    router.replace(`/admin/surveys/${surveyId}`);
+  }
+
   async function updatePlatformUiStyle(nextStyle: PlatformUiStyle) {
     if (!survey) return;
     const nextFeedStyle = platformUiStyleToFeedStyle(nextStyle);
@@ -702,6 +711,7 @@ export default function SurveyEditPage() {
         platform_style: nextFeedStyle,
       });
       setSurvey(updated);
+      disarmDraftDiscard();
     } catch (err: any) {
       setError(err.message || "Failed to update platform UI style");
     }
@@ -722,6 +732,7 @@ export default function SurveyEditPage() {
         supported_languages: updated.supported_languages ?? languages,
       });
       setTranslationStatus(text.languagesSaved);
+      disarmDraftDiscard();
     } catch (err: any) {
       setTranslationStatus(err.message || "Failed to save language settings");
     }
