@@ -159,7 +159,10 @@ export default function SurveyEditPage() {
   const [editingGroups, setEditingGroups] = useState<number | null>(null);
   const [groupVisibility, setGroupVisibility] = useState<number[]>([]);
   const [groupOverrides, setGroupOverrides] = useState<
-    Record<string, { display_likes: number; display_comments_count: number; display_shares: number }>
+    Record<
+      string,
+      { display_likes: number | ""; display_comments_count: number | ""; display_shares: number | "" }
+    >
   >({});
 
   const [commentPostId, setCommentPostId] = useState<number | null>(null);
@@ -576,8 +579,8 @@ export default function SurveyEditPage() {
     setQuestionText(question.text);
     setQuestionType(question.question_type);
     setQuestionOptions((question.config?.options || ["Yes", "No"]).join(", "));
-    setQuestionMin(question.config?.min || 1);
-    setQuestionMax(question.config?.max || 5);
+    setQuestionMin(question.config?.min ?? 1);
+    setQuestionMax(question.config?.max ?? 5);
     setQuestionMinLabel(question.config?.min_label || "Strongly disagree");
     setQuestionMaxLabel(question.config?.max_label || "Strongly agree");
   }
@@ -638,7 +641,17 @@ export default function SurveyEditPage() {
   }
 
   async function saveGroupSettings(postId: number) {
-    const values = Object.values(groupOverrides);
+    const coercedOverrides = Object.fromEntries(
+      Object.entries(groupOverrides).map(([group, value]) => [
+        group,
+        {
+          display_likes: coerceNumber(value.display_likes),
+          display_comments_count: coerceNumber(value.display_comments_count),
+          display_shares: coerceNumber(value.display_shares),
+        },
+      ]),
+    );
+    const values = Object.values(coercedOverrides);
     const allSame = values.every(
       (value) =>
         value.display_likes === values[0].display_likes &&
@@ -648,7 +661,7 @@ export default function SurveyEditPage() {
 
     await api.updatePost(surveyId, postId, {
       visible_to_groups: groupVisibility.length === (survey?.num_groups || 1) ? null : groupVisibility,
-      group_overrides: allSame ? null : groupOverrides,
+      group_overrides: allSame ? null : coercedOverrides,
     });
 
     setEditingGroups(null);
@@ -1286,13 +1299,13 @@ export default function SurveyEditPage() {
                                 <span className="block">{text.likes}</span>
                                 <input
                                   type="number"
-                                  value={groupOverrides[String(group)]?.display_likes ?? 0}
+                                  value={groupOverrides[String(group)]?.display_likes ?? ""}
                                   onChange={(e) =>
                                     setGroupOverrides((prev) => ({
                                       ...prev,
                                       [String(group)]: {
                                         ...prev[String(group)],
-                                        display_likes: Number(e.target.value),
+                                        display_likes: parseNumberInput(e.target.value),
                                       },
                                     }))
                                   }
@@ -1303,13 +1316,13 @@ export default function SurveyEditPage() {
                                 <span className="block">{text.comments}</span>
                                 <input
                                   type="number"
-                                  value={groupOverrides[String(group)]?.display_comments_count ?? 0}
+                                  value={groupOverrides[String(group)]?.display_comments_count ?? ""}
                                   onChange={(e) =>
                                     setGroupOverrides((prev) => ({
                                       ...prev,
                                       [String(group)]: {
                                         ...prev[String(group)],
-                                        display_comments_count: Number(e.target.value),
+                                        display_comments_count: parseNumberInput(e.target.value),
                                       },
                                     }))
                                   }
@@ -1320,13 +1333,13 @@ export default function SurveyEditPage() {
                                 <span className="block">{text.shares}</span>
                                 <input
                                   type="number"
-                                  value={groupOverrides[String(group)]?.display_shares ?? 0}
+                                  value={groupOverrides[String(group)]?.display_shares ?? ""}
                                   onChange={(e) =>
                                     setGroupOverrides((prev) => ({
                                       ...prev,
                                       [String(group)]: {
                                         ...prev[String(group)],
-                                        display_shares: Number(e.target.value),
+                                        display_shares: parseNumberInput(e.target.value),
                                       },
                                     }))
                                   }

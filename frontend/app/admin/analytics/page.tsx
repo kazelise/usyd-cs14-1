@@ -978,7 +978,7 @@ export default function AnalyticsPage() {
 
       {error && <p className="mt-4 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
-      {loadingSummary || !summary ? (
+      {error ? null : loadingSummary || !summary ? (
         <p className="pt-14 text-sm uppercase tracking-[0.14em] text-slate-400">{text.loadingSummary}</p>
       ) : (
         <>
