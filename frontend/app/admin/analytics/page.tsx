@@ -472,6 +472,7 @@ export default function AnalyticsPage() {
     setLoadingSummary(true);
     setSummary(null);
     setError("");
+    setExportError("");
     api.getSurveyAnalytics(selectedSurveyId, exportFilters)
       .then((res) => {
         if (!active) return;
