@@ -40,7 +40,7 @@ def test_alembic_head_revision_is_configured():
 
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_current_head() == "20260515_0002"
+    assert script.get_current_head() == "20260529_0001"
 
 
 def test_survey_has_platform_style_default():
@@ -88,8 +88,10 @@ def test_tracking_schema_hardening_columns_and_relationships():
     assert {"face_detection_rate", "stability_score", "valid"}.issubset(point_table.c.keys())
     assert "uq_session_point" in _unique_names(point_table)
 
-    assert gaze_table.c.received_at.server_default is not None
-    assert click_table.c.received_at.server_default is not None
+    assert gaze_table.c.received_at.default is not None
+    assert gaze_table.c.received_at.server_default is None
+    assert click_table.c.received_at.default is not None
+    assert click_table.c.received_at.server_default is None
     assert _fk_for_column(gaze_table, "post_id").ondelete == "SET NULL"
     assert _fk_for_column(click_table, "post_id").ondelete == "SET NULL"
     assert {

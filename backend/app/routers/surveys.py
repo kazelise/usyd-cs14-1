@@ -1094,7 +1094,23 @@ async def get_response_state(
     comments_by_post: dict[int, list[ParticipantCommentOut]] = {}
     for c in comments:
         comments_by_post.setdefault(c.post_id, []).append(ParticipantCommentOut.model_validate(c))
-    return ResponseStateOut(liked_post_ids=liked_post_ids, comments_by_post=comments_by_post)
+
+    interacted_result = await db.execute(
+        select(ParticipantInteraction.post_id)
+        .where(ParticipantInteraction.response_id == response_id)
+        .distinct()
+    )
+    answered_result = await db.execute(
+        select(QuestionResponse.question_id)
+        .where(QuestionResponse.response_id == response_id)
+        .distinct()
+    )
+    return ResponseStateOut(
+        liked_post_ids=liked_post_ids,
+        comments_by_post=comments_by_post,
+        interacted_post_ids=list(interacted_result.scalars().all()),
+        answered_question_ids=list(answered_result.scalars().all()),
+    )
 
 
 async def _apply_attention_summary(

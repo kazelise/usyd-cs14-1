@@ -18,7 +18,6 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -100,9 +99,11 @@ class ParticipantInteraction(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     response_id: Mapped[int] = mapped_column(
-        ForeignKey("survey_responses.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("survey_responses.id", ondelete="CASCADE"), nullable=False
     )
-    post_id: Mapped[int] = mapped_column(ForeignKey("survey_posts.id"), nullable=False, index=True)
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("survey_posts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     action_type: Mapped[str] = mapped_column(String(20), nullable=False)  # like / comment / click
     comment_text: Mapped[str | None] = mapped_column(Text)  # only if action_type == "comment"
 
@@ -113,7 +114,7 @@ class ParticipantInteraction(Base):
     click_x: Mapped[float | None] = mapped_column(Float)
     click_y: Mapped[float | None] = mapped_column(Float)
 
-    timestamp: Mapped[datetime] = mapped_column(server_default=func.now())
+    timestamp: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     response: Mapped["SurveyResponse"] = relationship(back_populates="interactions")
 
