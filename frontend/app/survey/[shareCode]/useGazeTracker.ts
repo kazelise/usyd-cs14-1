@@ -58,6 +58,18 @@ const DROPOUT_WINDOWS = 2;
 // How long (ms) we'll wait for the camera to deliver the first detection
 // before downgrading status from "starting" to "weak".
 const STARTUP_GRACE_MS = 2500;
+// Max points per request — must not exceed the backend GazeBatchRequest
+// max_length (500). The buffer is chunked to this size before sending.
+const MAX_GAZE_BATCH = 500;
+// After this many consecutive failed flushes the in-flight batch is dropped, so
+// a single persistently-rejected batch can't wedge all future gaze persistence.
+const MAX_FLUSH_RETRIES = 3;
+// Hard cap on the retained buffer so a long outage can't grow memory unbounded.
+const MAX_GAZE_BUFFER = 2000;
+
+/** Clamp a value into [0, 1]; returns NaN for non-finite input. */
+const clampUnit = (v: number): number =>
+  Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : NaN;
 
 /**
  * Continuously captures gaze data during the survey using MediaPipe Face Mesh
@@ -77,6 +89,7 @@ export function useGazeTracker({
   pipVideoRef,
 }: GazeTrackerOptions) {
   const bufferRef = useRef<any[]>([]);
+  const flushFailuresRef = useRef(0);
   const streamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const usesExternalVideoRef = useRef(false);
@@ -140,12 +153,20 @@ export function useGazeTracker({
 
   const flush = useCallback(async () => {
     if (bufferRef.current.length === 0) return;
-    const batch = [...bufferRef.current];
-    bufferRef.current = [];
+    // Never exceed the backend per-batch limit (GazeBatchRequest max_length=500).
+    const batch = bufferRef.current.slice(0, MAX_GAZE_BATCH);
+    bufferRef.current = bufferRef.current.slice(MAX_GAZE_BATCH);
     try {
       await api.recordGaze({ response_id: responseId, participant_token: participantToken, data: batch });
+      flushFailuresRef.current = 0;
     } catch {
-      bufferRef.current = [...batch, ...bufferRef.current];
+      flushFailuresRef.current += 1;
+      if (flushFailuresRef.current <= MAX_FLUSH_RETRIES) {
+        // Likely transient (network/5xx): re-queue, but bound retained memory.
+        bufferRef.current = [...batch, ...bufferRef.current].slice(0, MAX_GAZE_BUFFER);
+      }
+      // After MAX_FLUSH_RETRIES the batch is dropped instead of re-queued, so a
+      // single persistently-rejected batch can't block all later valid samples.
     }
   }, [participantToken, responseId]);
 
@@ -213,8 +234,19 @@ export function useGazeTracker({
           const leftRatioY = (leftIris.y - leftTop.y) / (leftBottom.y - leftTop.y);
           const rightRatioY = (rightIris.y - rightTop.y) / (rightBottom.y - rightTop.y);
 
-          const gazeX = (leftRatioX + rightRatioX) / 2;
-          const gazeY = (leftRatioY + rightRatioY) / 2;
+          // Iris-to-eye-corner ratios are linear-interpolation parameters and are
+          // NOT bounded to [0,1]: glancing past an eye corner yields a negative or
+          // >1 ratio, and coincident corner landmarks (head turn) yield NaN. The
+          // backend schema enforces 0 <= screen_x/y <= MAX and rejects the ENTIRE
+          // batch on a single out-of-range point, so we sanitize here before
+          // buffering — otherwise one off-centre glance stalls all gaze capture.
+          const gazeX = clampUnit((leftRatioX + rightRatioX) / 2);
+          const gazeY = clampUnit((leftRatioY + rightRatioY) / 2);
+          if (!Number.isFinite(gazeX) || !Number.isFinite(gazeY)) {
+            // Degenerate landmarks this frame — count it as a missed detection.
+            latestRef.current = { ...latestRef.current, detected: false };
+            return;
+          }
 
           // Map to screen coordinates in the same orientation as the camera frame.
           const screenX = Math.round(gazeX * window.innerWidth);
@@ -222,10 +254,10 @@ export function useGazeTracker({
 
           latestRef.current = {
             detected: true,
-            leftIrisX: leftIris.x,
-            leftIrisY: leftIris.y,
-            rightIrisX: rightIris.x,
-            rightIrisY: rightIris.y,
+            leftIrisX: clampUnit(leftIris.x),
+            leftIrisY: clampUnit(leftIris.y),
+            rightIrisX: clampUnit(rightIris.x),
+            rightIrisY: clampUnit(rightIris.y),
             screenX,
             screenY,
           };
