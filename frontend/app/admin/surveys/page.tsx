@@ -52,6 +52,7 @@ function SurveysPageContent() {
   const searchParams = useSearchParams();
   const { locale } = useLocale();
   const [surveys, setSurveys] = useState<Survey[]>([]);
+  const [surveyTotal, setSurveyTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const text =
@@ -112,10 +113,29 @@ function SurveysPageContent() {
         };
 
   useEffect(() => {
-    api.listSurveys()
-      .then((res) => setSurveys(res.items))
+    let active = true;
+    async function loadSurveys() {
+      const pageSize = 1000;
+      const firstPage = await api.listSurveys(pageSize, 0);
+      const items = [...firstPage.items];
+      const total = Number(firstPage.total ?? items.length);
+      for (let offset = items.length; offset < total; offset += pageSize) {
+        const page = await api.listSurveys(pageSize, offset);
+        items.push(...page.items);
+        if (!page.items.length) break;
+      }
+      if (!active) return;
+      setSurveys(items);
+      setSurveyTotal(total);
+    }
+    loadSurveys()
       .catch(() => router.push("/auth"))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   const statusFilter = normaliseStatusFilter(searchParams.get("filter"));
@@ -156,12 +176,12 @@ function SurveysPageContent() {
     const groupVariants = surveys.reduce((sum, survey) => sum + survey.num_groups, 0);
 
     return {
-      total: surveys.length,
+      total: surveyTotal || surveys.length,
       published,
       drafts,
       groupVariants,
     };
-  }, [surveys]);
+  }, [surveyTotal, surveys]);
 
   if (loading) {
     return <p className="pt-14 text-sm uppercase tracking-[0.24em] text-slate-400">{text.loading}</p>;
@@ -229,7 +249,7 @@ function SurveysPageContent() {
 
       {hasActiveFilters && filteredSurveys.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-slate-200 bg-white px-4 py-3">
-          <p className="text-[13px] font-medium text-slate-500">{text.showing(filteredSurveys.length, surveys.length)}</p>
+          <p className="text-[13px] font-medium text-slate-500">{text.showing(filteredSurveys.length, surveyTotal || surveys.length)}</p>
           <button
             type="button"
             onClick={clearFilters}

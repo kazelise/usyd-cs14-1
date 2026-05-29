@@ -279,6 +279,8 @@ async def test_get_response_state_accepts_correct_token():
             ScalarOneResult(make_response(token="right-token", status="completed")),
             ScalarListResult([42]),  # liked_post_ids
             ScalarListResult([]),  # comments
+            ScalarListResult([99]),  # interacted_post_ids
+            ScalarListResult([7]),  # answered_question_ids
         ]
     )
 
@@ -286,6 +288,8 @@ async def test_get_response_state_accepts_correct_token():
 
     assert state.liked_post_ids == [42]
     assert state.comments_by_post == {}
+    assert state.interacted_post_ids == [99]
+    assert state.answered_question_ids == [7]
 
 
 # ── Endpoint-level: status enforcement ─────────────────
@@ -313,12 +317,16 @@ async def test_get_response_state_allows_completed_response():
             ScalarOneResult(make_response(status="completed")),
             ScalarListResult([]),
             ScalarListResult([]),
+            ScalarListResult([]),
+            ScalarListResult([]),
         ]
     )
 
     state = await get_response_state(10, x_participant_token="right-token", db=db)
 
     assert state.liked_post_ids == []
+    assert state.interacted_post_ids == []
+    assert state.answered_question_ids == []
 
 
 # ── submit_question_response ───────────────────────────

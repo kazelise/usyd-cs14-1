@@ -322,11 +322,19 @@ def parse_json_translation_import(
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="Translation import must be a JSON object")
 
-    language_code = validate_language_code(
-        language_override
-        or payload.get("language_code")
-        or payload.get("language")
-        or payload.get("target_language")
+    explicit_language_codes = {
+        validate_language_code(value)
+        for value in (
+            payload.get("language_code"),
+            payload.get("language"),
+            payload.get("target_language"),
+        )
+        if value
+    }
+    language_code = select_import_language(
+        language_override=language_override,
+        explicit_language_codes=explicit_language_codes,
+        missing_detail="Translation JSON must include a language_code",
     )
 
     entries: dict[str, Any] = {}
@@ -336,6 +344,17 @@ def parse_json_translation_import(
         for item in payload["items"]:
             if not isinstance(item, dict) or "key" not in item:
                 raise HTTPException(status_code=400, detail="Every translation item needs a key")
+            item_language = item.get("language_code") or item.get("language")
+            if item_language:
+                item_language_code = validate_language_code(item_language)
+                if item_language_code != language_code:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "Translation language mismatch: payload contains "
+                            f"{item_language_code}, but import language is {language_code}"
+                        ),
+                    )
             value = item.get("translation")
             if value in (None, "") and isinstance(item.get("translations"), dict):
                 value = item["translations"].get(language_code)
@@ -374,16 +393,35 @@ def parse_csv_translation_import(
             language_codes.add(validate_language_code(row_language))
         entries[key] = decode_import_value(row.get("translation", ""))
 
-    if language_override:
-        language_code = validate_language_code(language_override)
-    elif len(language_codes) == 1:
-        language_code = next(iter(language_codes))
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Translation CSV must contain exactly one language_code",
-        )
+    language_code = select_import_language(
+        language_override=language_override,
+        explicit_language_codes=language_codes,
+        missing_detail="Translation CSV must contain exactly one language_code",
+    )
     return language_code, entries
+
+
+def select_import_language(
+    *,
+    language_override: str | None,
+    explicit_language_codes: set[str],
+    missing_detail: str,
+) -> str:
+    if language_override:
+        override = validate_language_code(language_override)
+        mismatches = sorted(code for code in explicit_language_codes if code != override)
+        if mismatches:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Translation language mismatch: payload contains "
+                    f"{', '.join(mismatches)}, but import language is {override}"
+                ),
+            )
+        return override
+    if len(explicit_language_codes) == 1:
+        return next(iter(explicit_language_codes))
+    raise HTTPException(status_code=400, detail=missing_detail)
 
 
 def validate_translation_import(

@@ -12,6 +12,7 @@ PlatformUiStyle = Literal[
     "twitter", "facebook", "instagram", "xiaohongshu", "truth_social", "bluesky", "douyin"
 ]
 DEFAULT_SUPPORTED_LANGUAGES = ["en", "ar", "zh"]
+MAX_CALIBRATION_POINTS = 9
 
 
 class CreateSurveyRequest(BaseModel):
@@ -24,7 +25,7 @@ class CreateSurveyRequest(BaseModel):
     gaze_interval_ms: int = 1000
     click_tracking_enabled: bool = True
     calibration_enabled: bool = True
-    calibration_points: int = 9
+    calibration_points: int = Field(default=9, ge=1, le=MAX_CALIBRATION_POINTS)
     platform_ui_style: PlatformUiStyle = "twitter"
     default_language: str = "en"
     supported_languages: list[str] = Field(
@@ -42,7 +43,7 @@ class UpdateSurveyRequest(BaseModel):
     gaze_interval_ms: int | None = None
     click_tracking_enabled: bool | None = None
     calibration_enabled: bool | None = None
-    calibration_points: int | None = None
+    calibration_points: int | None = Field(default=None, ge=1, le=MAX_CALIBRATION_POINTS)
     platform_ui_style: PlatformUiStyle | None = None
     default_language: str | None = None
     supported_languages: list[str] | None = None
@@ -321,6 +322,8 @@ class ParticipantCommentOut(BaseModel):
 class ResponseStateOut(BaseModel):
     liked_post_ids: list[int]
     comments_by_post: dict[int, list[ParticipantCommentOut]]
+    interacted_post_ids: list[int] = Field(default_factory=list)
+    answered_question_ids: list[int] = Field(default_factory=list)
 
 
 # ── Researcher analytics ─────────────────────────────

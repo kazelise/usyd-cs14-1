@@ -33,9 +33,9 @@ class CalibrationSessionOut(BaseModel):
 
 
 class HeadRotation(BaseModel):
-    yaw: float | None = None
-    pitch: float | None = None
-    roll: float | None = None
+    yaw: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
+    pitch: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
+    roll: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
 
 
 class IrisSample(BaseModel):

@@ -117,18 +117,23 @@ function HorizontalRatioBars({
 function ChartStyleButton({
   active,
   children,
+  disabled = false,
   onClick,
 }: {
   active: boolean;
   children: ReactNode;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
       className={`rounded-full px-3 py-1.5 text-[12px] font-semibold transition ${
-        active
+        disabled
+          ? "cursor-not-allowed bg-slate-100 text-slate-300"
+          : active
           ? "bg-[#e4f7f4] text-[#0f3146]"
           : "bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700"
       }`}
@@ -142,14 +147,19 @@ function DataChart({
   rows,
   style,
   emptyText,
+  totalLabel = "Total",
+  rankLabel = (rank: number) => `Rank ${rank}`,
 }: {
   rows: ChartRow[];
   style: ChartStyle;
   emptyText: string;
+  totalLabel?: string;
+  rankLabel?: (rank: number) => string;
 }) {
   const palette = ["#0f3146", "#33b9b2", "#8fd8d4", "#f0b67f", "#7f9fc0", "#d2e9e7", "#c8a2c8", "#9fb7a5"];
   const max = Math.max(1e-6, ...rows.map((row) => row.value));
-  const total = rows.reduce((sum, row) => sum + row.value, 0);
+  const donutRows = rows.slice(0, 12);
+  const total = donutRows.reduce((sum, row) => sum + row.value, 0);
 
   if (!rows.length) {
     return <p className="mt-5 text-[13px] text-slate-500">{emptyText}</p>;
@@ -159,7 +169,7 @@ function DataChart({
     let cursor = 0;
     const gradient =
       total > 0
-        ? rows
+        ? donutRows
             .map((row, index) => {
               const start = cursor;
               const end = cursor + (row.value / total) * 100;
@@ -173,12 +183,12 @@ function DataChart({
       <div className="mt-5 grid gap-5 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
         <div className="relative mx-auto h-[210px] w-[210px] rounded-full" style={{ background: `conic-gradient(${gradient})` }}>
           <div className="absolute inset-[34px] flex flex-col items-center justify-center rounded-full bg-white text-center shadow-[inset_0_0_0_1px_rgba(15,49,70,0.08)]">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Total</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{totalLabel}</span>
             <span className="mt-1 text-[30px] font-semibold tracking-[-0.05em] text-black">{Math.round(total)}</span>
           </div>
         </div>
         <div className="space-y-2">
-          {rows.slice(0, 8).map((row, index) => (
+          {donutRows.map((row, index) => (
             <div key={row.id} className="flex items-center justify-between gap-3 rounded-[14px] bg-stone-50 px-3 py-2">
               <span className="flex min-w-0 items-center gap-2">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: palette[index % palette.length] }} />
@@ -229,7 +239,7 @@ function DataChart({
             />
           </div>
           <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300">
-            Rank {index + 1}
+            {rankLabel(index + 1)}
           </p>
         </div>
       ))}
@@ -425,6 +435,71 @@ export default function AnalyticsPage() {
         },
     [locale],
   );
+  const analyticsText = useMemo(
+    () =>
+      locale === "zh"
+        ? {
+            total: "总计",
+            rank: (rank: number) => `第 ${rank} 位`,
+            unknownSource: "未知来源",
+            group: (id: number) => `第 ${id} 组`,
+            participantCount: (count: number) => `${count} 名参与者`,
+            exploreData: "探索数据",
+            chooseData: "选择需要的数据和图表",
+            chooseDataCopy: "在帖子和分组之间切换，然后选择指标和图表样式以阅读同一组分析数据。",
+            posts: "帖子",
+            groups: "分组",
+            metric: "指标",
+            bars: "条形",
+            columns: "柱形",
+            donut: "环图",
+            noPostData: "暂无帖子互动数据。",
+            responseQuality: "作答质量",
+            signalCheck: "信号检查",
+            signalCheckCopy: "关键完成和校准信号集中显示，便于不打开帖子详情也能检查质量。",
+            fast: "快速完成",
+            lowInteraction: "低互动",
+            duplicates: "重复评论",
+            gaze: "眼动",
+            engagementMix: "互动构成",
+            noEngagementData: "暂无互动数据。",
+            calibrationSuccess: "校准通过率",
+            fastCompletions: "快速完成",
+            lowInteractionMetric: "低互动",
+            duplicateComments: "重复评论",
+          }
+        : {
+            total: "Total",
+            rank: (rank: number) => `Rank ${rank}`,
+            unknownSource: "Unknown source",
+            group: (id: number) => `Group ${id}`,
+            participantCount: (count: number) => `${count} participants`,
+            exploreData: "Explore data",
+            chooseData: "Choose the data and chart you need",
+            chooseDataCopy: "Switch between posts and groups, then select a metric and chart style for a cleaner read of the same analytics data.",
+            posts: "Posts",
+            groups: "Groups",
+            metric: "Metric",
+            bars: "Bars",
+            columns: "Columns",
+            donut: "Donut",
+            noPostData: "No post engagement recorded yet.",
+            responseQuality: "Response quality",
+            signalCheck: "Signal check",
+            signalCheckCopy: "Key completion and calibration signals are grouped here so quality checks stay visible without opening a post drill-down.",
+            fast: "Fast",
+            lowInteraction: "Low interaction",
+            duplicates: "Duplicates",
+            gaze: "Gaze",
+            engagementMix: "Engagement mix",
+            noEngagementData: "No engagement recorded yet.",
+            calibrationSuccess: "Calibration success",
+            fastCompletions: "Fast completions",
+            lowInteractionMetric: "Low interaction",
+            duplicateComments: "Duplicate comments",
+          },
+    [locale],
+  );
 
   useEffect(() => {
     let active = true;
@@ -439,7 +514,7 @@ export default function AnalyticsPage() {
       })
       .catch((err: any) => {
         if (!active) return;
-        setError(err.message || text.failed);
+        setError(err.message || "Failed to load analytics");
         router.push("/auth");
       })
       .finally(() => {
@@ -448,7 +523,7 @@ export default function AnalyticsPage() {
     return () => {
       active = false;
     };
-  }, [router, text.failed]);
+  }, [router]);
 
   const exportFilters = useMemo(
     () => ({
@@ -481,7 +556,7 @@ export default function AnalyticsPage() {
       .catch((err: any) => {
         if (!active) return;
         setSummary(null);
-        setError(err.message || text.failedSummary);
+        setError(err.message || "Failed to load analytics summary");
       })
       .finally(() => {
         if (active) setLoadingSummary(false);
@@ -489,7 +564,7 @@ export default function AnalyticsPage() {
     return () => {
       active = false;
     };
-  }, [selectedSurveyId, exportFilters, text.failedSummary]);
+  }, [selectedSurveyId, exportFilters]);
 
   useEffect(() => {
     if (!exportMenuOpen) return;
@@ -566,21 +641,23 @@ export default function AnalyticsPage() {
 
   const groupMetricOptions: MetricOption<GroupAnalytics>[] = useMemo(
     () => [
-      { id: "participants", label: "Participants", getValue: (group) => group.participants },
-      { id: "completed", label: "Completed", getValue: (group) => group.completed },
-      { id: "completion_rate", label: "Completion rate", suffix: "%", getValue: (group) => group.completion_rate },
-      { id: "clicks", label: "Clicks", getValue: (group) => group.clicks },
-      { id: "likes", label: "Likes", getValue: (group) => group.likes },
-      { id: "comments", label: "Comments", getValue: (group) => group.comments },
-      { id: "shares", label: "Shares", getValue: (group) => group.shares },
+      { id: "participants", label: text.tableHeadParticipants, getValue: (group) => group.participants },
+      { id: "completed", label: text.completed, getValue: (group) => group.completed },
+      { id: "completion_rate", label: text.completionRate, suffix: "%", getValue: (group) => group.completion_rate },
+      { id: "clicks", label: text.tableHeadClicks, getValue: (group) => group.clicks },
+      { id: "likes", label: text.tableHeadLikes, getValue: (group) => group.likes },
+      { id: "comments", label: text.tableHeadComments, getValue: (group) => group.comments },
+      { id: "shares", label: text.tableHeadShares, getValue: (group) => group.shares },
     ],
-    [],
+    [text],
   );
 
   const activePostMetric = postMetricOptions.find((option) => option.id === chartMetric) ?? postMetricOptions[0];
   const activeGroupMetric = groupMetricOptions.find((option) => option.id === chartMetric) ?? groupMetricOptions[0];
   const metricOptions = chartScope === "posts" ? postMetricOptions : groupMetricOptions;
   const activeMetric = chartScope === "posts" ? activePostMetric : activeGroupMetric;
+  const donutDisabled = activeMetric?.suffix === "%";
+  const chartStyleForMetric = donutDisabled && chartStyle === "donut" ? "bars" : chartStyle;
 
   const chartRows = useMemo<ChartRow[]>(() => {
     if (!summary || !activeMetric) return [];
@@ -591,7 +668,7 @@ export default function AnalyticsPage() {
           return {
             id: `post-${post.post_id}`,
             label: post.title.length > 68 ? `${post.title.slice(0, 67)}…` : post.title,
-            detail: post.source || "Unknown source",
+            detail: post.source || analyticsText.unknownSource,
             value,
             displayValue: `${Math.round(value)}${activePostMetric.suffix ?? ""}`,
           };
@@ -603,35 +680,35 @@ export default function AnalyticsPage() {
         const value = activeGroupMetric.getValue(group);
         return {
           id: `group-${group.group_id}`,
-          label: `Group ${group.group_id}`,
-          detail: `${group.participants} participants`,
+          label: analyticsText.group(group.group_id),
+          detail: analyticsText.participantCount(group.participants),
           value,
           displayValue: activeGroupMetric.suffix === "%" ? formatPercent(value) : `${Math.round(value)}`,
         };
       })
       .sort((a, b) => b.value - a.value);
-  }, [activeGroupMetric, activeMetric, activePostMetric, chartScope, summary]);
+  }, [activeGroupMetric, activeMetric, activePostMetric, analyticsText, chartScope, summary]);
 
   const engagementRows = useMemo<ChartRow[]>(() => {
     if (!summary) return [];
     return [
-      { id: "clicks", label: "Clicks", value: summary.total_clicks, displayValue: String(summary.total_clicks) },
-      { id: "likes", label: "Likes", value: summary.total_likes, displayValue: String(summary.total_likes) },
-      { id: "comments", label: "Comments", value: summary.total_comments, displayValue: String(summary.total_comments) },
-      { id: "shares", label: "Shares", value: summary.total_shares, displayValue: String(summary.total_shares) },
+      { id: "clicks", label: text.tableHeadClicks, value: summary.total_clicks, displayValue: String(summary.total_clicks) },
+      { id: "likes", label: text.tableHeadLikes, value: summary.total_likes, displayValue: String(summary.total_likes) },
+      { id: "comments", label: text.tableHeadComments, value: summary.total_comments, displayValue: String(summary.total_comments) },
+      { id: "shares", label: text.tableHeadShares, value: summary.total_shares, displayValue: String(summary.total_shares) },
     ];
-  }, [summary]);
+  }, [summary, text]);
 
   const qualityBars = useMemo(() => {
     if (!summary) return [];
     return [
-      { label: "Completion rate", value: summary.completion_rate, displayValue: formatPercent(summary.completion_rate) },
-      { label: "Calibration success", value: summary.calibration_success_rate, displayValue: formatPercent(summary.calibration_success_rate) },
-      { label: "Fast completions", value: summary.fast_completions },
-      { label: "Low interaction", value: summary.low_interaction_responses },
-      { label: "Duplicate comments", value: summary.duplicate_comment_sessions },
+      { label: text.completionRate, value: summary.completion_rate, displayValue: formatPercent(summary.completion_rate) },
+      { label: analyticsText.calibrationSuccess, value: summary.calibration_success_rate, displayValue: formatPercent(summary.calibration_success_rate) },
+      { label: analyticsText.fastCompletions, value: summary.fast_completions },
+      { label: analyticsText.lowInteractionMetric, value: summary.low_interaction_responses },
+      { label: analyticsText.duplicateComments, value: summary.duplicate_comment_sessions },
     ];
-  }, [summary]);
+  }, [analyticsText, summary, text]);
 
   function exportSummary() {
     if (!summary || !selectedSurvey || loadingSummary || error) return;
@@ -1016,12 +1093,12 @@ export default function AnalyticsPage() {
             <div className="surface-panel px-5 py-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="section-kicker">Explore data</p>
+                  <p className="section-kicker">{analyticsText.exploreData}</p>
                   <h2 className="mt-2 text-[22px] font-semibold tracking-[-0.04em] text-black">
-                    Choose the data and chart you need
+                    {analyticsText.chooseData}
                   </h2>
                   <p className="mt-1 max-w-2xl text-[13px] leading-6 text-slate-500">
-                    Switch between posts and groups, then select a metric and chart style for a cleaner read of the same analytics data.
+                    {analyticsText.chooseDataCopy}
                   </p>
                 </div>
                 <div className="flex shrink-0 rounded-full border border-slate-100 bg-stone-50 p-1">
@@ -1032,7 +1109,7 @@ export default function AnalyticsPage() {
                       setChartMetric("clicks");
                     }}
                   >
-                    Posts
+                    {analyticsText.posts}
                   </ChartStyleButton>
                   <ChartStyleButton
                     active={chartScope === "groups"}
@@ -1041,14 +1118,14 @@ export default function AnalyticsPage() {
                       setChartMetric("participants");
                     }}
                   >
-                    Groups
+                    {analyticsText.groups}
                   </ChartStyleButton>
                 </div>
               </div>
 
               <div className="mt-5 flex flex-col gap-3 border-y border-slate-100 py-3 md:flex-row md:items-center md:justify-between">
                 <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 md:min-w-[220px]">
-                  Metric
+                  {analyticsText.metric}
                   <select
                     value={activeMetric.id}
                     onChange={(event) => setChartMetric(event.target.value)}
@@ -1063,49 +1140,55 @@ export default function AnalyticsPage() {
                 </label>
 
                 <div className="flex rounded-full border border-slate-100 bg-stone-50 p-1">
-                  <ChartStyleButton active={chartStyle === "bars"} onClick={() => setChartStyle("bars")}>
-                    Bars
+                  <ChartStyleButton active={chartStyleForMetric === "bars"} onClick={() => setChartStyle("bars")}>
+                    {analyticsText.bars}
                   </ChartStyleButton>
-                  <ChartStyleButton active={chartStyle === "columns"} onClick={() => setChartStyle("columns")}>
-                    Columns
+                  <ChartStyleButton active={chartStyleForMetric === "columns"} onClick={() => setChartStyle("columns")}>
+                    {analyticsText.columns}
                   </ChartStyleButton>
-                  <ChartStyleButton active={chartStyle === "donut"} onClick={() => setChartStyle("donut")}>
-                    Donut
+                  <ChartStyleButton
+                    active={chartStyleForMetric === "donut"}
+                    disabled={donutDisabled}
+                    onClick={() => setChartStyle("donut")}
+                  >
+                    {analyticsText.donut}
                   </ChartStyleButton>
                 </div>
               </div>
 
               <DataChart
                 rows={chartRows}
-                style={chartStyle}
-                emptyText={chartScope === "posts" ? "No post engagement recorded yet." : text.noGroupData}
+                style={chartStyleForMetric}
+                emptyText={chartScope === "posts" ? analyticsText.noPostData : text.noGroupData}
+                totalLabel={analyticsText.total}
+                rankLabel={analyticsText.rank}
               />
             </div>
 
             <aside className="surface-panel px-5 py-5">
-              <p className="section-kicker">Response quality</p>
+              <p className="section-kicker">{analyticsText.responseQuality}</p>
               <h2 className="mt-2 text-[20px] font-semibold tracking-[-0.04em] text-black">
-                Signal check
+                {analyticsText.signalCheck}
               </h2>
               <p className="mt-1 text-[13px] leading-6 text-slate-500">
-                Key completion and calibration signals are grouped here so quality checks stay visible without opening a post drill-down.
+                {analyticsText.signalCheckCopy}
               </p>
 
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <div className="rounded-[16px] bg-stone-50 px-3 py-3">
-                  <p className="section-kicker">Fast</p>
+                  <p className="section-kicker">{analyticsText.fast}</p>
                   <p className="mt-1 text-[24px] font-semibold tracking-[-0.05em] text-black">{summary.fast_completions}</p>
                 </div>
                 <div className="rounded-[16px] bg-stone-50 px-3 py-3">
-                  <p className="section-kicker">Low interaction</p>
+                  <p className="section-kicker">{analyticsText.lowInteraction}</p>
                   <p className="mt-1 text-[24px] font-semibold tracking-[-0.05em] text-black">{summary.low_interaction_responses}</p>
                 </div>
                 <div className="rounded-[16px] bg-stone-50 px-3 py-3">
-                  <p className="section-kicker">Duplicates</p>
+                  <p className="section-kicker">{analyticsText.duplicates}</p>
                   <p className="mt-1 text-[24px] font-semibold tracking-[-0.05em] text-black">{summary.duplicate_comment_sessions}</p>
                 </div>
                 <div className="rounded-[16px] bg-stone-50 px-3 py-3">
-                  <p className="section-kicker">Gaze</p>
+                  <p className="section-kicker">{analyticsText.gaze}</p>
                   <p className="mt-1 text-[24px] font-semibold tracking-[-0.05em] text-black">{summary.total_gaze_samples}</p>
                 </div>
               </div>
@@ -1118,8 +1201,14 @@ export default function AnalyticsPage() {
 
           <section className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <div className="surface-panel px-5 py-5">
-              <p className="section-kicker">Engagement mix</p>
-              <DataChart rows={engagementRows} style="donut" emptyText="No engagement recorded yet." />
+              <p className="section-kicker">{analyticsText.engagementMix}</p>
+              <DataChart
+                rows={engagementRows}
+                style="donut"
+                emptyText={analyticsText.noEngagementData}
+                totalLabel={analyticsText.total}
+                rankLabel={analyticsText.rank}
+              />
             </div>
 
             <div className="surface-panel px-5 py-5">

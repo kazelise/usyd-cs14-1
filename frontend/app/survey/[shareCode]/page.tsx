@@ -524,6 +524,7 @@ export default function SurveyParticipantPage() {
   const [calibrationDone, setCalibrationDone] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
   const [clickedPosts, setClickedPosts] = useState<Set<number>>(new Set());
+  const [everInteractedPosts, setEverInteractedPosts] = useState<Set<number>>(new Set());
   const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
   const [showCommentInput, setShowCommentInput] = useState<number | null>(null);
   const [participantComments, setParticipantComments] = useState<Record<number, ParticipantComment[]>>({});
@@ -638,6 +639,7 @@ export default function SurveyParticipantPage() {
         });
         setSession(result);
         setClickedPosts(new Set());
+        setEverInteractedPosts(new Set());
         setShareSessionRecorded({});
         localStorage.setItem(tokenStorageKey, result.participant_token);
         // Resume hint from backend: a prior calibration on this response was
@@ -658,6 +660,13 @@ export default function SurveyParticipantPage() {
           const state = await api.getResponseState(result.response_id, result.participant_token);
           setLikedPosts(new Set<number>(state.liked_post_ids || []));
           setParticipantComments(state.comments_by_post || {});
+          setEverInteractedPosts(new Set<number>(state.interacted_post_ids || []));
+          const answeredQuestionIds = new Set<number>([
+            ...(Array.isArray(savedSubmittedQuestions) ? savedSubmittedQuestions : []),
+            ...(state.answered_question_ids || []),
+          ]);
+          setSubmittedQuestions(answeredQuestionIds);
+          localStorage.setItem(submittedQuestionsKey, JSON.stringify([...answeredQuestionIds]));
         } catch {}
       } catch (err: any) {
         const message = err.message || t(initialLocale, "surveyNotFound");
@@ -732,6 +741,7 @@ export default function SurveyParticipantPage() {
 
     try {
       await api.toggleLike(session.response_id, postId, session.participant_token);
+      setEverInteractedPosts((prev) => new Set([...prev, postId]));
     } catch (err: any) {
       setLikedPosts((prev) => {
         const next = new Set(prev);
@@ -766,6 +776,7 @@ export default function SurveyParticipantPage() {
         ...prev,
         [postId]: [...(prev[postId] || []), created],
       }));
+      setEverInteractedPosts((prev) => new Set([...prev, postId]));
       setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
       setShowCommentInput(null);
     } catch (err: any) {
@@ -783,6 +794,7 @@ export default function SurveyParticipantPage() {
         participant_token: session.participant_token,
       });
       setClickedPosts((prev) => new Set([...prev, postId]));
+      setEverInteractedPosts((prev) => new Set([...prev, postId]));
     } catch (err: any) {
       setActionError(err.message || t(locale, "networkRequestFailed"));
     }
@@ -800,6 +812,7 @@ export default function SurveyParticipantPage() {
         participant_token: session.participant_token,
       });
       setShareSessionRecorded((prev) => ({ ...prev, [postId]: true }));
+      setEverInteractedPosts((prev) => new Set([...prev, postId]));
       setToastMessage(t(locale, "shareRecordedToast"));
     } catch (err: any) {
       setActionError(err.message || t(locale, "networkRequestFailed"));
@@ -912,6 +925,7 @@ export default function SurveyParticipantPage() {
     .filter(([, recorded]) => recorded)
     .map(([postId]) => Number(postId));
   const interactedPostIds = new Set([
+    ...everInteractedPosts,
     ...likedPosts,
     ...clickedPosts,
     ...commentedPostIds,
@@ -1182,7 +1196,11 @@ export default function SurveyParticipantPage() {
                                 });
                                 rememberSubmittedQuestion(q.id);
                               } catch (err: any) {
-                                setActionError(err.message || t(locale, "networkRequestFailed"));
+                                if (/already submitted/i.test(err.message || "")) {
+                                  rememberSubmittedQuestion(q.id);
+                                } else {
+                                  setActionError(err.message || t(locale, "networkRequestFailed"));
+                                }
                               }
                             }}
                           >
@@ -1336,6 +1354,19 @@ export default function SurveyParticipantPage() {
                                     }}
                                     onBlur={async (e) => {
                                       const value = e.target.value;
+                                      if (!value.trim()) {
+                                        try {
+                                          setActionError("");
+                                          await api.deleteParticipantComment(session.response_id, comment.id, session.participant_token);
+                                          setParticipantComments((prev) => ({
+                                            ...prev,
+                                            [post.id]: (prev[post.id] || []).filter((item) => item.id !== comment.id),
+                                          }));
+                                        } catch (err: any) {
+                                          setActionError(err.message || t(locale, "networkRequestFailed"));
+                                        }
+                                        return;
+                                      }
                                       if (value.trim()) {
                                         try {
                                           setActionError("");
@@ -1501,7 +1532,11 @@ export default function SurveyParticipantPage() {
                                         });
                                         rememberSubmittedQuestion(q.id);
                                       } catch (err: any) {
-                                        setActionError(err.message || t(locale, "networkRequestFailed"));
+                                        if (/already submitted/i.test(err.message || "")) {
+                                          rememberSubmittedQuestion(q.id);
+                                        } else {
+                                          setActionError(err.message || t(locale, "networkRequestFailed"));
+                                        }
                                       }
                                     }}
                                   >

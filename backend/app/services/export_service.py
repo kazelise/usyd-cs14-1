@@ -7,7 +7,7 @@ import hashlib
 import io
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException
@@ -96,7 +96,11 @@ class ExportFilters:
 
 
 def isoformat(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat()
 
 
 def anonymous_participant_id(participant_token: str | None, response_id: int) -> str:
@@ -241,7 +245,7 @@ def build_export_payload(
             serialize_interaction(interaction)
             for interaction in sorted(
                 response.interactions,
-                key=lambda interaction: interaction.timestamp or datetime.min,
+                key=lambda interaction: (interaction.timestamp or datetime.min, interaction.id),
             )
         ]
         rows.append(
@@ -274,7 +278,7 @@ def build_export_payload(
 
     return {
         "survey_id": survey.id,
-        "exported_at": datetime.utcnow().isoformat(),
+        "exported_at": datetime.now(UTC).isoformat(),
         "filters": filters.as_dict(),
         "responses": rows,
     }
@@ -354,7 +358,7 @@ async def load_gaze_samples(
     result = await db.execute(
         select(GazeRecord)
         .where(GazeRecord.response_id.in_(response_ids))
-        .order_by(GazeRecord.response_id, GazeRecord.timestamp_ms)
+        .order_by(GazeRecord.response_id, GazeRecord.timestamp_ms, GazeRecord.id)
     )
     by_response: dict[int, list[dict[str, Any]]] = {}
     for record in result.scalars().all():
@@ -382,7 +386,9 @@ async def load_participant_comments(
     result = await db.execute(
         select(ParticipantComment)
         .where(ParticipantComment.response_id.in_(response_ids))
-        .order_by(ParticipantComment.response_id, ParticipantComment.created_at)
+        .order_by(
+            ParticipantComment.response_id, ParticipantComment.created_at, ParticipantComment.id
+        )
     )
     by_response: dict[int, list[dict[str, Any]]] = {}
     for comment in result.scalars().all():
@@ -408,7 +414,7 @@ async def load_question_responses(
         select(QuestionResponse, Question)
         .join(Question, QuestionResponse.question_id == Question.id, isouter=True)
         .where(QuestionResponse.response_id.in_(response_ids))
-        .order_by(QuestionResponse.response_id, QuestionResponse.created_at)
+        .order_by(QuestionResponse.response_id, QuestionResponse.created_at, QuestionResponse.id)
     )
     by_response: dict[int, list[dict[str, Any]]] = {}
     for answer, question in result.all():

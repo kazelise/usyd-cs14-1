@@ -113,7 +113,7 @@ export const api = {
     request("/auth/me", { method: "PATCH", body: JSON.stringify(data) }),
 
   // Surveys
-  listSurveys: () => request("/surveys?limit=1000"),
+  listSurveys: (limit = 1000, offset = 0) => request(`/surveys?limit=${limit}&offset=${offset}`),
   createSurvey: (data: any) =>
     request("/surveys", { method: "POST", body: JSON.stringify(data) }),
   getSurvey: (id: number) => request(`/surveys/${id}`),

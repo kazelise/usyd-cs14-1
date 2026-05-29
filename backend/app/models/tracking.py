@@ -20,7 +20,6 @@ from sqlalchemy import (
     SmallInteger,
     String,
     UniqueConstraint,
-    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -122,7 +121,7 @@ class GazeRecord(Base):
     left_iris_y: Mapped[float | None] = mapped_column(Float)
     right_iris_x: Mapped[float | None] = mapped_column(Float)
     right_iris_y: Mapped[float | None] = mapped_column(Float)
-    received_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    received_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     __table_args__ = (
         Index("ix_gaze_records_response_timestamp", "response_id", "timestamp_ms"),
@@ -155,7 +154,7 @@ class ClickRecord(Base):
     target_element: Mapped[str | None] = mapped_column(
         String(50)
     )  # e.g. "headline", "image", "like_button"
-    received_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    received_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     __table_args__ = (
         Index("ix_click_records_response_timestamp", "response_id", "timestamp_ms"),

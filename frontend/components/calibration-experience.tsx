@@ -716,17 +716,7 @@ export function CalibrationExperience({
                                 setStep("detection");
                                 setDetectionStable(false);
                                 detectionHistoryRef.current = [];
-                                // Camera is already stopped, restart it
-                                if (streamRef.current) {
-                                  if (videoRef.current) {
-                                    videoRef.current.srcObject = streamRef.current;
-                                    await videoRef.current.play();
-                                  }
-                                  setPermissionState("granted");
-                                  startMediaPipeLoop();
-                                } else {
-                                  await requestCameraAccess();
-                                }
+                                await requestCameraAccess();
                               }}
                               className="secondary-button w-full px-5 py-3"
                             >
