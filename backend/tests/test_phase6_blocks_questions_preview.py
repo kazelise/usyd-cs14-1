@@ -3,6 +3,7 @@
 from datetime import datetime
 
 import pytest
+from fastapi import HTTPException
 
 from app.models.participant import SurveyResponse
 from app.models.question import Question
@@ -15,6 +16,7 @@ from app.routers.surveys import (
     preview_survey,
     start_survey,
     submit_question_response,
+    validate_scale_config,
 )
 from app.schemas.survey import (
     CreateQuestionRequest,
@@ -314,3 +316,32 @@ async def test_submit_question_response_saves_answer_for_same_survey():
     assert answer.answer_text == "A"
     assert answer.answer_choices == ["A"]
     assert isinstance(db.added[0], QuestionResponse)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"min": 5, "max": 5},
+        {"min": 5, "max": 1},
+        {"min": -1, "max": 5},
+        {"min": 1, "max": 1},
+    ],
+)
+def test_validate_scale_config_rejects_bad_bounds(config):
+    with pytest.raises(HTTPException) as exc_info:
+        validate_scale_config("likert", config)
+    assert exc_info.value.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "config",
+    [None, {}, {"min": 1, "max": 5}, {"min": 0, "max": 10}, {"max": 7}],
+)
+def test_validate_scale_config_accepts_valid_or_default_bounds(config):
+    # No exception for valid bounds, and omitted values fall back to defaults.
+    validate_scale_config("rating", config)
+
+
+def test_validate_scale_config_ignores_non_scale_types():
+    # Non-scale types are never gated, even with nonsense config.
+    validate_scale_config("text", {"min": 9, "max": 1})

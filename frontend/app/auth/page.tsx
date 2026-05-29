@@ -14,6 +14,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
   const text =
     locale === "zh"
@@ -42,6 +43,7 @@ export default function AuthPage() {
           namePlaceholder: "张三",
           emailPlaceholder: "researcher@lab.edu",
           passwordPlaceholder: "请输入密码",
+          registerSuccess: "账号已创建，请使用你的邮箱和密码登录。",
         }
       : {
           product: "CS14 Survey Platform",
@@ -68,11 +70,13 @@ export default function AuthPage() {
           namePlaceholder: "Jane Smith",
           emailPlaceholder: "researcher@lab.edu",
           passwordPlaceholder: "Enter your password",
+          registerSuccess: "Account created. Please sign in with your email and password.",
         };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setNotice("");
     setLoading(true);
     try {
       if (isLogin) {
@@ -80,8 +84,16 @@ export default function AuthPage() {
         localStorage.setItem("token", res.access_token);
       } else {
         await api.register({ email, password, name });
-        const res = await api.login({ email, password });
-        localStorage.setItem("token", res.access_token);
+        try {
+          const res = await api.login({ email, password });
+          localStorage.setItem("token", res.access_token);
+        } catch {
+          // Account was created but auto-login failed; ask the user to sign in.
+          setIsLogin(true);
+          setPassword("");
+          setNotice(text.registerSuccess);
+          return;
+        }
       }
       router.push("/admin/surveys");
     } catch (err: any) {
@@ -213,6 +225,7 @@ export default function AuthPage() {
               </div>
 
               {error && <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+              {notice && <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</p>}
 
               <button type="submit" disabled={loading} className="primary-button w-full py-3">
                 {loading ? text.working : isLogin ? text.signInButton : text.createAccount}

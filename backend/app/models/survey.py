@@ -12,7 +12,16 @@ Design notes (from client meeting):
 import secrets
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, SmallInteger, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    SmallInteger,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -22,6 +31,7 @@ class Survey(Base):
     """A survey created by a researcher. Contains social media post questions."""
 
     __tablename__ = "surveys"
+    __table_args__ = (CheckConstraint("num_groups >= 1", name="ck_surveys_num_groups_positive"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     researcher_id: Mapped[int] = mapped_column(ForeignKey("researchers.id"), nullable=False)

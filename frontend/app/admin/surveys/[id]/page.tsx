@@ -115,6 +115,15 @@ function numberInputClass() {
   return "w-24 rounded-[16px] border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none";
 }
 
+// Allow an empty field while editing instead of snapping to 0.
+function parseNumberInput(value: string): number | "" {
+  return value === "" ? "" : Number(value);
+}
+
+function coerceNumber(value: number | "", fallback = 0): number {
+  return value === "" ? fallback : value;
+}
+
 function hostnameFromUrl(url: string) {
   try {
     return new URL(url).hostname || "Unknown";
@@ -139,9 +148,9 @@ export default function SurveyEditPage() {
   const [copiedShare, setCopiedShare] = useState(false);
 
   const [editingPost, setEditingPost] = useState<number | null>(null);
-  const [editLikes, setEditLikes] = useState(0);
-  const [editComments, setEditComments] = useState(0);
-  const [editShares, setEditShares] = useState(0);
+  const [editLikes, setEditLikes] = useState<number | "">(0);
+  const [editComments, setEditComments] = useState<number | "">(0);
+  const [editShares, setEditShares] = useState<number | "">(0);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editSourceLabel, setEditSourceLabel] = useState("");
@@ -150,7 +159,10 @@ export default function SurveyEditPage() {
   const [editingGroups, setEditingGroups] = useState<number | null>(null);
   const [groupVisibility, setGroupVisibility] = useState<number[]>([]);
   const [groupOverrides, setGroupOverrides] = useState<
-    Record<string, { display_likes: number; display_comments_count: number; display_shares: number }>
+    Record<
+      string,
+      { display_likes: number | ""; display_comments_count: number | ""; display_shares: number | "" }
+    >
   >({});
 
   const [commentPostId, setCommentPostId] = useState<number | null>(null);
@@ -160,8 +172,8 @@ export default function SurveyEditPage() {
   const [questionText, setQuestionText] = useState("");
   const [questionType, setQuestionType] = useState("text");
   const [questionOptions, setQuestionOptions] = useState("Yes, No");
-  const [questionMin, setQuestionMin] = useState(1);
-  const [questionMax, setQuestionMax] = useState(5);
+  const [questionMin, setQuestionMin] = useState<number | "">(1);
+  const [questionMax, setQuestionMax] = useState<number | "">(5);
   const [questionMinLabel, setQuestionMinLabel] = useState("Strongly disagree");
   const [questionMaxLabel, setQuestionMaxLabel] = useState("Strongly agree");
   const [editingQuestion, setEditingQuestion] = useState<number | null>(null);
@@ -228,6 +240,7 @@ export default function SurveyEditPage() {
           questionType: "题目类型",
           questionOptions: "选项（用逗号分隔）",
           ratingRange: "量表范围",
+          scaleRangeError: "最小值需不小于 0 且小于最大值。",
           minLabel: "低端标签",
           maxLabel: "高端标签",
           saveQuestion: "保存题目",
@@ -322,6 +335,7 @@ export default function SurveyEditPage() {
           questionType: "Question type",
           questionOptions: "Options (comma-separated)",
           ratingRange: "Rating range",
+          scaleRangeError: "Min must be 0 or greater and less than max.",
           minLabel: "Low label",
           maxLabel: "High label",
           saveQuestion: "Save question",
@@ -473,6 +487,9 @@ export default function SurveyEditPage() {
       await api.createPost(surveyId, { original_url: newUrl, order: posts.length + 1 });
       setNewUrl("");
       await loadData();
+      setIsUnsavedDraft(false);
+      shouldDiscardDraftRef.current = false;
+      router.replace(`/admin/surveys/${surveyId}`);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -503,9 +520,9 @@ export default function SurveyEditPage() {
       display_description: editDescription || null,
       source_label: editSourceLabel || null,
       more_info_label: editMoreInfoLabel || null,
-      display_likes: editLikes,
-      display_comments_count: editComments,
-      display_shares: editShares,
+      display_likes: coerceNumber(editLikes),
+      display_comments_count: coerceNumber(editComments),
+      display_shares: coerceNumber(editShares),
     });
     setEditingPost(null);
     await loadData();
@@ -530,8 +547,8 @@ export default function SurveyEditPage() {
     }
     if (questionType === "likert" || questionType === "rating") {
       return {
-        min: questionMin,
-        max: questionMax,
+        min: coerceNumber(questionMin, 1),
+        max: coerceNumber(questionMax, 5),
         min_label: questionMinLabel,
         max_label: questionMaxLabel,
       };
@@ -562,8 +579,8 @@ export default function SurveyEditPage() {
     setQuestionText(question.text);
     setQuestionType(question.question_type);
     setQuestionOptions((question.config?.options || ["Yes", "No"]).join(", "));
-    setQuestionMin(question.config?.min || 1);
-    setQuestionMax(question.config?.max || 5);
+    setQuestionMin(question.config?.min ?? 1);
+    setQuestionMax(question.config?.max ?? 5);
     setQuestionMinLabel(question.config?.min_label || "Strongly disagree");
     setQuestionMaxLabel(question.config?.max_label || "Strongly agree");
   }
@@ -624,7 +641,17 @@ export default function SurveyEditPage() {
   }
 
   async function saveGroupSettings(postId: number) {
-    const values = Object.values(groupOverrides);
+    const coercedOverrides = Object.fromEntries(
+      Object.entries(groupOverrides).map(([group, value]) => [
+        group,
+        {
+          display_likes: coerceNumber(value.display_likes),
+          display_comments_count: coerceNumber(value.display_comments_count),
+          display_shares: coerceNumber(value.display_shares),
+        },
+      ]),
+    );
+    const values = Object.values(coercedOverrides);
     const allSame = values.every(
       (value) =>
         value.display_likes === values[0].display_likes &&
@@ -634,7 +661,7 @@ export default function SurveyEditPage() {
 
     await api.updatePost(surveyId, postId, {
       visible_to_groups: groupVisibility.length === (survey?.num_groups || 1) ? null : groupVisibility,
-      group_overrides: allSame ? null : groupOverrides,
+      group_overrides: allSame ? null : coercedOverrides,
     });
 
     setEditingGroups(null);
@@ -665,6 +692,15 @@ export default function SurveyEditPage() {
     await loadData();
   }
 
+  // Once any real edit has been persisted, the draft is no longer a throwaway:
+  // stop the unsaved-draft auto-discard from deleting it on navigation.
+  function disarmDraftDiscard() {
+    if (!shouldDiscardDraftRef.current) return;
+    setIsUnsavedDraft(false);
+    shouldDiscardDraftRef.current = false;
+    router.replace(`/admin/surveys/${surveyId}`);
+  }
+
   async function updatePlatformUiStyle(nextStyle: PlatformUiStyle) {
     if (!survey) return;
     const nextFeedStyle = platformUiStyleToFeedStyle(nextStyle);
@@ -675,6 +711,7 @@ export default function SurveyEditPage() {
         platform_style: nextFeedStyle,
       });
       setSurvey(updated);
+      disarmDraftDiscard();
     } catch (err: any) {
       setError(err.message || "Failed to update platform UI style");
     }
@@ -695,6 +732,7 @@ export default function SurveyEditPage() {
         supported_languages: updated.supported_languages ?? languages,
       });
       setTranslationStatus(text.languagesSaved);
+      disarmDraftDiscard();
     } catch (err: any) {
       setTranslationStatus(err.message || "Failed to save language settings");
     }
@@ -1107,8 +1145,8 @@ export default function SurveyEditPage() {
                             <label className="space-y-2 text-sm text-slate-500">
                               <span>{text.ratingRange}</span>
                               <div className="flex gap-2">
-                                <input type="number" value={questionMin} onChange={(event) => setQuestionMin(Number(event.target.value))} className={numberInputClass()} />
-                                <input type="number" value={questionMax} onChange={(event) => setQuestionMax(Number(event.target.value))} className={numberInputClass()} />
+                                <input type="number" value={questionMin} onChange={(event) => setQuestionMin(parseNumberInput(event.target.value))} className={numberInputClass()} />
+                                <input type="number" value={questionMax} onChange={(event) => setQuestionMax(parseNumberInput(event.target.value))} className={numberInputClass()} />
                               </div>
                             </label>
                             <div className="grid gap-2">
@@ -1117,8 +1155,21 @@ export default function SurveyEditPage() {
                             </div>
                           </div>
                         )}
+                        {(questionType === "likert" || questionType === "rating") &&
+                          (Number(questionMin) < 0 || Number(questionMin) >= Number(questionMax)) && (
+                            <p className="text-[12px] text-rose-500">{text.scaleRangeError}</p>
+                          )}
                         <div className="flex flex-wrap gap-3">
-                          <button type="button" disabled={!questionText.trim()} onClick={() => saveQuestion(post.id)} className="primary-button">
+                          <button
+                            type="button"
+                            disabled={
+                              !questionText.trim() ||
+                              ((questionType === "likert" || questionType === "rating") &&
+                                (Number(questionMin) < 0 || Number(questionMin) >= Number(questionMax)))
+                            }
+                            onClick={() => saveQuestion(post.id)}
+                            className="primary-button"
+                          >
                             {text.saveQuestion}
                           </button>
                           <button type="button" onClick={resetQuestionForm} className="secondary-button">
@@ -1169,7 +1220,7 @@ export default function SurveyEditPage() {
                             <input
                               type="number"
                               value={editLikes}
-                              onChange={(e) => setEditLikes(Number(e.target.value))}
+                              onChange={(e) => setEditLikes(parseNumberInput(e.target.value))}
                               className={numberInputClass()}
                             />
                           </label>
@@ -1178,7 +1229,7 @@ export default function SurveyEditPage() {
                             <input
                               type="number"
                               value={editComments}
-                              onChange={(e) => setEditComments(Number(e.target.value))}
+                              onChange={(e) => setEditComments(parseNumberInput(e.target.value))}
                               className={numberInputClass()}
                             />
                           </label>
@@ -1187,7 +1238,7 @@ export default function SurveyEditPage() {
                             <input
                               type="number"
                               value={editShares}
-                              onChange={(e) => setEditShares(Number(e.target.value))}
+                              onChange={(e) => setEditShares(parseNumberInput(e.target.value))}
                               className={numberInputClass()}
                             />
                           </label>
@@ -1259,13 +1310,13 @@ export default function SurveyEditPage() {
                                 <span className="block">{text.likes}</span>
                                 <input
                                   type="number"
-                                  value={groupOverrides[String(group)]?.display_likes ?? 0}
+                                  value={groupOverrides[String(group)]?.display_likes ?? ""}
                                   onChange={(e) =>
                                     setGroupOverrides((prev) => ({
                                       ...prev,
                                       [String(group)]: {
                                         ...prev[String(group)],
-                                        display_likes: Number(e.target.value),
+                                        display_likes: parseNumberInput(e.target.value),
                                       },
                                     }))
                                   }
@@ -1276,13 +1327,13 @@ export default function SurveyEditPage() {
                                 <span className="block">{text.comments}</span>
                                 <input
                                   type="number"
-                                  value={groupOverrides[String(group)]?.display_comments_count ?? 0}
+                                  value={groupOverrides[String(group)]?.display_comments_count ?? ""}
                                   onChange={(e) =>
                                     setGroupOverrides((prev) => ({
                                       ...prev,
                                       [String(group)]: {
                                         ...prev[String(group)],
-                                        display_comments_count: Number(e.target.value),
+                                        display_comments_count: parseNumberInput(e.target.value),
                                       },
                                     }))
                                   }
@@ -1293,13 +1344,13 @@ export default function SurveyEditPage() {
                                 <span className="block">{text.shares}</span>
                                 <input
                                   type="number"
-                                  value={groupOverrides[String(group)]?.display_shares ?? 0}
+                                  value={groupOverrides[String(group)]?.display_shares ?? ""}
                                   onChange={(e) =>
                                     setGroupOverrides((prev) => ({
                                       ...prev,
                                       [String(group)]: {
                                         ...prev[String(group)],
-                                        display_shares: Number(e.target.value),
+                                        display_shares: parseNumberInput(e.target.value),
                                       },
                                     }))
                                   }

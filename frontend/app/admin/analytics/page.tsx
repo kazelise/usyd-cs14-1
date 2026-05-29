@@ -249,6 +249,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState("");
+  const [exportError, setExportError] = useState("");
   const [exportGroup, setExportGroup] = useState("");
   const [exportLanguage, setExportLanguage] = useState("");
   const [exportStatus, setExportStatus] = useState("");
@@ -469,6 +470,9 @@ export default function AnalyticsPage() {
     if (!selectedSurveyId) return;
     let active = true;
     setLoadingSummary(true);
+    setSummary(null);
+    setError("");
+    setExportError("");
     api.getSurveyAnalytics(selectedSurveyId, exportFilters)
       .then((res) => {
         if (!active) return;
@@ -476,6 +480,7 @@ export default function AnalyticsPage() {
       })
       .catch((err: any) => {
         if (!active) return;
+        setSummary(null);
         setError(err.message || text.failedSummary);
       })
       .finally(() => {
@@ -629,7 +634,7 @@ export default function AnalyticsPage() {
   }, [summary]);
 
   function exportSummary() {
-    if (!summary || !selectedSurvey) return;
+    if (!summary || !selectedSurvey || loadingSummary || error) return;
     const payload = {
       survey: selectedSurvey,
       summary,
@@ -639,7 +644,7 @@ export default function AnalyticsPage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${selectedSurvey.title.replace(/\s+/g, "-").toLowerCase()}-analytics.json`;
+    anchor.download = `${selectedSurvey.title.replace(/\s+/g, "-").replace(/[^\w.-]+/g, "-").toLowerCase()}-analytics.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -655,8 +660,9 @@ export default function AnalyticsPage() {
   }
 
   async function exportResearchData(format: "csv" | "json") {
-    if (!selectedSurvey) return;
-    const filenameBase = selectedSurvey.title.replace(/\s+/g, "-").toLowerCase();
+    if (!selectedSurvey || !summary || loadingSummary || error) return;
+    setExportError("");
+    const filenameBase = selectedSurvey.title.replace(/\s+/g, "-").replace(/[^\w.-]+/g, "-").toLowerCase();
     try {
       if (format === "csv") {
         const csv = await api.exportSurveyDataCsv(selectedSurvey.id, exportFilters);
@@ -670,7 +676,7 @@ export default function AnalyticsPage() {
         "application/json",
       );
     } catch (err: any) {
-      setError(err.message || text.failedExport);
+      setExportError(err.message || text.failedExport);
     }
   }
 
@@ -742,7 +748,7 @@ export default function AnalyticsPage() {
             type="button"
             onClick={() => setExportMenuOpen((open) => !open)}
             className="primary-button min-w-[148px] gap-1.5"
-            disabled={!summary}
+            disabled={!summary || loadingSummary || !!error}
             aria-haspopup="menu"
             aria-expanded={exportMenuOpen}
           >
@@ -974,8 +980,9 @@ export default function AnalyticsPage() {
       )}
 
       {error && <p className="mt-4 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+      {exportError && <p className="mt-4 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{exportError}</p>}
 
-      {loadingSummary || !summary ? (
+      {error ? null : loadingSummary || !summary ? (
         <p className="pt-14 text-sm uppercase tracking-[0.14em] text-slate-400">{text.loadingSummary}</p>
       ) : (
         <>

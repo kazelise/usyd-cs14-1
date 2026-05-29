@@ -134,6 +134,31 @@ def _require_researcher_jwt(authorization: str | None) -> None:
         raise HTTPException(status_code=403, detail="Invalid or expired researcher token")
 
 
+def validate_scale_config(question_type: str | None, config: dict | None) -> None:
+    """Reject likert/rating questions whose scale bounds are unusable.
+
+    A scale needs integer ``min``/``max`` with ``0 <= min < max``. When the
+    config omits these, the participant side falls back to the defaults
+    (min 1, max 5), so we only reject values that are explicitly present and
+    violate the contract.
+    """
+    if question_type not in ("likert", "rating"):
+        return
+    config = config or {}
+
+    def _as_int(value, default):
+        if value is None:
+            return default
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise HTTPException(status_code=422, detail="rating/likert requires integer min < max")
+        return value
+
+    minimum = _as_int(config.get("min"), 1)
+    maximum = _as_int(config.get("max"), 5)
+    if minimum < 0 or minimum >= maximum:
+        raise HTTPException(status_code=422, detail="rating/likert requires integer min < max")
+
+
 def _validate_question_answer(question: Question, body: SubmitQuestionResponseRequest) -> None:
     """Validate submitted answer content against the question type and config."""
     qtype = question.question_type
@@ -858,14 +883,17 @@ async def start_survey(
     calibration_completed = False
     if response is None:
         randomization_seed = secrets.token_hex(16)
+        # Guard against legacy/out-of-band rows where num_groups < 1, which would
+        # otherwise make random.randint(1, num_groups) raise and 500 the start call.
+        group_count = survey.num_groups if survey.num_groups and survey.num_groups >= 1 else 1
         if body and body.is_preview and body.preview_assigned_group is not None:
-            if body.preview_assigned_group > survey.num_groups:
+            if body.preview_assigned_group > group_count:
                 raise HTTPException(
                     status_code=400, detail="preview_assigned_group exceeds survey group count"
                 )
             assigned_group = body.preview_assigned_group
         else:
-            assigned_group = random.randint(1, survey.num_groups)
+            assigned_group = random.randint(1, group_count)
         shown_posts = build_participant_posts(survey, assigned_group, language_code)
         response = SurveyResponse(
             survey_id=survey.id,
@@ -892,18 +920,27 @@ async def start_survey(
         if response.shown_post_order is None:
             response.shown_post_order = [post.id for post in shown_posts]
         # On resume, look at any prior CalibrationSession attached to this
-        # response. If it was completed, signal the frontend to skip the
-        # calibration UI. If it was abandoned mid-way (in_progress), drop it
-        # so the frontend can re-create cleanly without hitting the
-        # "session already exists" 409 from create_calibration_session.
+        # response. Only skip the calibration UI when it was a genuine passing
+        # calibration (completed, not poor, not explicitly failed). If it was
+        # abandoned mid-way (in_progress) or completed-but-poor/failed, drop it
+        # (cascading its points) so the frontend can re-create cleanly without
+        # hitting the "session already exists" 409 from create_calibration_session.
         existing_calib_q = await db.execute(
-            select(CalibrationSession).where(CalibrationSession.response_id == response.id)
+            select(CalibrationSession)
+            .options(selectinload(CalibrationSession.points))
+            .where(CalibrationSession.response_id == response.id)
         )
         existing_calib = existing_calib_q.scalar_one_or_none()
         if existing_calib is not None:
-            if existing_calib.status == "completed":
+            if (
+                existing_calib.status == "completed"
+                and existing_calib.quality != "poor"
+                and existing_calib.passed is not False
+            ):
                 calibration_completed = True
             else:
+                for point in existing_calib.points:
+                    await db.delete(point)
                 await db.delete(existing_calib)
                 await db.flush()
     if "shown_posts" not in locals():
@@ -1529,6 +1566,7 @@ async def get_analytics_summary(
     survey_id: int,
     include_preview: bool = False,
     assigned_group: int | None = None,
+    condition: int | None = None,
     language: str | None = None,
     response_status: str | None = None,
     calibration_passed: bool | None = None,
@@ -1542,10 +1580,14 @@ async def get_analytics_summary(
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found")
 
+    # Mirror the export filter contract: `assigned_group` takes precedence,
+    # falling back to `condition` so both query params behave identically.
+    effective_group = assigned_group if assigned_group is not None else condition
+
     scope = analytics_response_scope(
         survey_id,
         include_preview=include_preview,
-        assigned_group=assigned_group,
+        assigned_group=effective_group,
         language=language,
         response_status=response_status,
         calibration_passed=calibration_passed,
@@ -1812,6 +1854,7 @@ async def create_question(
     post = await db.get(SurveyPost, post_id)
     if not post or post.survey_id != survey_id:
         raise HTTPException(404, "Post not found")
+    validate_scale_config(body.question_type, body.config)
     q = Question(survey_id=survey_id, post_id=post_id, **body.model_dump())
     db.add(q)
     await db.commit()
@@ -1864,7 +1907,11 @@ async def update_question(
         db,
         "Cannot change questions after participant responses exist",
     )
-    for k, v in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    new_type = updates.get("question_type", q.question_type)
+    new_config = updates.get("config", q.config)
+    validate_scale_config(new_type, new_config)
+    for k, v in updates.items():
         setattr(q, k, v)
     await db.commit()
     await db.refresh(q)
@@ -1910,6 +1957,7 @@ async def create_survey_question(
         db,
         "Cannot add questions after participant responses exist",
     )
+    validate_scale_config(body.question_type, body.config)
     q = Question(survey_id=survey_id, post_id=None, **body.model_dump())
     db.add(q)
     await db.commit()
@@ -1949,7 +1997,11 @@ async def update_survey_question(
         db,
         "Cannot change questions after participant responses exist",
     )
-    for k, v in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    new_type = updates.get("question_type", q.question_type)
+    new_config = updates.get("config", q.config)
+    validate_scale_config(new_type, new_config)
+    for k, v in updates.items():
         setattr(q, k, v)
     await db.commit()
     await db.refresh(q)

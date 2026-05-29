@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.models.participant import ParticipantInteraction, SurveyResponse
 from app.models.survey import Survey
-from app.models.tracking import CalibrationSession
+from app.models.tracking import CalibrationPoint, CalibrationSession
 from app.routers.surveys import record_interaction
 from app.routers.tracking import (
     complete_calibration,
@@ -197,6 +197,131 @@ async def test_create_calibration_session_race_returns_conflict():
 
     assert exc_info.value.status_code == 409
     assert db.rolled_back is True
+
+
+class ExistingCalibrationDB:
+    """Mock DB where a prior CalibrationSession already exists for the response."""
+
+    def __init__(self, existing_session):
+        self.existing_session = existing_session
+        self.execute_count = 0
+        self.added = []
+        self.deleted = []
+        self.flushed = False
+
+    async def execute(self, _statement):
+        self.execute_count += 1
+        if self.execute_count == 1:
+            return ScalarOneResult(
+                SurveyResponse(
+                    id=10,
+                    survey_id=1,
+                    participant_token="participant-token",
+                    assigned_group=1,
+                    status="in_progress",
+                    started_at=NOW,
+                )
+            )
+        return ScalarOneResult(self.existing_session)
+
+    async def get(self, _model, _id):
+        return Survey(
+            id=1, researcher_id=1, title="Survey", share_code="code", calibration_points=9
+        )
+
+    def add(self, item):
+        self.added.append(item)
+
+    async def delete(self, item):
+        self.deleted.append(item)
+
+    async def flush(self):
+        self.flushed = True
+
+    async def refresh(self, item):
+        # Mimic DB-applied column defaults for the freshly created session.
+        item.id = 555
+        if item.status is None:
+            item.status = "in_progress"
+        if item.started_at is None:
+            item.started_at = NOW
+
+
+def _calibration_session(**overrides):
+    session = CalibrationSession(
+        id=42,
+        response_id=10,
+        status="completed",
+        screen_width=1440,
+        screen_height=900,
+        expected_points=9,
+        started_at=NOW,
+    )
+    for key, value in overrides.items():
+        setattr(session, key, value)
+    return session
+
+
+@pytest.mark.asyncio
+async def test_create_calibration_session_replaces_poor_calibration():
+    poor = _calibration_session(status="completed", quality="poor", passed=False)
+    point_one = CalibrationPoint(
+        id=1,
+        session_id=42,
+        point_index=1,
+        target_screen_x=0,
+        target_screen_y=0,
+        samples=[],
+        samples_count=0,
+    )
+    point_two = CalibrationPoint(
+        id=2,
+        session_id=42,
+        point_index=2,
+        target_screen_x=10,
+        target_screen_y=10,
+        samples=[],
+        samples_count=0,
+    )
+    poor.points = [point_one, point_two]
+    db = ExistingCalibrationDB(poor)
+
+    out = await create_calibration_session(
+        CreateCalibrationRequest(
+            response_id=10,
+            participant_token="participant-token",
+            screen_width=1440,
+            screen_height=900,
+        ),
+        db,
+    )
+
+    # Poor calibration and its points are dropped, a fresh session is created.
+    assert poor in db.deleted
+    assert point_one in db.deleted and point_two in db.deleted
+    assert db.flushed is True
+    assert out.status == "in_progress"
+
+
+@pytest.mark.asyncio
+async def test_create_calibration_session_blocks_valid_calibration():
+    valid = _calibration_session(status="completed", quality="good", passed=True)
+    valid.points = []
+    db = ExistingCalibrationDB(valid)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await create_calibration_session(
+            CreateCalibrationRequest(
+                response_id=10,
+                participant_token="participant-token",
+                screen_width=1440,
+                screen_height=900,
+            ),
+            db,
+        )
+
+    assert exc_info.value.status_code == 409
+    assert db.deleted == []
 
 
 @pytest.mark.asyncio

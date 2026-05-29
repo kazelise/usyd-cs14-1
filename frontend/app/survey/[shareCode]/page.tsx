@@ -617,10 +617,10 @@ export default function SurveyParticipantPage() {
         // tokens that don't match an in_progress response for this survey.
         const tokenStorageKey = isPreviewSession
           ? `pt:${shareCode}:preview:${previewScope}:${initialLocale}`
-          : `pt:${shareCode}`;
+          : `pt:${shareCode}:${initialLocale}`;
         const completionStorageKey = isPreviewSession
           ? `completed:${shareCode}:preview:${previewScope}:${initialLocale}`
-          : `completed:${shareCode}`;
+          : `completed:${shareCode}:${initialLocale}`;
         if (localStorage.getItem(completionStorageKey)) {
           setCompleted(true);
           return;
@@ -828,13 +828,13 @@ export default function SurveyParticipantPage() {
       localStorage.setItem(
         isPreviewSession
           ? `completed:${shareCode}:preview:${previewScope}:${initialLocale}`
-          : `completed:${shareCode}`,
+          : `completed:${shareCode}:${initialLocale}`,
         new Date().toISOString(),
       );
       localStorage.removeItem(
         isPreviewSession
           ? `pt:${shareCode}:preview:${previewScope}:${initialLocale}`
-          : `pt:${shareCode}`,
+          : `pt:${shareCode}:${initialLocale}`,
       );
       localStorage.removeItem(`answers:${session.response_id}:${session.participant_token}`);
       setCompleted(true);
@@ -997,10 +997,11 @@ export default function SurveyParticipantPage() {
                   aria-label={t(locale, "language")}
                   className="bg-transparent text-sm text-slate-500 outline-none disabled:cursor-default disabled:opacity-60"
                   value={locale}
-                  disabled
                   onChange={(e) => {
                     const next = e.target.value as Locale;
-                    setLocale(next);
+                    const params = new URLSearchParams(Array.from(search.entries()));
+                    params.set("lang", next);
+                    window.location.assign(`/survey/${shareCode}?${params.toString()}`);
                   }}
                 >
                   <option value="en">English</option>
@@ -1116,8 +1117,8 @@ export default function SurveyParticipantPage() {
                               <span>{q.config.max_label || "Strongly Agree"}</span>
                             </div>
                             <div className="flex gap-2">
-                              {Array.from({ length: (q.config.max || 5) - (q.config.min || 1) + 1 }, (_, i) => {
-                                const val = (q.config!.min || 1) + i;
+                              {Array.from({ length: (q.config.max ?? 5) - (q.config.min ?? 1) + 1 }, (_, i) => {
+                                const val = (q.config!.min ?? 1) + i;
                                 const selected = answer.value === val;
                                 return (
                                   <button
@@ -1165,7 +1166,7 @@ export default function SurveyParticipantPage() {
                             })}
                           </div>
                         )}
-                        {!answered && (answer.text || answer.value || (answer.choices && answer.choices.length > 0)) && (
+                        {!answered && (answer.text || (answer.value !== undefined && answer.value !== null) || (answer.choices && answer.choices.length > 0)) && (
                           <button
                             className="primary-button mt-3 px-4 py-2 text-xs"
                             onClick={async () => {
@@ -1418,8 +1419,8 @@ export default function SurveyParticipantPage() {
                                       <span>{q.config.max_label || "Strongly Agree"}</span>
                                     </div>
                                     <div className="flex gap-2">
-                                      {Array.from({ length: (q.config.max || 5) - (q.config.min || 1) + 1 }, (_, i) => {
-                                        const val = (q.config!.min || 1) + i;
+                                      {Array.from({ length: (q.config.max ?? 5) - (q.config.min ?? 1) + 1 }, (_, i) => {
+                                        const val = (q.config!.min ?? 1) + i;
                                         const selected = answer.value === val;
                                         return (
                                           <button
@@ -1484,7 +1485,7 @@ export default function SurveyParticipantPage() {
                                   </div>
                                 )}
 
-                                {!answered && (answer.text || answer.value || (answer.choices && answer.choices.length > 0)) && (
+                                {!answered && (answer.text || (answer.value !== undefined && answer.value !== null) || (answer.choices && answer.choices.length > 0)) && (
                                   <button
                                     className="primary-button mt-3 px-4 py-2 text-xs"
                                     onClick={async () => {

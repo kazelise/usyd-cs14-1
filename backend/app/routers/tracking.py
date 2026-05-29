@@ -88,10 +88,27 @@ async def create_calibration_session(
     response = await get_active_response_or_404(body.response_id, body.participant_token, db)
 
     existing = await db.execute(
-        select(CalibrationSession).where(CalibrationSession.response_id == body.response_id)
+        select(CalibrationSession)
+        .options(selectinload(CalibrationSession.points))
+        .where(CalibrationSession.response_id == body.response_id)
     )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Calibration session already exists")
+    existing_session = existing.scalar_one_or_none()
+    if existing_session is not None:
+        # A "poor"/failed/in-progress calibration is NOT valid and must be
+        # retryable. Only block (409) when the existing session is a genuine
+        # passing calibration. Otherwise drop it (cascading its points) so a
+        # fresh session can be created cleanly.
+        is_valid_calibration = (
+            existing_session.status == "completed"
+            and existing_session.quality != "poor"
+            and existing_session.passed is not False
+        )
+        if is_valid_calibration:
+            raise HTTPException(status_code=409, detail="Calibration session already exists")
+        for point in existing_session.points:
+            await db.delete(point)
+        await db.delete(existing_session)
+        await db.flush()
 
     survey = await db.get(Survey, response.survey_id)
     expected_points = survey.calibration_points if survey else 9

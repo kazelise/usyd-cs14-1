@@ -701,40 +701,46 @@ export function CalibrationExperience({
                     )}
                     {step === "results" && result && (
                       <div className="space-y-3">
-                        {result.quality.overall_quality === "poor" && (
-                          <button
-                            onClick={async () => {
-                              setResult(null);
-                              setSessionId(null);
-                              setPointsCompleted(0);
-                              setActivePointIndex(0);
-                              setCalibrating(false);
-                              setStep("detection");
-                              setDetectionStable(false);
-                              detectionHistoryRef.current = [];
-                              // Camera is already stopped, restart it
-                              if (streamRef.current) {
-                                if (videoRef.current) {
-                                  videoRef.current.srcObject = streamRef.current;
-                                  await videoRef.current.play();
+                        {result.quality.overall_quality === "poor" ? (
+                          <>
+                            <p className="text-sm text-[var(--app-muted-strong)]">
+                              Calibration quality was too low to continue. Please redo the calibration before starting the survey.
+                            </p>
+                            <button
+                              onClick={async () => {
+                                setResult(null);
+                                setSessionId(null);
+                                setPointsCompleted(0);
+                                setActivePointIndex(0);
+                                setCalibrating(false);
+                                setStep("detection");
+                                setDetectionStable(false);
+                                detectionHistoryRef.current = [];
+                                // Camera is already stopped, restart it
+                                if (streamRef.current) {
+                                  if (videoRef.current) {
+                                    videoRef.current.srcObject = streamRef.current;
+                                    await videoRef.current.play();
+                                  }
+                                  setPermissionState("granted");
+                                  startMediaPipeLoop();
+                                } else {
+                                  await requestCameraAccess();
                                 }
-                                setPermissionState("granted");
-                                startMediaPipeLoop();
-                              } else {
-                                await requestCameraAccess();
-                              }
-                            }}
-                            className="secondary-button w-full px-5 py-3"
+                              }}
+                              className="secondary-button w-full px-5 py-3"
+                            >
+                              Retry Calibration
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => onComplete(result)}
+                            className="primary-button w-full px-5 py-3"
                           >
-                            Retry Calibration
+                            Continue to Survey
                           </button>
                         )}
-                        <button
-                          onClick={() => onComplete(result)}
-                          className="primary-button w-full px-5 py-3"
-                        >
-                          Continue to Survey
-                        </button>
                       </div>
                     )}
                   </div>
