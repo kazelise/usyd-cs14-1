@@ -13,6 +13,23 @@ export function isLocale(value: string | null): value is Locale {
   return supportedLocales.includes(value as Locale);
 }
 
+// Legacy locale codes that were dropped or split in #60. Mapped to canonical
+// values so a saved/shared ?lang=zh or ?lang=ar URL still produces sensible
+// behaviour instead of silently falling back to default English. Mirror this
+// map in the bootstrap script in app/layout.tsx.
+const LEGACY_LOCALE_ALIASES: Record<string, Locale> = {
+  zh: "zh-CN",
+  "zh-cn": "zh-CN",
+  "zh-tw": "zh-TW",
+  ar: "en", // Arabic dropped — fall back to English rather than ignoring.
+};
+
+export function canonicalizeLocale(value: string | null | undefined): Locale | null {
+  if (!value) return null;
+  if (isLocale(value)) return value;
+  return LEGACY_LOCALE_ALIASES[value] ?? LEGACY_LOCALE_ALIASES[value.toLowerCase()] ?? null;
+}
+
 export function isRtl(locale: Locale): boolean {
   return rtlLocales.includes(locale);
 }

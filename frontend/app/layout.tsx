@@ -33,8 +33,12 @@ const localeBootstrapScript = `(function () {
     var key = path.indexOf('/admin') === 0 ? 'admin_locale'
             : path.indexOf('/survey/') === 0 ? 'participant_locale'
             : 'locale';
-    var q = new URLSearchParams(window.location.search).get('lang');
-    var l = isSupported(q) ? q : window.localStorage.getItem(key);
+    // Migrate the query value BEFORE the isSupported check so legacy links
+    // like ?lang=zh resolve to zh-CN instead of getting silently dropped
+    // back to localStorage / default English.
+    var rawQ = new URLSearchParams(window.location.search).get('lang');
+    var migratedQ = migrateLegacy(rawQ);
+    var l = isSupported(migratedQ) ? migratedQ : window.localStorage.getItem(key);
     if (!l && key !== 'locale') {
       // Back-compat: migrate from the legacy shared key on first load.
       l = window.localStorage.getItem('locale');

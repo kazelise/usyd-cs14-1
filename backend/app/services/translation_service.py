@@ -109,7 +109,10 @@ def build_translation_export_payload(survey: Survey, language_code: str = "zh") 
         "survey_id": survey.id,
         "default_language": DEFAULT_LANGUAGE_CODE,
         "language_code": language_code,
-        "supported_languages": sorted(SUPPORTED_LANGUAGE_CODES),
+        # Expose CANONICAL codes only — SUPPORTED_LANGUAGE_CODES also contains
+        # lenient input aliases (legacy 'zh' / 'ar' / lowercase variants) that
+        # callers should not treat as a real locale catalog (#60).
+        "supported_languages": list(CANONICAL_LANGUAGE_CODES),
         "items": items,
     }
 

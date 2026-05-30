@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useLocale } from "@/components/locale-provider";
-import { isLocale, t, type Locale } from "@/lib/i18n";
+import { canonicalizeLocale, t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, LinkIcon, SurveyIcon, UsersIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
 import { ExternalPostImage } from "@/components/external-post-image";
@@ -509,7 +509,9 @@ export default function SurveyParticipantPage() {
   // Use "en" fallback, not the live locale context: locale-provider hydrates
   // from localStorage via useEffect, so using `locale` here would make
   // initialLocale change post-mount and re-trigger the session init effect.
-  const initialLocale: Locale = isLocale(requestedLocale) ? requestedLocale : "en";
+  // Migrate legacy values (zh -> zh-CN, ar -> en) before falling back so
+  // shared/older ?lang= URLs still produce a sensible session locale (#60).
+  const initialLocale: Locale = canonicalizeLocale(requestedLocale) ?? "en";
 
   const [session, setSession] = useState<SurveySession | null>(null);
   const [loading, setLoading] = useState(true);
