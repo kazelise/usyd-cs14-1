@@ -245,8 +245,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
+  // At lg+ the admin shell is a viewport-locked "tweet-style" layout
+  // (sticky sidebar + internally-scrolling main). It needs `lg:fixed
+  // lg:inset-0` because `lg:overflow-hidden` alone doesn't stop the browser
+  // from counting overflowed grandchildren in documentElement.scrollHeight
+  // — that left the page scrollable into a huge blank gray area below the
+  // locked viewport (user-reported as "右边的一直往下滑就会到空白"). Fixed
+  // positioning takes this wrapper out of the document flow so body height
+  // stays at min-h-screen and there's nothing extra to scroll. Below lg,
+  // normal flow with min-h-screen.
   return (
-    <div className="min-h-screen lg:h-screen lg:overflow-hidden">
+    <div className="min-h-screen lg:fixed lg:inset-0 lg:h-screen lg:overflow-hidden lg:bg-gray-50">
       <header className="relative z-[220] border-b border-slate-200 bg-[rgba(255,255,255,0.92)] backdrop-blur">
         <div className="mx-auto flex min-h-[68px] min-w-0 max-w-[1560px] flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 md:px-5 lg:flex-nowrap lg:gap-x-7 lg:py-0">
           <Link
