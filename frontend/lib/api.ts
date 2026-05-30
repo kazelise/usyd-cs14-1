@@ -187,6 +187,7 @@ export const api = {
       participant_token?: string;
       is_preview?: boolean;
       preview_assigned_group?: number;
+      calibration_carry_token?: string;
     },
   ) => request(`/surveys/${shareCode}/start`, { method: "POST", body: JSON.stringify(data || {}) }),
   getPublicSurvey: (shareCode: string, language?: string) =>

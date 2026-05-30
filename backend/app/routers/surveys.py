@@ -1024,6 +1024,48 @@ async def start_survey(
         db.add(response)
         await db.flush()
         await db.refresh(response)
+
+        # Calibration carry (#56): if the client supplied a token from a
+        # PRIOR response on this survey that already passed calibration,
+        # clone that CalibrationSession onto this fresh response so the
+        # participant isn't asked to recalibrate after switching language.
+        # Preserves the per-locale response separation introduced in #59
+        # (each locale still gets its own analytics row).
+        if body and body.calibration_carry_token:
+            src_q = await db.execute(
+                select(CalibrationSession)
+                .join(SurveyResponse, CalibrationSession.response_id == SurveyResponse.id)
+                .where(
+                    SurveyResponse.survey_id == survey.id,
+                    SurveyResponse.participant_token == body.calibration_carry_token,
+                    CalibrationSession.status == "completed",
+                )
+            )
+            src_cal = src_q.scalar_one_or_none()
+            if src_cal and src_cal.quality != "poor" and src_cal.passed is not False:
+                cloned = CalibrationSession(
+                    response_id=response.id,
+                    status="completed",
+                    screen_width=src_cal.screen_width,
+                    screen_height=src_cal.screen_height,
+                    camera_width=src_cal.camera_width,
+                    camera_height=src_cal.camera_height,
+                    expected_points=src_cal.expected_points,
+                    face_detection_rate=src_cal.face_detection_rate,
+                    quality_score=src_cal.quality_score,
+                    passed=src_cal.passed,
+                    stability_score=src_cal.stability_score,
+                    quality_reason=src_cal.quality_reason,
+                    model_type=src_cal.model_type,
+                    model_params=src_cal.model_params,
+                    validation_error_px=src_cal.validation_error_px,
+                    quality=src_cal.quality,
+                    started_at=src_cal.started_at,
+                    completed_at=src_cal.completed_at,
+                )
+                db.add(cloned)
+                await db.flush()
+                calibration_completed = True
     else:
         assigned_group = response.assigned_group
         language_code = response.language

@@ -628,6 +628,15 @@ export default function SurveyParticipantPage() {
           return;
         }
         const cachedToken = localStorage.getItem(tokenStorageKey) || undefined;
+        // Calibration carry (#56): when starting a fresh locale-scoped
+        // response (no resume token for this locale, not a preview), pass the
+        // token of any prior passing calibration on this survey so the
+        // backend can clone it onto the new response — avoids forcing the
+        // participant to recalibrate every time they switch language.
+        const calibrationCarryToken =
+          !cachedToken && !isPreviewSession
+            ? localStorage.getItem(`cal:${shareCode}`) || undefined
+            : undefined;
         const result = await api.startSurvey(shareCode, {
           language: initialLocale,
           screen_width: window.innerWidth,
@@ -637,6 +646,7 @@ export default function SurveyParticipantPage() {
           is_preview: isPreviewSession,
           preview_assigned_group:
             isPreviewSession && Number.isFinite(previewAssignedGroup) ? previewAssignedGroup as number : undefined,
+          calibration_carry_token: calibrationCarryToken,
         });
         setSession(result);
         setClickedPosts(new Set());
@@ -906,7 +916,20 @@ export default function SurveyParticipantPage() {
         responseId={session.response_id}
         participantToken={session.participant_token}
         expectedPoints={session.calibration_points}
-        onComplete={(_result) => setCalibrationDone(true)}
+        onComplete={(_result) => {
+          setCalibrationDone(true);
+          // Remember this calibration so subsequent locale-scoped sessions
+          // for this same survey can clone it instead of re-prompting (#56).
+          // Only persist for real participants; preview sessions are
+          // researcher dry-runs and shouldn't leak into participant state.
+          if (!isPreviewSession && session?.participant_token) {
+            try {
+              localStorage.setItem(`cal:${shareCode}`, session.participant_token);
+            } catch {
+              // localStorage unavailable (private mode etc.) — silent skip.
+            }
+          }
+        }}
       />
     );
   }
