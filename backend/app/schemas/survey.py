@@ -21,10 +21,13 @@ class CreateSurveyRequest(BaseModel):
     num_groups: int = 1
     group_names: dict | None = None  # {"1": "with_likes", "2": "no_likes"}
     gaze_tracking_enabled: bool = True
-    gaze_interval_ms: int = 1000
+    gaze_interval_ms: int = Field(default=1000, ge=100, le=10000)
     click_tracking_enabled: bool = True
     calibration_enabled: bool = True
-    calibration_points: int = 9
+    # Capped at 25 to match the calibration-point recording schema (point_index
+    # le=25); a higher value would make calibration impossible to ever pass and
+    # permanently block survey completion.
+    calibration_points: int = Field(default=9, ge=1, le=25)
     platform_ui_style: PlatformUiStyle = "twitter"
     default_language: str = "en"
     supported_languages: list[str] = Field(
@@ -39,10 +42,10 @@ class UpdateSurveyRequest(BaseModel):
     num_groups: int | None = None
     group_names: dict | None = None
     gaze_tracking_enabled: bool | None = None
-    gaze_interval_ms: int | None = None
+    gaze_interval_ms: int | None = Field(default=None, ge=100, le=10000)
     click_tracking_enabled: bool | None = None
     calibration_enabled: bool | None = None
-    calibration_points: int | None = None
+    calibration_points: int | None = Field(default=None, ge=1, le=25)
     platform_ui_style: PlatformUiStyle | None = None
     default_language: str | None = None
     supported_languages: list[str] | None = None

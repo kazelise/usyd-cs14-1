@@ -6,6 +6,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 from app.models.participant import ParticipantLike, SurveyResponse
 from app.models.researcher import Researcher
@@ -352,6 +353,109 @@ async def test_og_fetcher_rejects_private_targets_before_request(monkeypatch):
 
     assert metadata.source == "127.0.0.1"
     assert metadata.title is None
+
+
+class IntegrityErrorOnInsertDB(SequenceDB):
+    """SequenceDB whose flush raises IntegrityError once, simulating a lost
+    unique-constraint race between two concurrent inserts."""
+
+    def __init__(self, results):
+        super().__init__(results)
+        self.rolled_back = False
+
+    async def flush(self):
+        self.flushed = True
+        raise IntegrityError("INSERT", {}, Exception("duplicate key"))
+
+    async def rollback(self):
+        self.rolled_back = True
+
+
+@pytest.mark.asyncio
+async def test_toggle_like_treats_concurrent_insert_race_as_already_liked():
+    """Two concurrent like taps both see no existing row; the second insert
+    violates the (response_id, post_id) unique constraint. The endpoint should
+    return liked=True rather than surfacing an unhandled 500."""
+    db = IntegrityErrorOnInsertDB(
+        [
+            ScalarOneResult(_make_in_progress_response("token")),  # response lookup
+            ScalarOneResult(40),  # ensure_post_belongs_to_survey
+            ScalarOneResult(None),  # no existing like → take the insert branch
+        ]
+    )
+
+    result = await toggle_like(30, ToggleLikeRequest(post_id=40, participant_token="token"), db)
+
+    assert result == {"liked": True}
+    assert db.rolled_back is True
+
+
+class _async_ctx:
+    """Minimal async context manager wrapping a fake httpx client."""
+
+    def __init__(self, client):
+        self._client = client
+
+    async def __aenter__(self):
+        return self._client
+
+    async def __aexit__(self, *_exc):
+        return False
+
+
+@pytest.mark.asyncio
+async def test_og_fetcher_rejects_non_http_image_scheme(monkeypatch):
+    """A page advertising a javascript:/data: og:image must not have that value
+    stored as the post image; relative paths are resolved against the page URL."""
+
+    async def fake_is_fetchable(_url: str) -> bool:
+        return True
+
+    html = (
+        "<html><head>"
+        '<meta property="og:title" content="Story">'
+        '<meta property="og:image" content="javascript:alert(1)">'
+        "</head><body></body></html>"
+    )
+
+    class HtmlClient:
+        async def get(self, url, **_kwargs):
+            return httpx.Response(200, text=html, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr("app.services.og_fetcher._is_fetchable_url", fake_is_fetchable)
+    monkeypatch.setattr(
+        "app.services.og_fetcher.httpx.AsyncClient",
+        lambda *a, **k: _async_ctx(HtmlClient()),
+    )
+
+    metadata = await fetch_og_metadata("https://example.com/story")
+
+    assert metadata.title == "Story"
+    assert metadata.image_url is None  # javascript: scheme rejected
+
+
+@pytest.mark.asyncio
+async def test_og_fetcher_resolves_relative_image_against_page_url(monkeypatch):
+    async def fake_is_fetchable(_url: str) -> bool:
+        return True
+
+    html = (
+        '<html><head><meta property="og:image" content="/img/card.jpg"></head><body></body></html>'
+    )
+
+    class HtmlClient:
+        async def get(self, url, **_kwargs):
+            return httpx.Response(200, text=html, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr("app.services.og_fetcher._is_fetchable_url", fake_is_fetchable)
+    monkeypatch.setattr(
+        "app.services.og_fetcher.httpx.AsyncClient",
+        lambda *a, **k: _async_ctx(HtmlClient()),
+    )
+
+    metadata = await fetch_og_metadata("https://example.com/news/story")
+
+    assert metadata.image_url == "https://example.com/img/card.jpg"
 
 
 @pytest.mark.asyncio

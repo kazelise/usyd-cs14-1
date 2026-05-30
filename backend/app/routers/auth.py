@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import create_access_token, get_current_researcher, hash_password, verify_password
@@ -29,7 +30,13 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         email=body.email, password_hash=hash_password(body.password), name=body.name
     )
     db.add(researcher)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        # Concurrent registration with the same email loses the unique-constraint
+        # race; surface the same 409 as the check-then-insert path above.
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Email already registered") from exc
     await db.refresh(researcher)
     return researcher
 

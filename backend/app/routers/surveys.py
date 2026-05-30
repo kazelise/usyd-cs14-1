@@ -21,6 +21,7 @@ from jose import JWTError
 from jose import jwt as jose_jwt
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -1025,7 +1026,14 @@ async def toggle_like(
                 action_type="like",
             )
         )
-        await db.flush()
+        try:
+            await db.flush()
+        except IntegrityError:
+            # Two concurrent like taps (double-click / retried request) both saw
+            # no existing row; the unique (response_id, post_id) constraint rejects
+            # the second insert. Treat it as already-liked rather than a 500.
+            await db.rollback()
+            return {"liked": True}
         return {"liked": True}
 
 

@@ -135,7 +135,13 @@ async def fetch_og_metadata(url: str, timeout: float = 10.0) -> OGMetadata:
 
     og_image = soup.find("meta", property="og:image")
     if og_image and og_image.get("content"):
-        metadata.image_url = og_image["content"]
+        # Resolve relative URLs against the final (post-redirect) page URL and
+        # only keep http(s) images. A raw og:image can be a relative path
+        # (broken when rendered) or a javascript:/data: URL that would be
+        # rendered as a post image to participants.
+        resolved = urljoin(str(resp.url), og_image["content"].strip())
+        if urlparse(resolved).scheme in ("http", "https"):
+            metadata.image_url = resolved
 
     og_desc = soup.find("meta", property="og:description")
     if og_desc and og_desc.get("content"):
