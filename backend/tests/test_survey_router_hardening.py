@@ -390,6 +390,76 @@ async def test_toggle_like_treats_concurrent_insert_race_as_already_liked():
     assert db.rolled_back is True
 
 
+class _async_ctx:
+    """Minimal async context manager wrapping a fake httpx client."""
+
+    def __init__(self, client):
+        self._client = client
+
+    async def __aenter__(self):
+        return self._client
+
+    async def __aexit__(self, *_exc):
+        return False
+
+
+@pytest.mark.asyncio
+async def test_og_fetcher_rejects_non_http_image_scheme(monkeypatch):
+    """A page advertising a javascript:/data: og:image must not have that value
+    stored as the post image; relative paths are resolved against the page URL."""
+
+    async def fake_is_fetchable(_url: str) -> bool:
+        return True
+
+    html = (
+        '<html><head>'
+        '<meta property="og:title" content="Story">'
+        '<meta property="og:image" content="javascript:alert(1)">'
+        '</head><body></body></html>'
+    )
+
+    class HtmlClient:
+        async def get(self, url, **_kwargs):
+            return httpx.Response(200, text=html, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr("app.services.og_fetcher._is_fetchable_url", fake_is_fetchable)
+    monkeypatch.setattr(
+        "app.services.og_fetcher.httpx.AsyncClient",
+        lambda *a, **k: _async_ctx(HtmlClient()),
+    )
+
+    metadata = await fetch_og_metadata("https://example.com/story")
+
+    assert metadata.title == "Story"
+    assert metadata.image_url is None  # javascript: scheme rejected
+
+
+@pytest.mark.asyncio
+async def test_og_fetcher_resolves_relative_image_against_page_url(monkeypatch):
+    async def fake_is_fetchable(_url: str) -> bool:
+        return True
+
+    html = (
+        '<html><head>'
+        '<meta property="og:image" content="/img/card.jpg">'
+        '</head><body></body></html>'
+    )
+
+    class HtmlClient:
+        async def get(self, url, **_kwargs):
+            return httpx.Response(200, text=html, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr("app.services.og_fetcher._is_fetchable_url", fake_is_fetchable)
+    monkeypatch.setattr(
+        "app.services.og_fetcher.httpx.AsyncClient",
+        lambda *a, **k: _async_ctx(HtmlClient()),
+    )
+
+    metadata = await fetch_og_metadata("https://example.com/news/story")
+
+    assert metadata.image_url == "https://example.com/img/card.jpg"
+
+
 @pytest.mark.asyncio
 async def test_og_fetcher_validates_redirect_targets(monkeypatch):
     calls = []
