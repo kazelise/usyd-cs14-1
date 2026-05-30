@@ -202,6 +202,12 @@ export default function SurveyEditPage() {
       ? {
           deleteConfirm: "确定删除这条帖子吗？",
           publishConfirm: "确定发布这份问卷吗？发布后参与者将可以访问。",
+          closeSurvey: "关闭问卷",
+          reopenSurvey: "重新开放",
+          closeConfirm: "关闭这份问卷？关闭后将不再接受新的参与者；已有的回答和导出数据不受影响。",
+          reopenConfirm: "重新开放这份问卷，让它再次接受参与者吗？",
+          closeFailed: "关闭问卷失败",
+          reopenFailed: "重新开放问卷失败",
           loading: "正在加载问卷",
           workspace: "问卷工作台",
           subtitle: "在把实验分享给参与者之前，先配置帖子、分组可见性和互动基线数值。",
@@ -297,6 +303,12 @@ export default function SurveyEditPage() {
       : {
           deleteConfirm: "Delete this post?",
           publishConfirm: "Publish this survey? Participants will be able to access it.",
+          closeSurvey: "Close survey",
+          reopenSurvey: "Reopen survey",
+          closeConfirm: "Close this survey? New participants will be blocked; past responses and exports are preserved.",
+          reopenConfirm: "Reopen this survey so it accepts participants again?",
+          closeFailed: "Failed to close survey",
+          reopenFailed: "Failed to reopen survey",
           loading: "Loading survey",
           workspace: "Survey Workspace",
           subtitle: "Configure the posts, group visibility, and engagement baselines before sharing the study with participants.",
@@ -677,6 +689,26 @@ export default function SurveyEditPage() {
     await loadData();
   }
 
+  async function closeSurvey() {
+    if (!confirm(text.closeConfirm)) return;
+    try {
+      await api.closeSurvey(surveyId);
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || text.closeFailed);
+    }
+  }
+
+  async function reopenSurvey() {
+    if (!confirm(text.reopenConfirm)) return;
+    try {
+      await api.reopenSurvey(surveyId);
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || text.reopenFailed);
+    }
+  }
+
   async function saveDraft() {
     if (!survey) return;
     await api.updateSurvey(surveyId, {
@@ -869,11 +901,22 @@ export default function SurveyEditPage() {
               {text.publishSurvey}
             </button>
           )}
-          {survey.status === "draft" ? (
+          {survey.status === "draft" && (
             <button onClick={saveDraft} className="secondary-button">
               {text.saveDraft}
             </button>
-          ) : (
+          )}
+          {survey.status === "published" && (
+            <button onClick={closeSurvey} className="secondary-button">
+              {text.closeSurvey}
+            </button>
+          )}
+          {survey.status === "closed" && (
+            <button onClick={reopenSurvey} className="secondary-button">
+              {text.reopenSurvey}
+            </button>
+          )}
+          {survey.status !== "draft" && (
             <span className={statusClasses(survey.status)}>{survey.status}</span>
           )}
         </div>

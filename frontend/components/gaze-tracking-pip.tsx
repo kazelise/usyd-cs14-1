@@ -168,6 +168,17 @@ export function GazeTrackingPip({ snapshot, locale, videoRef }: GazeTrackingPipP
                 muted
                 playsInline
               />
+              {snapshot.status === "starting" && (
+                // Cold-start window after a refresh: MediaPipe scripts reload
+                // from CDN and the Camera wrapper hasn't bound a stream yet, so
+                // the <video> is a black box. Without an explicit message,
+                // participants read "my face is lost" (issue #55). The overlay
+                // disappears the moment Camera.start() resolves and frames flow.
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 px-2 text-center text-[10px] font-semibold leading-tight text-white">
+                  <span className="inline-flex h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white/90" aria-hidden />
+                  <span>{t(locale, "trackingStatusStarting")}</span>
+                </div>
+              )}
               {snapshot.status === "lost" && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 px-2 text-center text-[10px] font-semibold leading-tight text-white">
                   {t(locale, "trackingStatusLost")}

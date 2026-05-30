@@ -517,6 +517,56 @@ async def publish_survey(
     return survey
 
 
+@router.post("/{survey_id}/close", response_model=SurveyOut)
+async def close_survey(
+    survey_id: int,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Close a published survey, blocking new participant sessions.
+
+    Past responses and exports are preserved. In-flight participant sessions
+    that already hold a valid participant_token continue to work (the resume
+    branch in start_survey does not re-check status) — this is intentional so
+    researchers don't kick out live participants when retiring a study.
+    """
+    result = await db.execute(
+        select(Survey).where(Survey.id == survey_id, Survey.researcher_id == researcher.id)
+    )
+    survey = result.scalar_one_or_none()
+    if not survey:
+        raise HTTPException(status_code=404, detail="Survey not found")
+    if survey.status != "published":
+        raise HTTPException(status_code=409, detail="Only published surveys can be closed")
+    survey.status = "closed"
+    survey.updated_at = datetime.utcnow()
+    await db.flush()
+    await db.refresh(survey)
+    return survey
+
+
+@router.post("/{survey_id}/reopen", response_model=SurveyOut)
+async def reopen_survey(
+    survey_id: int,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reopen a previously closed survey so it accepts new participants again."""
+    result = await db.execute(
+        select(Survey).where(Survey.id == survey_id, Survey.researcher_id == researcher.id)
+    )
+    survey = result.scalar_one_or_none()
+    if not survey:
+        raise HTTPException(status_code=404, detail="Survey not found")
+    if survey.status != "closed":
+        raise HTTPException(status_code=409, detail="Only closed surveys can be reopened")
+    survey.status = "published"
+    survey.updated_at = datetime.utcnow()
+    await db.flush()
+    await db.refresh(survey)
+    return survey
+
+
 @router.get("/{survey_id}/export")
 async def export_survey_data(
     survey_id: int,
