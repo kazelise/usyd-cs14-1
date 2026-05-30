@@ -6,6 +6,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 from app.models.participant import ParticipantLike, SurveyResponse
 from app.models.researcher import Researcher
@@ -352,6 +353,41 @@ async def test_og_fetcher_rejects_private_targets_before_request(monkeypatch):
 
     assert metadata.source == "127.0.0.1"
     assert metadata.title is None
+
+
+class IntegrityErrorOnInsertDB(SequenceDB):
+    """SequenceDB whose flush raises IntegrityError once, simulating a lost
+    unique-constraint race between two concurrent inserts."""
+
+    def __init__(self, results):
+        super().__init__(results)
+        self.rolled_back = False
+
+    async def flush(self):
+        self.flushed = True
+        raise IntegrityError("INSERT", {}, Exception("duplicate key"))
+
+    async def rollback(self):
+        self.rolled_back = True
+
+
+@pytest.mark.asyncio
+async def test_toggle_like_treats_concurrent_insert_race_as_already_liked():
+    """Two concurrent like taps both see no existing row; the second insert
+    violates the (response_id, post_id) unique constraint. The endpoint should
+    return liked=True rather than surfacing an unhandled 500."""
+    db = IntegrityErrorOnInsertDB(
+        [
+            ScalarOneResult(_make_in_progress_response("token")),  # response lookup
+            ScalarOneResult(40),  # ensure_post_belongs_to_survey
+            ScalarOneResult(None),  # no existing like → take the insert branch
+        ]
+    )
+
+    result = await toggle_like(30, ToggleLikeRequest(post_id=40, participant_token="token"), db)
+
+    assert result == {"liked": True}
+    assert db.rolled_back is True
 
 
 @pytest.mark.asyncio
