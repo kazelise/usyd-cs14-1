@@ -103,12 +103,12 @@ export default function TestSessionLauncher() {
               onClick={() => router.back()}
               className="secondary-button mt-6 px-4 py-2 text-xs"
             >
-              {locale === "zh" ? "返回" : "Back"}
+              {(locale === "zh-CN" || locale === "zh-TW") ? "返回" : "Back"}
             </button>
           </>
         ) : (
           <p className="text-sm uppercase tracking-[0.18em] text-slate-400">
-            {locale === "zh" ? "正在启动测试会话…" : "Launching test session…"}
+            {(locale === "zh-CN" || locale === "zh-TW") ? "正在启动测试会话…" : "Launching test session…"}
           </p>
         )}
       </div>

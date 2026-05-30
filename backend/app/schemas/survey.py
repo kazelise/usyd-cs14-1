@@ -11,7 +11,7 @@ PlatformStyle = Literal["x", "facebook", "instagram", "xiaohongshu"]
 PlatformUiStyle = Literal[
     "twitter", "facebook", "instagram", "xiaohongshu", "truth_social", "bluesky", "douyin"
 ]
-DEFAULT_SUPPORTED_LANGUAGES = ["en", "ar", "zh"]
+DEFAULT_SUPPORTED_LANGUAGES = ["en", "zh-CN", "zh-TW", "ja", "ko", "es"]
 MAX_CALIBRATION_POINTS = 9
 
 

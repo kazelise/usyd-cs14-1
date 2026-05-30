@@ -422,7 +422,7 @@ async def create_survey_shell(
         platform_style=platform_style,
         platform_ui_style=platform_ui_style,
         default_language="en",
-        supported_languages=["en", "zh", "ar"],
+        supported_languages=["en", "zh-CN", "zh-TW", "ja", "ko", "es"],
         num_groups=2,
         group_names={"1": "Control", "2": "High engagement cues"},
         gaze_tracking_enabled=tracking_enabled,
@@ -510,7 +510,7 @@ async def add_demo_content(
             PostTranslation(
                 survey_id=survey.id,
                 post_id=post.id,
-                language_code="zh",
+                language_code="zh-CN",
                 translated_fields={
                     "display_title": zh["display_title"],
                     "display_description": zh["display_description"],
@@ -523,7 +523,7 @@ async def add_demo_content(
             QuestionTranslation(
                 survey_id=survey.id,
                 question_id=question.id,
-                language_code="zh",
+                language_code="zh-CN",
                 translated_fields={
                     "text": zh["question_text"],
                     "config": {"min_label": "不太可信", "max_label": "非常可信"},
@@ -534,7 +534,7 @@ async def add_demo_content(
     session.add(
         SurveyTranslation(
             survey_id=survey.id,
-            language_code="zh",
+            language_code="zh-CN",
             translated_fields={
                 "title": "CS14 Client Demo - 社交媒体可信度研究",
                 "description": (
@@ -553,7 +553,7 @@ async def seed_responses(session, survey: Survey, questions: list[Question]) -> 
 
     for index in range(12):
         group = 1 if index % 2 == 0 else 2
-        language = "zh" if index in {2, 7} else "en"
+        language = "zh-CN" if index in {2, 7} else "en"
         expected = 48 + index * 3
         detected = expected - (index % 5) * 4
         missing_ms = max(0, (expected - detected) * 950)

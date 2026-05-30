@@ -23,8 +23,11 @@ const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
 
 const LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
-  { value: "ar", label: "العربية" },
-  { value: "zh", label: "中文" },
+  { value: "zh-CN", label: "简体中文" },
+  { value: "zh-TW", label: "繁體中文" },
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" },
+  { value: "es", label: "Español" },
 ];
 
 function platformUiStyleToFeedStyle(style: PlatformUiStyle): PlatformStyle {
@@ -40,14 +43,14 @@ export default function NewSurveyPage() {
   const [platformStyle, setPlatformStyle] = useState<PlatformStyle>("x");
   const [platformUiStyle, setPlatformUiStyle] = useState<PlatformUiStyle>("twitter");
   const [defaultLanguage, setDefaultLanguage] = useState("en");
-  const [supportedLanguages, setSupportedLanguages] = useState<string[]>(["en", "ar", "zh"]);
+  const [supportedLanguages, setSupportedLanguages] = useState<string[]>(["en"]);
   const [numGroups, setNumGroups] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showCalibrationPreview, setShowCalibrationPreview] = useState(false);
   const [mounted, setMounted] = useState(false);
   const text =
-    locale === "zh"
+    (locale === "zh-CN" || locale === "zh-TW")
       ? {
           closePreview: "关闭预览",
           createSurvey: "新建问卷",
@@ -268,7 +271,7 @@ export default function NewSurveyPage() {
                   <div className="mt-2 flex flex-wrap gap-2">
                     {LANGUAGE_OPTIONS.map((option) => {
                       const checked = supportedLanguages.includes(option.value);
-                      const locked = option.value === defaultLanguage || option.value === "en" || option.value === "ar";
+                      const locked = option.value === defaultLanguage || option.value === "en";
                       return (
                         <label
                           key={option.value}

@@ -270,7 +270,7 @@ export default function AnalyticsPage() {
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
   const text = useMemo(
     () =>
-      locale === "zh"
+      (locale === "zh-CN" || locale === "zh-TW")
         ? {
           failed: "加载分析失败",
           failedSummary: "加载分析摘要失败",
@@ -437,7 +437,7 @@ export default function AnalyticsPage() {
   );
   const analyticsText = useMemo(
     () =>
-      locale === "zh"
+      (locale === "zh-CN" || locale === "zh-TW")
         ? {
             total: "总计",
             rank: (rank: number) => `第 ${rank} 位`,
@@ -992,9 +992,12 @@ export default function AnalyticsPage() {
               >
                 <option value="">{text.allLanguages}</option>
                 <option value="en">English</option>
-                <option value="zh">中文</option>
-                <option value="ar">العربية</option>
-              </select>
+                <option value="zh-CN">简体中文</option>
+              <option value="zh-TW">繁體中文</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+              <option value="es">Español</option>
+                              </select>
               <label htmlFor="analytics-filter-status" className="sr-only">
                 {text.filterStatusLabel}
               </label>

@@ -17,25 +17,34 @@ export const metadata: Metadata = {
 // Picks the same admin/participant/default storage key that LocaleProvider
 // computes, so first paint reflects the right locale even before React
 // hydrates. Keep the key logic mirrored across both places.
+// Locales kept in sync with frontend/lib/i18n.ts supportedLocales.
+// Legacy values (zh, ar) are migrated/dropped on read so existing users
+// don't get stuck on a removed locale (#60).
 const localeBootstrapScript = `(function () {
   try {
+    var SUPPORTED = ['en','zh-CN','zh-TW','ja','ko','es'];
+    function isSupported(v) { return SUPPORTED.indexOf(v) !== -1; }
+    function migrateLegacy(v) {
+      if (v === 'zh') return 'zh-CN';   // legacy 'zh' content was Simplified
+      if (v === 'ar') return 'en';      // Arabic dropped — fall back to English
+      return v;
+    }
     var path = window.location.pathname;
     var key = path.indexOf('/admin') === 0 ? 'admin_locale'
             : path.indexOf('/survey/') === 0 ? 'participant_locale'
             : 'locale';
     var q = new URLSearchParams(window.location.search).get('lang');
-    var l = (q === 'en' || q === 'zh' || q === 'ar')
-      ? q
-      : window.localStorage.getItem(key);
+    var l = isSupported(q) ? q : window.localStorage.getItem(key);
     if (!l && key !== 'locale') {
       // Back-compat: migrate from the legacy shared key on first load.
       l = window.localStorage.getItem('locale');
     }
-    if (l === 'en' || l === 'zh' || l === 'ar') {
+    l = migrateLegacy(l);
+    if (isSupported(l)) {
       window.localStorage.setItem(key, l);
       var html = document.documentElement;
       html.lang = l;
-      html.dir = l === 'ar' ? 'rtl' : 'ltr';
+      html.dir = 'ltr'; // no supported locale is RTL right now
     }
   } catch (e) {}
 })();`;

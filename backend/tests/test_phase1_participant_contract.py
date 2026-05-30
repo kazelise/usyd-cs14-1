@@ -129,7 +129,7 @@ async def test_start_survey_returns_token_and_calibration_points_and_saves_metad
     post = make_post(1, order=1)
     db = StartSurveyDB(make_survey([post]))
     body = StartSurveyRequest(
-        language="zh",
+        language="zh-CN",
         screen_width=1440,
         screen_height=900,
         user_agent="pytest-browser",
@@ -140,7 +140,7 @@ async def test_start_survey_returns_token_and_calibration_points_and_saves_metad
     created_response = db.added[0]
     assert response.participant_token == "participant-token"
     assert response.calibration_points == 5
-    assert created_response.language == "zh"
+    assert created_response.language == "zh-CN"
     assert created_response.screen_width == 1440
     assert created_response.screen_height == 900
     assert created_response.user_agent == "pytest-browser"
@@ -283,7 +283,7 @@ async def test_start_survey_resumes_existing_in_progress_response(monkeypatch):
         assigned_group=2,
         participant_token="resume-token",
         status="in_progress",
-        language="zh",
+        language="zh-CN",
         started_at=datetime.utcnow(),
     )
     db = ResumeStartSurveyDB(make_survey([make_post(1, order=1)]), existing)
@@ -297,7 +297,7 @@ async def test_start_survey_resumes_existing_in_progress_response(monkeypatch):
     assert response.response_id == 42
     assert response.participant_token == "resume-token"
     assert response.assigned_group == 2  # group preserved, NOT re-randomized
-    assert response.language == "zh"
+    assert response.language == "zh-CN"
     assert response.calibration_completed is False  # no prior calibration
     assert db.added == []  # no new SurveyResponse inserted
     assert db.flushed is False

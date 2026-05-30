@@ -39,6 +39,7 @@ from app.models.researcher import Researcher
 from app.models.survey import PostComment, Survey, SurveyPost
 from app.models.tracking import CalibrationSession, ClickRecord, GazeRecord
 from app.schemas.survey import (
+    DEFAULT_SUPPORTED_LANGUAGES,
     AttentionSummaryIn,
     CommentIn,
     CommentOut,
@@ -305,11 +306,11 @@ def build_participant_questions(survey: Survey, language_code: str | None) -> li
 
 
 def supported_languages_for_survey(survey: Survey) -> list[str]:
-    languages = list(getattr(survey, "supported_languages", None) or ["en", "ar", "zh"])
+    # Default to the canonical post-#60 locale set; always ensure 'en' is
+    # present as the universal fallback. (Arabic was dropped in #60.)
+    languages = list(getattr(survey, "supported_languages", None) or DEFAULT_SUPPORTED_LANGUAGES)
     if "en" not in languages:
         languages.insert(0, "en")
-    if "ar" not in languages:
-        languages.append("ar")
     return languages
 
 

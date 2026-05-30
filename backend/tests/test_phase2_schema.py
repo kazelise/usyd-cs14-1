@@ -40,7 +40,7 @@ def test_alembic_head_revision_is_configured():
 
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_current_head() == "20260529_0001"
+    assert script.get_current_head() == "20260531_0001"
 
 
 def test_survey_has_platform_style_default():

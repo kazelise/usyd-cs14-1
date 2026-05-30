@@ -8,7 +8,7 @@ export default function Home() {
   const router = useRouter();
   const { locale } = useLocale();
   const text =
-    locale === "zh"
+    (locale === "zh-CN" || locale === "zh-TW")
       ? {
           redirecting: "正在跳转...",
           participantHint: "如果你是参与者，请打开你的问卷链接，例如",

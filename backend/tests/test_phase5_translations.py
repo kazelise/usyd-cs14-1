@@ -147,7 +147,7 @@ def make_translation_survey(*, with_translations: bool = False) -> Survey:
             SurveyTranslation(
                 id=101,
                 survey_id=15,
-                language_code="zh",
+                language_code="zh-CN",
                 translated_fields={
                     "title": "信任研究",
                     "description": "阅读帖子并回答问题。",
@@ -159,7 +159,7 @@ def make_translation_survey(*, with_translations: bool = False) -> Survey:
                 id=102,
                 survey_id=15,
                 post_id=31,
-                language_code="zh",
+                language_code="zh-CN",
                 translated_fields={
                     "display_title": "显示标题",
                     "fetched_description": "中文描述",
@@ -179,7 +179,7 @@ def make_translation_survey(*, with_translations: bool = False) -> Survey:
                 id=103,
                 survey_id=15,
                 question_id=51,
-                language_code="zh",
+                language_code="zh-CN",
                 translated_fields={
                     "text": "你认为这条帖子可信吗？",
                     "config": {"options": ["可信", "不可信"]},
@@ -190,7 +190,7 @@ def make_translation_survey(*, with_translations: bool = False) -> Survey:
 
 
 def filled_translation_entries(survey: Survey) -> dict[str, object]:
-    payload = build_translation_export_payload(survey, language_code="zh")
+    payload = build_translation_export_payload(survey, language_code="zh-CN")
     entries: dict[str, object] = {}
     for item in payload["items"]:
         key = item["key"]
@@ -223,11 +223,11 @@ def clear_overrides():
 
 
 def test_export_translation_json_contains_all_translatable_fields():
-    payload = build_translation_export_payload(make_translation_survey(), language_code="zh")
+    payload = build_translation_export_payload(make_translation_survey(), language_code="zh-CN")
     keys = {item["key"] for item in payload["items"]}
 
     assert payload["survey_id"] == 15
-    assert payload["language_code"] == "zh"
+    assert payload["language_code"] == "zh-CN"
     assert {
         "survey.title",
         "survey.description",
@@ -244,7 +244,7 @@ def test_export_translation_json_contains_all_translatable_fields():
 
 def test_export_translation_csv_has_stable_headers_and_rows():
     csv_text = translation_payload_to_csv(
-        build_translation_export_payload(make_translation_survey(), language_code="zh")
+        build_translation_export_payload(make_translation_survey(), language_code="zh-CN")
     )
     reader = csv.DictReader(StringIO(csv_text))
     rows = list(reader)
@@ -265,18 +265,18 @@ def test_translation_export_endpoint_returns_json_template():
 
     assert response.status_code == 200
     body = response.json()
-    assert body["language_code"] == "zh"
+    assert body["language_code"] == "zh-CN"
     assert any(item["key"] == "post.31.more_info_label" for item in body["items"])
 
 
 @pytest.mark.asyncio
 async def test_import_translation_json_validates_and_upserts_rows():
     survey = make_translation_survey()
-    payload = {"language_code": "zh", "translations": filled_translation_entries(survey)}
+    payload = {"language_code": "zh-CN", "translations": filled_translation_entries(survey)}
 
     result = await import_translation_payload(ImportDB(), survey, payload, payload_format="json")
 
-    assert result["language_code"] == "zh"
+    assert result["language_code"] == "zh-CN"
     assert result["translation_rows"] == 3
     assert survey.translations[0].translated_fields["title"] == "zh:survey.title"
     assert survey.posts[0].translations[0].translated_fields["comments"]["41"]["text"] == (
@@ -291,7 +291,7 @@ def test_translation_import_endpoint_accepts_json_payload():
     survey = make_translation_survey()
     db = TranslationEndpointDB(survey)
     install_translation_endpoint_overrides(db)
-    payload = {"language_code": "zh", "translations": filled_translation_entries(survey)}
+    payload = {"language_code": "zh-CN", "translations": filled_translation_entries(survey)}
 
     try:
         client = TestClient(app)
@@ -307,7 +307,7 @@ def test_translation_import_endpoint_accepts_json_payload():
 @pytest.mark.asyncio
 async def test_import_translation_csv_validates_and_upserts_rows():
     survey = make_translation_survey()
-    payload = build_translation_export_payload(survey, language_code="zh")
+    payload = build_translation_export_payload(survey, language_code="zh-CN")
     entries = filled_translation_entries(survey)
     for item in payload["items"]:
         item["translation"] = entries[item["key"]]
@@ -327,12 +327,12 @@ def test_import_translation_rejects_missing_and_invalid_keys():
     entries.pop("post.31.display_title")
 
     with pytest.raises(HTTPException):
-        validate_translation_import(survey, language_code="zh", entries=entries)
+        validate_translation_import(survey, language_code="zh-CN", entries=entries)
 
     entries = filled_translation_entries(survey)
     entries["post.999.display_title"] = "bad id"
     with pytest.raises(HTTPException):
-        validate_translation_import(survey, language_code="zh", entries=entries)
+        validate_translation_import(survey, language_code="zh-CN", entries=entries)
 
 
 @pytest.mark.asyncio
@@ -341,12 +341,12 @@ async def test_start_survey_returns_translated_posts_questions_and_saves_languag
     survey = make_translation_survey(with_translations=True)
     db = StartSurveyDB(survey)
 
-    response = await start_survey("phase5-share", StartSurveyRequest(language="zh"), db=db)
+    response = await start_survey("phase5-share", StartSurveyRequest(language="zh-CN"), db=db)
 
     created_response = db.added[0]
     post = response.posts[0]
-    assert response.language == "zh"
-    assert created_response.language == "zh"
+    assert response.language == "zh-CN"
+    assert created_response.language == "zh-CN"
     assert post.display_title == "显示标题"
     assert post.fetched_description == "中文描述"
     assert post.fetched_source == "示例新闻"
@@ -365,13 +365,13 @@ async def test_start_survey_missing_translation_falls_back_safely(monkeypatch):
         PostTranslation(
             survey_id=15,
             post_id=31,
-            language_code="zh",
+            language_code="zh-CN",
             translated_fields={"display_title": "只有标题"},
         )
     ]
     db = StartSurveyDB(survey)
 
-    response = await start_survey("phase5-share", StartSurveyRequest(language="zh"), db=db)
+    response = await start_survey("phase5-share", StartSurveyRequest(language="zh-CN"), db=db)
 
     post = response.posts[0]
     assert post.display_title == "只有标题"
