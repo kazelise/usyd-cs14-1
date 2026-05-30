@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { isLocale, localeDir, supportedLocales, type Locale } from "@/lib/i18n";
+import { canonicalizeLocale, localeDir, supportedLocales, type Locale } from "@/lib/i18n";
 
 type LocaleContextValue = {
   locale: Locale;
@@ -47,7 +47,16 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     if (!saved && storageKey !== "locale") {
       saved = window.localStorage.getItem("locale");
     }
-    setLocaleState(isLocale(saved) ? saved : "en");
+    // canonicalizeLocale migrates legacy values (zh / ar / case variants)
+    // to canonical forms. Crucially, we only call setLocaleState when we
+    // have a real value to set — otherwise a fresh load with no saved
+    // locale would clobber a setLocale() call that a child component just
+    // issued from the URL ?lang= query (React runs child effects BEFORE
+    // parent effects, so without this guard the parent would always win).
+    const canonical = canonicalizeLocale(saved);
+    if (canonical) {
+      setLocaleState(canonical);
+    }
     setHydrated(true);
   }, [storageKey]);
 
