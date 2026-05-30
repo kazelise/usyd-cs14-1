@@ -4,6 +4,7 @@ from datetime import datetime
 
 import httpx
 import pytest
+from bs4 import BeautifulSoup
 from fastapi import HTTPException
 from pydantic import ValidationError
 
@@ -34,7 +35,12 @@ from app.schemas.survey import (
     SubmitQuestionResponseRequest,
     UpdatePostRequest,
 )
-from app.services.og_fetcher import _safe_get, fetch_og_metadata
+from app.services.og_fetcher import (
+    _clean_image_url,
+    _extract_image_url,
+    _safe_get,
+    fetch_og_metadata,
+)
 
 
 class ScalarOneResult:
@@ -412,3 +418,56 @@ async def test_og_fetcher_survives_hostile_no_proxy(monkeypatch):
     # called. With trust_env=False, construction succeeds and _safe_get fires.
     assert call_count["n"] == 1
     assert metadata.source == "example.com"
+
+
+def test_clean_image_url_resolves_and_rejects():
+    base = "https://example.com/article/page.html"
+    # Relative paths resolve against the final URL.
+    assert _clean_image_url("/hero.jpg", base) == "https://example.com/hero.jpg"
+    assert _clean_image_url("img/local.png", base) == "https://example.com/article/img/local.png"
+    # Protocol-relative URLs adopt the base scheme.
+    assert _clean_image_url("//cdn.example.com/x.jpg", base) == "https://cdn.example.com/x.jpg"
+    # Already-absolute http(s) URLs pass through.
+    assert _clean_image_url("https://other.com/y.png", base) == "https://other.com/y.png"
+    # Non-http(s) schemes are rejected so we can't accidentally render data: URIs.
+    assert _clean_image_url("data:image/png;base64,AAAA", base) is None
+    assert _clean_image_url("javascript:alert(1)", base) is None
+    # Empty / None inputs are rejected.
+    assert _clean_image_url(None, base) is None
+    assert _clean_image_url("   ", base) is None
+
+
+def test_extract_image_url_prefers_og_then_twitter_then_img_then_favicon():
+    base = "https://news.example/article"
+
+    # 1. og:image wins outright.
+    soup = BeautifulSoup(
+        '<html><head><meta property="og:image" content="/og.jpg">'
+        '<meta name="twitter:image" content="/tw.jpg">'
+        '</head><body><img src="/inline.png" width="600" height="400"></body></html>',
+        "html.parser",
+    )
+    assert _extract_image_url(soup, base) == "https://news.example/og.jpg"
+
+    # 2. With no og:image, twitter:image is next.
+    soup = BeautifulSoup(
+        '<html><head><meta name="twitter:image" content="/tw.jpg"></head>'
+        '<body><img src="/inline.png" width="600" height="400"></body></html>',
+        "html.parser",
+    )
+    assert _extract_image_url(soup, base) == "https://news.example/tw.jpg"
+
+    # 3. With no card metadata, fall through to first sane inline <img>;
+    # skip the 1x1 tracking pixel that comes first.
+    soup = BeautifulSoup(
+        "<html><head></head><body>"
+        '<img src="/track.gif" width="1" height="1">'
+        '<img src="/hero.jpg" width="800" height="450">'
+        "</body></html>",
+        "html.parser",
+    )
+    assert _extract_image_url(soup, base) == "https://news.example/hero.jpg"
+
+    # 4. Truly bare page falls back to /favicon.ico at site root.
+    soup = BeautifulSoup("<html><body>Hello</body></html>", "html.parser")
+    assert _extract_image_url(soup, base) == "https://news.example/favicon.ico"

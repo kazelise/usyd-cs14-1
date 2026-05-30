@@ -100,6 +100,99 @@ async def _safe_get(
     return None
 
 
+def _clean_image_url(candidate: str | None, base_url: str) -> str | None:
+    """Resolve a candidate image URL against the page's final URL and validate it.
+
+    Handles relative URLs (protocol-relative, absolute paths, fragments) and
+    rejects non-http(s) schemes such as data:, javascript:, etc. Returns the
+    absolute URL string or None if the candidate is unusable.
+    """
+    if not candidate or not isinstance(candidate, str):
+        return None
+    candidate = candidate.strip()
+    if not candidate:
+        return None
+    try:
+        resolved = urljoin(base_url, candidate)
+    except Exception:
+        return None
+    parsed = urlparse(resolved)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    return resolved
+
+
+def _img_dim(value: object) -> int | None:
+    """Parse a width/height attribute that may include 'px' or be missing."""
+    if value is None:
+        return None
+    text = str(value).strip().lower().rstrip("px").strip()
+    if not text:
+        return None
+    try:
+        return int(float(text))
+    except (ValueError, TypeError):
+        return None
+
+
+def _extract_image_url(soup: BeautifulSoup, base_url: str) -> str | None:
+    """Pick an image URL from the page, trying common sources in priority order.
+
+    Priority: og:image → twitter:image[:src] → link rel=image_src → first
+    reasonably-sized inline <img> → apple-touch-icon → icon link → /favicon.ico.
+    Tracking pixels (1x1) and tiny sprite icons are skipped.
+    """
+    og = soup.find("meta", property="og:image")
+    if og:
+        url = _clean_image_url(og.get("content"), base_url)
+        if url:
+            return url
+
+    for attrs in (
+        {"name": "twitter:image"},
+        {"name": "twitter:image:src"},
+        {"property": "twitter:image"},
+        {"property": "twitter:image:src"},
+    ):
+        tag = soup.find("meta", attrs=attrs)
+        if tag:
+            url = _clean_image_url(tag.get("content"), base_url)
+            if url:
+                return url
+
+    link_image = soup.find("link", rel="image_src")
+    if link_image:
+        url = _clean_image_url(link_image.get("href"), base_url)
+        if url:
+            return url
+
+    for img in soup.find_all("img"):
+        src = img.get("src") or img.get("data-src") or img.get("data-original")
+        if not src:
+            continue
+        w = _img_dim(img.get("width"))
+        h = _img_dim(img.get("height"))
+        # Skip obvious trackers and tiny sprite icons.
+        if (w is not None and w < 50) or (h is not None and h < 50):
+            continue
+        url = _clean_image_url(src, base_url)
+        if url:
+            return url
+
+    for icon_rel in ("apple-touch-icon", "apple-touch-icon-precomposed", "icon", "shortcut icon"):
+        icon = soup.find("link", rel=icon_rel)
+        if icon:
+            url = _clean_image_url(icon.get("href"), base_url)
+            if url:
+                return url
+
+    parsed_base = urlparse(base_url)
+    if parsed_base.scheme in {"http", "https"} and parsed_base.netloc:
+        return f"{parsed_base.scheme}://{parsed_base.netloc}/favicon.ico"
+
+    return None
+
+
 async def fetch_og_metadata(url: str, timeout: float = 10.0) -> OGMetadata:
     """Fetch a URL and extract Open Graph metadata.
 
@@ -134,18 +227,25 @@ async def fetch_og_metadata(url: str, timeout: float = 10.0) -> OGMetadata:
         return metadata  # return partial metadata with just the domain
 
     soup = BeautifulSoup(resp.text, "html.parser")
+    # Use the FINAL URL (after redirects) as the base for resolving any
+    # relative URLs we find — e.g. a CDN-hosted news article whose og:image
+    # is "/static/hero.jpg".
+    base_url = str(resp.url) if resp.url else url
 
-    # Try OG tags first, then fall back to regular HTML
+    # Title: og:title → <title> → first <h1>
     og_title = soup.find("meta", property="og:title")
-    metadata.title = (
-        og_title["content"]
-        if og_title and og_title.get("content")
-        else (soup.title.string if soup.title else None)
-    )
+    if og_title and og_title.get("content"):
+        metadata.title = og_title["content"]
+    elif soup.title and soup.title.string:
+        metadata.title = soup.title.string.strip() or None
+    else:
+        h1 = soup.find("h1")
+        if h1 and h1.get_text(strip=True):
+            metadata.title = h1.get_text(strip=True)
 
-    og_image = soup.find("meta", property="og:image")
-    if og_image and og_image.get("content"):
-        metadata.image_url = og_image["content"]
+    # Image: og:image → twitter:image → image_src → first sane <img> →
+    # apple-touch-icon → icon → /favicon.ico
+    metadata.image_url = _extract_image_url(soup, base_url)
 
     og_desc = soup.find("meta", property="og:description")
     if og_desc and og_desc.get("content"):
