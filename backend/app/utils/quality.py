@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from statistics import mean
 from typing import Any
 
@@ -34,7 +35,9 @@ def _iris_complete(sample: dict[str, Any]) -> bool:
 def _numeric_rotation_value(rotation: dict[str, Any], key: str) -> float | None:
     value = rotation.get(key)
     if isinstance(value, int | float):
-        return float(value)
+        value = float(value)
+        if math.isfinite(value):
+            return value
     return None
 
 
