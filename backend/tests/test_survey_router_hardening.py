@@ -376,3 +376,39 @@ async def test_og_fetcher_validates_redirect_targets(monkeypatch):
 
     assert response is None
     assert calls == ["https://example.com/story"]
+
+
+@pytest.mark.asyncio
+async def test_og_fetcher_survives_hostile_no_proxy(monkeypatch):
+    """A bare IPv6 CIDR in NO_PROXY must not break AsyncClient construction.
+
+    Regression for issue #58: OrbStack injects NO_PROXY entries like
+    `fd07:b51a:cc66:f0::/64`, which httpx's URLPattern parses as host:port and
+    rejects with InvalidURL. We pass trust_env=False so process-level proxy
+    env vars are ignored entirely.
+    """
+    monkeypatch.setenv(
+        "NO_PROXY",
+        "localhost,127.0.0.1,fd07:b51a:cc66:f0::/64,*.orb.internal",
+    )
+    monkeypatch.setenv("no_proxy", "fd07:b51a:cc66:f0::/64")
+
+    call_count = {"n": 0}
+
+    async def fake_safe_get(client, url, headers):
+        call_count["n"] += 1
+        return None
+
+    async def fake_is_fetchable(url):
+        return True
+
+    monkeypatch.setattr("app.services.og_fetcher._safe_get", fake_safe_get)
+    monkeypatch.setattr("app.services.og_fetcher._is_fetchable_url", fake_is_fetchable)
+
+    metadata = await fetch_og_metadata("https://example.com")
+
+    # If trust_env were True (the bug), AsyncClient construction would raise
+    # httpx.InvalidURL BEFORE the body runs and _safe_get would never be
+    # called. With trust_env=False, construction succeeds and _safe_get fires.
+    assert call_count["n"] == 1
+    assert metadata.source == "example.com"

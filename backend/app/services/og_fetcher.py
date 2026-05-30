@@ -7,6 +7,7 @@ auto-populate the social media post card.
 
 import asyncio
 import ipaddress
+import logging
 import socket
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
@@ -15,6 +16,8 @@ import httpx
 from bs4 import BeautifulSoup
 
 MAX_REDIRECTS = 5
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -114,13 +117,20 @@ async def fetch_og_metadata(url: str, timeout: float = 10.0) -> OGMetadata:
         "Accept-Language": "en-US,en;q=0.9",
     }
 
+    # trust_env=False: ignore process-level HTTP(S)_PROXY / NO_PROXY env vars.
+    # Necessary because some container runtimes (e.g. OrbStack) inject NO_PROXY
+    # entries containing bare IPv6 CIDRs, which httpx's URLPattern rejects with
+    # InvalidURL during AsyncClient construction. The SSRF guard in
+    # _is_fetchable_url is the real security control here; we always egress to
+    # public URLs directly.
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
             resp = await _safe_get(client, url, headers)
             if resp is None:
                 return metadata
             resp.raise_for_status()
-    except Exception:
+    except Exception as exc:
+        logger.warning("og_fetcher: failed to fetch %s: %s: %s", url, type(exc).__name__, exc)
         return metadata  # return partial metadata with just the domain
 
     soup = BeautifulSoup(resp.text, "html.parser")
