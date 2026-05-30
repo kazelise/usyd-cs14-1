@@ -257,7 +257,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen lg:fixed lg:inset-0 lg:h-screen lg:overflow-hidden lg:bg-gray-50">
       <header className="relative z-[220] border-b border-slate-200 bg-[rgba(255,255,255,0.92)] backdrop-blur">
-        <div className="mx-auto flex min-h-[68px] min-w-0 max-w-[1560px] flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 md:px-5 lg:flex-nowrap lg:gap-x-7 lg:py-0">
+        <div className="flex min-h-[68px] min-w-0 flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 md:px-6 lg:flex-nowrap lg:gap-x-7 lg:px-8 lg:py-0">
           <Link
             href="/admin/surveys"
             className="min-w-0 shrink-0 text-[14px] font-semibold uppercase tracking-[0.14em] text-[#0f3146] md:text-[15px]"
@@ -401,7 +401,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
       </header>
 
-      <div className="mx-auto grid min-w-0 max-w-[1560px] lg:h-[calc(100vh-68px)] lg:grid-cols-[auto_minmax(0,1fr)]">
+      {/* No max-width / mx-auto on the outer shell: sidebar must stay flush
+          against the viewport's left edge at any width or zoom level (user
+          reported the centered layout looking "floating" when zoomed out).
+          Reading-width constraint stays on the main content wrapper below. */}
+      <div className="grid min-w-0 lg:h-[calc(100vh-68px)] lg:grid-cols-[auto_minmax(0,1fr)]">
         <aside
           className={`hidden h-full shrink-0 flex-col border-r border-slate-200 bg-[rgba(250,252,254,0.72)] px-4 py-5 transition-[width] duration-200 lg:flex ${
             collapsed ? "w-[78px]" : "w-[212px]"
