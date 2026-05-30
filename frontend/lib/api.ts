@@ -126,6 +126,8 @@ export const api = {
     request(`/surveys/${id}/close`, { method: "POST" }),
   reopenSurvey: (id: number) =>
     request(`/surveys/${id}/reopen`, { method: "POST" }),
+  deletePreviewResponses: (id: number) =>
+    request(`/surveys/${id}/preview-responses`, { method: "DELETE" }),
   getSurveyAnalytics: (id: number, filters?: SurveyExportFilters) =>
     request(analyticsSummaryPath(id, filters)),
   getSurveyParticipantComments: (id: number) => request(`/surveys/${id}/participant-comments`),

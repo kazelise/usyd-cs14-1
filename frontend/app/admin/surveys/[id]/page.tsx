@@ -861,9 +861,11 @@ export default function SurveyEditPage() {
 
   const shareUrl =
     typeof window !== "undefined" ? `${window.location.origin}/survey/${survey.share_code}/start` : "";
+  // Stable admin-side launcher (#62). Keyed on survey id so the URL never
+  // breaks when share_code rotates; resets prior preview state on every open.
   const previewSessionUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/survey/${survey.share_code}/start?preview=1&group=${previewGroup}&lang=${previewLanguage}`
+      ? `${window.location.origin}/admin/surveys/${survey.id}/test-session?group=${previewGroup}&lang=${previewLanguage}`
       : "";
   const publishedPosts = posts.filter((post) => !post.visible_to_groups || post.visible_to_groups.length > 0).length;
   const totalComments = posts.reduce(
