@@ -858,6 +858,16 @@ export default function SurveyParticipantPage() {
           : `pt:${shareCode}:${initialLocale}`,
       );
       localStorage.removeItem(`answers:${session.response_id}:${session.participant_token}`);
+      // Clear the calibration carry token (#56) on completion so the NEXT
+      // participant on the same device must calibrate fresh — otherwise
+      // their session would silently inherit this participant's calibration
+      // data, corrupting per-participant gaze/attention analytics. The
+      // carry still works during an active multi-language session (it's
+      // only set after a real calibrationDone, and only consumed by a
+      // brand-new locale session — both of which happen pre-completion).
+      if (!isPreviewSession) {
+        localStorage.removeItem(`cal:${shareCode}`);
+      }
       setCompleted(true);
     } catch (err: any) {
       const raw = err.message || "";
