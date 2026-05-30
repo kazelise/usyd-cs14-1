@@ -34,7 +34,7 @@ type GazeTrackingPipProps = {
   videoRef: RefObject<HTMLVideoElement | null> | Ref<HTMLVideoElement>;
 };
 
-const MARGIN = 8;
+const MARGIN = 0;
 
 export function GazeTrackingPip({ snapshot, locale, videoRef }: GazeTrackingPipProps) {
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -158,33 +158,41 @@ export function GazeTrackingPip({ snapshot, locale, videoRef }: GazeTrackingPipP
             <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden />
           </div>
         </div>
+        {/*
+          Keep the <video> MOUNTED while collapsed (just hidden via display:none).
+          Unmounting it drops the camera stream binding from the element; on
+          re-expand the new video element starts with srcObject=null and the
+          face never reappears until the user reloads. Hiding via CSS keeps
+          the same element in the DOM so the MediaStream stays attached and
+          frames continue to flow to MediaPipe.
+        */}
+        <div className="relative aspect-[16/10] bg-slate-950" style={{ display: collapsed ? "none" : "block" }}>
+          <video
+            ref={videoRef as Ref<HTMLVideoElement>}
+            className="h-full w-full scale-x-[-1] object-cover"
+            autoPlay
+            muted
+            playsInline
+          />
+          {snapshot.status === "starting" && (
+            // Cold-start window after a refresh: MediaPipe scripts reload
+            // from CDN and the Camera wrapper hasn't bound a stream yet, so
+            // the <video> is a black box. Without an explicit message,
+            // participants read "my face is lost" (issue #55). The overlay
+            // disappears the moment Camera.start() resolves and frames flow.
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 px-2 text-center text-[10px] font-semibold leading-tight text-white">
+              <span className="inline-flex h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white/90" aria-hidden />
+              <span>{t(locale, "trackingStatusStarting")}</span>
+            </div>
+          )}
+          {snapshot.status === "lost" && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 px-2 text-center text-[10px] font-semibold leading-tight text-white">
+              {t(locale, "trackingStatusLost")}
+            </div>
+          )}
+        </div>
         {!collapsed && (
           <>
-            <div className="relative aspect-[16/10] bg-slate-950">
-              <video
-                ref={videoRef as Ref<HTMLVideoElement>}
-                className="h-full w-full scale-x-[-1] object-cover"
-                autoPlay
-                muted
-                playsInline
-              />
-              {snapshot.status === "starting" && (
-                // Cold-start window after a refresh: MediaPipe scripts reload
-                // from CDN and the Camera wrapper hasn't bound a stream yet, so
-                // the <video> is a black box. Without an explicit message,
-                // participants read "my face is lost" (issue #55). The overlay
-                // disappears the moment Camera.start() resolves and frames flow.
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 px-2 text-center text-[10px] font-semibold leading-tight text-white">
-                  <span className="inline-flex h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white/90" aria-hidden />
-                  <span>{t(locale, "trackingStatusStarting")}</span>
-                </div>
-              )}
-              {snapshot.status === "lost" && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 px-2 text-center text-[10px] font-semibold leading-tight text-white">
-                  {t(locale, "trackingStatusLost")}
-                </div>
-              )}
-            </div>
             <div className="space-y-1 border-t border-white/10 bg-black/75 px-2 py-1.5 text-[10px] text-white/85">
               <div className="flex items-center justify-between gap-2 font-medium">
                 <span className="truncate">{t(locale, labelKey)}</span>
