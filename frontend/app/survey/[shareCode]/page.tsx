@@ -292,56 +292,83 @@ function hostnameFromUrl(url: string) {
   }
 }
 
-/** Terminal label after a share is recorded; matches platform verb where possible */
+/** Terminal label after a share is recorded; matches platform verb where possible
+ * (en + zh). Other locales fall through to the generic "Shared" dict key so
+ * ja / ko / es see localized text instead of English. */
 function getPlatformShareRecordedLabel(skin: FeedSkin, locale: Locale): string {
-  if (skin === "x") {
-    if ((locale === "zh-CN" || locale === "zh-TW")) return "已转发";
-    return "Reposted";
-  }
-  if (skin === "bluesky") {
-    if ((locale === "zh-CN" || locale === "zh-TW")) return "已转发";
-    return "Reposted";
-  }
-  if (skin === "truth_social") {
-    if ((locale === "zh-CN" || locale === "zh-TW")) return "已ReTruth";
-    return "ReTruthed";
-  }
-  if (skin === "xiaohongshu") {
-    if ((locale === "zh-CN" || locale === "zh-TW")) return "已收藏";
-    return "Collected";
-  }
-  if (skin === "douyin") {
-    if ((locale === "zh-CN" || locale === "zh-TW")) return "已分享";
-    return "Shared";
+  const isZh = locale === "zh-CN" || locale === "zh-TW";
+  if (skin === "x" || skin === "bluesky") {
+    if (isZh) return "已转发";
+    if (locale === "en") return "Reposted";
+  } else if (skin === "truth_social") {
+    if (isZh) return "已ReTruth";
+    if (locale === "en") return "ReTruthed";
+  } else if (skin === "xiaohongshu") {
+    if (isZh) return "已收藏";
+    if (locale === "en") return "Collected";
+  } else if (skin === "douyin") {
+    if (isZh) return "已分享";
+    if (locale === "en") return "Shared";
   }
   return t(locale, "shareRecordedButton");
 }
 
+// Per-locale templates for the progress card on the right rail. Previously
+// only zh / en were handled, so ja / ko / es participants saw English text
+// in the middle of an otherwise localized panel (#60 follow-up).
+function formatInteractionSummary(locale: Locale, completed: number, total: number): string {
+  switch (locale) {
+    case "zh-CN":
+    case "zh-TW":
+      return `已完成 ${completed} / ${total} 个必要动作`;
+    case "ja":
+      return `必要なアクション ${completed} / ${total} を完了`;
+    case "ko":
+      return `필수 동작 ${completed} / ${total} 완료`;
+    case "es":
+      return `${completed} / ${total} acciones requeridas completadas`;
+    default:
+      return `${completed} / ${total} required actions complete`;
+  }
+}
+
+function formatRecordedAcrossSummary(locale: Locale, interacted: number, answered: number): string {
+  switch (locale) {
+    case "zh-CN":
+    case "zh-TW":
+      return `${interacted} 条帖子有交互，${answered} 道题已提交`;
+    case "ja":
+      return `${interacted} 件の投稿に反応、${answered} 件の回答を送信`;
+    case "ko":
+      return `게시물 ${interacted}개와 상호작용, 답변 ${answered}개 제출`;
+    case "es":
+      return `${interacted} publicaciones con interacción, ${answered} respuestas enviadas`;
+    default:
+      return `${interacted} posts interacted with, ${answered} answers submitted`;
+  }
+}
+
 function getPlatformActionLabels(skin: FeedSkin, locale: Locale) {
+  // Platform-specific en + zh flavour preserved (Repost / ReTruth / Collect /
+  // Heart etc.). For other locales (ja / ko / es) fall through to the shared
+  // i18n dict so the buttons aren't left in English alongside otherwise-
+  // translated UI.
+  const isZh = locale === "zh-CN" || locale === "zh-TW";
   if (skin === "x") {
-    return (locale === "zh-CN" || locale === "zh-TW")
-      ? { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" }
-      : { like: "Like", liked: "Liked", comment: "Reply", share: "Repost" };
-  }
-  if (skin === "xiaohongshu") {
-    return (locale === "zh-CN" || locale === "zh-TW")
-      ? { like: "赞", liked: "已赞", comment: "评论", share: "收藏" }
-      : { like: "Like", liked: "Liked", comment: "Comment", share: "Collect" };
-  }
-  if (skin === "truth_social") {
-    return (locale === "zh-CN" || locale === "zh-TW")
-      ? { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" }
-      : { like: "Like", liked: "Liked", comment: "Reply", share: "ReTruth" };
-  }
-  if (skin === "bluesky") {
-    return (locale === "zh-CN" || locale === "zh-TW")
-      ? { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" }
-      : { like: "Like", liked: "Liked", comment: "Reply", share: "Repost" };
-  }
-  if (skin === "douyin") {
-    return (locale === "zh-CN" || locale === "zh-TW")
-      ? { like: "喜欢", liked: "已喜欢", comment: "评论", share: "转发" }
-      : { like: "Heart", liked: "Hearted", comment: "Comment", share: "Share" };
+    if (isZh) return { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" };
+    if (locale === "en") return { like: "Like", liked: "Liked", comment: "Reply", share: "Repost" };
+  } else if (skin === "xiaohongshu") {
+    if (isZh) return { like: "赞", liked: "已赞", comment: "评论", share: "收藏" };
+    if (locale === "en") return { like: "Like", liked: "Liked", comment: "Comment", share: "Collect" };
+  } else if (skin === "truth_social") {
+    if (isZh) return { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" };
+    if (locale === "en") return { like: "Like", liked: "Liked", comment: "Reply", share: "ReTruth" };
+  } else if (skin === "bluesky") {
+    if (isZh) return { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" };
+    if (locale === "en") return { like: "Like", liked: "Liked", comment: "Reply", share: "Repost" };
+  } else if (skin === "douyin") {
+    if (isZh) return { like: "喜欢", liked: "已喜欢", comment: "评论", share: "转发" };
+    if (locale === "en") return { like: "Heart", liked: "Hearted", comment: "Comment", share: "Share" };
   }
   return {
     like: t(locale, "like"),
@@ -376,17 +403,13 @@ function PlatformFeedChrome({
     );
   }
 
+  // Xiaohongshu, Truth Social, Bluesky, Douyin chrome strips used to render
+  // decorative Following / Discover / For You tabs that participants
+  // cannot interact with and only add noise to the study UI. Removed per
+  // researcher request — return null so the feed renders without the
+  // dead chrome. Instagram (avatar dots) and X (no chrome) unchanged.
   if (skin === "xiaohongshu") {
-    const labels = (locale === "zh-CN" || locale === "zh-TW") ? ["关注", "发现", "图文笔记", "生活方式"] : ["Following", "Discover", "Notes", "Lifestyle"];
-    return (
-      <div className="sticky top-0 z-10 -mx-1 flex gap-2 overflow-x-auto bg-[#fff8f8]/90 px-1 py-2 backdrop-blur">
-        {labels.map((label, index) => (
-          <span key={label} className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold ${index === 1 ? "bg-[#ff2442] text-white" : "bg-white text-slate-600"}`}>
-            {label}
-          </span>
-        ))}
-      </div>
-    );
+    return null;
   }
 
   if (skin === "truth_social") {
@@ -395,36 +418,18 @@ function PlatformFeedChrome({
         <div className="bg-[#1a2a4f] px-5 py-3 text-[12px] font-bold uppercase tracking-[0.18em] text-white">
           {platformName} feed
         </div>
-        <div className="grid grid-cols-3 divide-x divide-[#1a2a4f]/15 text-center text-[13px] font-bold uppercase tracking-[0.08em] text-[#1a2a4f]">
-          <span className="py-3">Following</span>
-          <span className="py-3">Truths</span>
-          <span className="py-3">Replies</span>
-        </div>
       </div>
     );
   }
 
   if (skin === "bluesky") {
-    return (
-      <div className="rounded-[22px] border border-[#cfe3ff] bg-white/90 p-2 shadow-[0_12px_34px_rgba(0,133,255,0.10)] backdrop-blur">
-        <div className="grid grid-cols-2 rounded-[18px] bg-[#eef6ff] p-1 text-center text-[13px] font-semibold text-[#0066c8]">
-          <span className="rounded-[14px] bg-white px-4 py-2 shadow-sm">Following</span>
-          <span className="px-4 py-2">Discover</span>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (skin === "douyin") {
     return (
       <div className="rounded-[26px] border border-white/10 bg-white/5 px-5 py-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-[#25f4ee]">Vertical feed</p>
-          <div className="flex gap-2 text-[12px] font-semibold">
-            <span className="rounded-full bg-white px-3 py-1.5 text-black">Following</span>
-            <span className="rounded-full bg-white/10 px-3 py-1.5 text-white/70">For You</span>
-          </div>
-        </div>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-[#25f4ee]">Vertical feed</p>
         <p className="mt-3 text-[13px] leading-6 text-white/60">
           {(locale === "zh-CN" || locale === "zh-TW") ? "短视频式深色信息流，用于展示更沉浸的社交平台刺激。" : "Dark short-form feed treatment for immersive social stimuli."}
         </p>
@@ -988,14 +993,9 @@ export default function SurveyParticipantPage() {
     session.gaze_tracking_enabled ? t(locale, "noteGaze") : null,
     session.calibration_required ? t(locale, "noteCalibration") : null,
   ].filter(Boolean) as string[];
-  const interactionSummary =
-    (locale === "zh-CN" || locale === "zh-TW")
-      ? `已完成 ${completedUnits} / ${activityUnits} 个必要动作`
-      : `${completedUnits} / ${activityUnits} required actions complete`;
-  const recordedAcrossSummary =
-    (locale === "zh-CN" || locale === "zh-TW")
-      ? `${Math.min(totalPosts, interactedPostIds.size)} 条帖子有交互，${answeredQuestionCount} 道题已提交`
-      : `${Math.min(totalPosts, interactedPostIds.size)} posts interacted with, ${answeredQuestionCount} answers submitted`;
+  const interactedCount = Math.min(totalPosts, interactedPostIds.size);
+  const interactionSummary = formatInteractionSummary(locale, completedUnits, activityUnits);
+  const recordedAcrossSummary = formatRecordedAcrossSummary(locale, interactedCount, answeredQuestionCount);
   const feedSkin: FeedSkin = platformUiStyleToFeedSkin(session.platform_ui_style)
     || ((session.platform_style || "x") as FeedSkin);
   const platform = getPlatformFeedStyle(feedSkin);
