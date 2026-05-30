@@ -14,14 +14,25 @@ export const metadata: Metadata = {
 // reading direction. Without this the page flashes LTR/English for one
 // frame before LocaleProvider's effect flips it to RTL/Arabic, which
 // the user perceives as flicker.
+// Picks the same admin/participant/default storage key that LocaleProvider
+// computes, so first paint reflects the right locale even before React
+// hydrates. Keep the key logic mirrored across both places.
 const localeBootstrapScript = `(function () {
   try {
+    var path = window.location.pathname;
+    var key = path.indexOf('/admin') === 0 ? 'admin_locale'
+            : path.indexOf('/survey/') === 0 ? 'participant_locale'
+            : 'locale';
     var q = new URLSearchParams(window.location.search).get('lang');
     var l = (q === 'en' || q === 'zh' || q === 'ar')
       ? q
-      : window.localStorage.getItem('locale');
+      : window.localStorage.getItem(key);
+    if (!l && key !== 'locale') {
+      // Back-compat: migrate from the legacy shared key on first load.
+      l = window.localStorage.getItem('locale');
+    }
     if (l === 'en' || l === 'zh' || l === 'ar') {
-      window.localStorage.setItem('locale', l);
+      window.localStorage.setItem(key, l);
       var html = document.documentElement;
       html.lang = l;
       html.dir = l === 'ar' ? 'rtl' : 'ltr';

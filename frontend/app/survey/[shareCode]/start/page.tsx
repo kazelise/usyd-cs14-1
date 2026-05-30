@@ -28,7 +28,12 @@ export default function StartScreen() {
   const [meta, setMeta] = useState<{ title: string; description?: string } | null>(null);
 
   useEffect(() => {
-    const saved = typeof window !== "undefined" ? (localStorage.getItem("locale") as Locale | null) : null;
+    if (typeof window === "undefined") return;
+    // Participant flow lives under its own storage key (#59); fall back to
+    // the legacy shared key for users who haven't been migrated yet.
+    const saved =
+      (localStorage.getItem("participant_locale") as Locale | null) ??
+      (localStorage.getItem("locale") as Locale | null);
     if (isLocale(queryLocale)) setLocale(queryLocale);
     else if (isLocale(saved)) setLocale(saved);
   }, [queryLocale, setLocale]);
