@@ -412,10 +412,10 @@ async def test_og_fetcher_rejects_non_http_image_scheme(monkeypatch):
         return True
 
     html = (
-        '<html><head>'
+        "<html><head>"
         '<meta property="og:title" content="Story">'
         '<meta property="og:image" content="javascript:alert(1)">'
-        '</head><body></body></html>'
+        "</head><body></body></html>"
     )
 
     class HtmlClient:
@@ -440,9 +440,7 @@ async def test_og_fetcher_resolves_relative_image_against_page_url(monkeypatch):
         return True
 
     html = (
-        '<html><head>'
-        '<meta property="og:image" content="/img/card.jpg">'
-        '</head><body></body></html>'
+        '<html><head><meta property="og:image" content="/img/card.jpg"></head><body></body></html>'
     )
 
     class HtmlClient:
