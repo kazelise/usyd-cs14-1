@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useLocale } from "@/components/locale-provider";
-import { isLocale, t, type Locale } from "@/lib/i18n";
+import { canonicalizeLocale, t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, LinkIcon, SurveyIcon, UsersIcon } from "@/components/icons";
 import { CalibrationExperience } from "@/components/calibration-experience";
 import { ExternalPostImage } from "@/components/external-post-image";
@@ -295,28 +295,23 @@ function hostnameFromUrl(url: string) {
 /** Terminal label after a share is recorded; matches platform verb where possible */
 function getPlatformShareRecordedLabel(skin: FeedSkin, locale: Locale): string {
   if (skin === "x") {
-    if (locale === "zh") return "已转发";
-    if (locale === "ar") return "تمّت إعادة النشر";
+    if ((locale === "zh-CN" || locale === "zh-TW")) return "已转发";
     return "Reposted";
   }
   if (skin === "bluesky") {
-    if (locale === "zh") return "已转发";
-    if (locale === "ar") return "تمّت إعادة النشر";
+    if ((locale === "zh-CN" || locale === "zh-TW")) return "已转发";
     return "Reposted";
   }
   if (skin === "truth_social") {
-    if (locale === "zh") return "已ReTruth";
-    if (locale === "ar") return "تمّ تأكيد ReTruth";
+    if ((locale === "zh-CN" || locale === "zh-TW")) return "已ReTruth";
     return "ReTruthed";
   }
   if (skin === "xiaohongshu") {
-    if (locale === "zh") return "已收藏";
-    if (locale === "ar") return "تم الحفظ";
+    if ((locale === "zh-CN" || locale === "zh-TW")) return "已收藏";
     return "Collected";
   }
   if (skin === "douyin") {
-    if (locale === "zh") return "已分享";
-    if (locale === "ar") return "تمّت المشاركة";
+    if ((locale === "zh-CN" || locale === "zh-TW")) return "已分享";
     return "Shared";
   }
   return t(locale, "shareRecordedButton");
@@ -324,27 +319,27 @@ function getPlatformShareRecordedLabel(skin: FeedSkin, locale: Locale): string {
 
 function getPlatformActionLabels(skin: FeedSkin, locale: Locale) {
   if (skin === "x") {
-    return locale === "zh"
+    return (locale === "zh-CN" || locale === "zh-TW")
       ? { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" }
       : { like: "Like", liked: "Liked", comment: "Reply", share: "Repost" };
   }
   if (skin === "xiaohongshu") {
-    return locale === "zh"
+    return (locale === "zh-CN" || locale === "zh-TW")
       ? { like: "赞", liked: "已赞", comment: "评论", share: "收藏" }
       : { like: "Like", liked: "Liked", comment: "Comment", share: "Collect" };
   }
   if (skin === "truth_social") {
-    return locale === "zh"
+    return (locale === "zh-CN" || locale === "zh-TW")
       ? { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" }
       : { like: "Like", liked: "Liked", comment: "Reply", share: "ReTruth" };
   }
   if (skin === "bluesky") {
-    return locale === "zh"
+    return (locale === "zh-CN" || locale === "zh-TW")
       ? { like: "喜欢", liked: "已喜欢", comment: "回复", share: "转发" }
       : { like: "Like", liked: "Liked", comment: "Reply", share: "Repost" };
   }
   if (skin === "douyin") {
-    return locale === "zh"
+    return (locale === "zh-CN" || locale === "zh-TW")
       ? { like: "喜欢", liked: "已喜欢", comment: "评论", share: "转发" }
       : { like: "Heart", liked: "Hearted", comment: "Comment", share: "Share" };
   }
@@ -366,7 +361,7 @@ function PlatformFeedChrome({
   locale: Locale;
 }) {
   if (skin === "instagram") {
-    const labels = locale === "zh" ? ["账号", "帖子", "收藏", "洞察"] : ["Profile", "Posts", "Saved", "Insights"];
+    const labels = (locale === "zh-CN" || locale === "zh-TW") ? ["账号", "帖子", "收藏", "洞察"] : ["Profile", "Posts", "Saved", "Insights"];
     return (
       <div className="rounded-[6px] border border-slate-200 bg-white px-5 py-4">
         <div className="flex items-center justify-between gap-4">
@@ -382,7 +377,7 @@ function PlatformFeedChrome({
   }
 
   if (skin === "xiaohongshu") {
-    const labels = locale === "zh" ? ["关注", "发现", "图文笔记", "生活方式"] : ["Following", "Discover", "Notes", "Lifestyle"];
+    const labels = (locale === "zh-CN" || locale === "zh-TW") ? ["关注", "发现", "图文笔记", "生活方式"] : ["Following", "Discover", "Notes", "Lifestyle"];
     return (
       <div className="sticky top-0 z-10 -mx-1 flex gap-2 overflow-x-auto bg-[#fff8f8]/90 px-1 py-2 backdrop-blur">
         {labels.map((label, index) => (
@@ -431,7 +426,7 @@ function PlatformFeedChrome({
           </div>
         </div>
         <p className="mt-3 text-[13px] leading-6 text-white/60">
-          {locale === "zh" ? "短视频式深色信息流，用于展示更沉浸的社交平台刺激。" : "Dark short-form feed treatment for immersive social stimuli."}
+          {(locale === "zh-CN" || locale === "zh-TW") ? "短视频式深色信息流，用于展示更沉浸的社交平台刺激。" : "Dark short-form feed treatment for immersive social stimuli."}
         </p>
       </div>
     );
@@ -514,7 +509,9 @@ export default function SurveyParticipantPage() {
   // Use "en" fallback, not the live locale context: locale-provider hydrates
   // from localStorage via useEffect, so using `locale` here would make
   // initialLocale change post-mount and re-trigger the session init effect.
-  const initialLocale: Locale = isLocale(requestedLocale) ? requestedLocale : "en";
+  // Migrate legacy values (zh -> zh-CN, ar -> en) before falling back so
+  // shared/older ?lang= URLs still produce a sensible session locale (#60).
+  const initialLocale: Locale = canonicalizeLocale(requestedLocale) ?? "en";
 
   const [session, setSession] = useState<SurveySession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -628,6 +625,15 @@ export default function SurveyParticipantPage() {
           return;
         }
         const cachedToken = localStorage.getItem(tokenStorageKey) || undefined;
+        // Calibration carry (#56): when starting a fresh locale-scoped
+        // response (no resume token for this locale, not a preview), pass the
+        // token of any prior passing calibration on this survey so the
+        // backend can clone it onto the new response — avoids forcing the
+        // participant to recalibrate every time they switch language.
+        const calibrationCarryToken =
+          !cachedToken && !isPreviewSession
+            ? localStorage.getItem(`cal:${shareCode}`) || undefined
+            : undefined;
         const result = await api.startSurvey(shareCode, {
           language: initialLocale,
           screen_width: window.innerWidth,
@@ -637,6 +643,7 @@ export default function SurveyParticipantPage() {
           is_preview: isPreviewSession,
           preview_assigned_group:
             isPreviewSession && Number.isFinite(previewAssignedGroup) ? previewAssignedGroup as number : undefined,
+          calibration_carry_token: calibrationCarryToken,
         });
         setSession(result);
         setClickedPosts(new Set());
@@ -676,7 +683,7 @@ export default function SurveyParticipantPage() {
           /auth|login|unauthorized|forbidden|not authenticated/i.test(message)
         ) {
           setError(
-            initialLocale === "zh"
+            (initialLocale === "zh-CN" || initialLocale === "zh-TW")
               ? "预览需要先以研究者身份登录，再从管理端打开预览链接。"
               : "Preview requires a logged-in researcher session. Sign in from the admin area, then reopen this preview link.",
           );
@@ -856,7 +863,7 @@ export default function SurveyParticipantPage() {
       const raw = err.message || "";
       if (/calibration must be completed/i.test(raw)) {
         setActionError(
-          locale === "zh"
+          (locale === "zh-CN" || locale === "zh-TW")
             ? "请先完成摄像头校准后再提交。"
             : "Complete webcam calibration before submitting.",
         );
@@ -864,7 +871,7 @@ export default function SurveyParticipantPage() {
         setActionError(completionHint);
       } else if (/missing_required_answers/i.test(raw)) {
         setActionError(
-          locale === "zh" ? "仍有必答题未提交。" : "Some required question answers are still missing.",
+          (locale === "zh-CN" || locale === "zh-TW") ? "仍有必答题未提交。" : "Some required question answers are still missing.",
         );
       } else {
         setActionError(raw || t(locale, "networkRequestFailed"));
@@ -906,7 +913,20 @@ export default function SurveyParticipantPage() {
         responseId={session.response_id}
         participantToken={session.participant_token}
         expectedPoints={session.calibration_points}
-        onComplete={(_result) => setCalibrationDone(true)}
+        onComplete={(_result) => {
+          setCalibrationDone(true);
+          // Remember this calibration so subsequent locale-scoped sessions
+          // for this same survey can clone it instead of re-prompting (#56).
+          // Only persist for real participants; preview sessions are
+          // researcher dry-runs and shouldn't leak into participant state.
+          if (!isPreviewSession && session?.participant_token) {
+            try {
+              localStorage.setItem(`cal:${shareCode}`, session.participant_token);
+            } catch {
+              // localStorage unavailable (private mode etc.) — silent skip.
+            }
+          }
+        }}
       />
     );
   }
@@ -943,10 +963,10 @@ export default function SurveyParticipantPage() {
     isPreviewSession || !session.calibration_required || calibrationDone;
   const canCompleteSurvey = isPreviewSession || (calibrationSatisfied && engagementComplete);
   const completionHint = !calibrationSatisfied
-    ? locale === "zh"
+    ? (locale === "zh-CN" || locale === "zh-TW")
       ? "请先完成摄像头校准。"
       : "Complete webcam calibration before submitting."
-    : locale === "zh"
+    : (locale === "zh-CN" || locale === "zh-TW")
       ? requiredQuestionIds.length > 0
         ? "请先提交所有题目答案。"
         : "请先至少与一条帖子互动（点赞、评论、点击或分享）。"
@@ -959,11 +979,11 @@ export default function SurveyParticipantPage() {
     session.calibration_required ? t(locale, "noteCalibration") : null,
   ].filter(Boolean) as string[];
   const interactionSummary =
-    locale === "zh"
+    (locale === "zh-CN" || locale === "zh-TW")
       ? `已完成 ${completedUnits} / ${activityUnits} 个必要动作`
       : `${completedUnits} / ${activityUnits} required actions complete`;
   const recordedAcrossSummary =
-    locale === "zh"
+    (locale === "zh-CN" || locale === "zh-TW")
       ? `${Math.min(totalPosts, interactedPostIds.size)} 条帖子有交互，${answeredQuestionCount} 道题已提交`
       : `${Math.min(totalPosts, interactedPostIds.size)} posts interacted with, ${answeredQuestionCount} answers submitted`;
   const feedSkin: FeedSkin = platformUiStyleToFeedSkin(session.platform_ui_style)
@@ -1020,9 +1040,12 @@ export default function SurveyParticipantPage() {
                   }}
                 >
                   <option value="en">English</option>
-                  <option value="zh">中文</option>
-                  <option value="ar">العربية</option>
-                </select>
+                  <option value="zh-CN">简体中文</option>
+              <option value="zh-TW">繁體中文</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+              <option value="es">Español</option>
+                                  </select>
               </div>
             </div>
           </div>

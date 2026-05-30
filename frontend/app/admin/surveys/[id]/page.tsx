@@ -31,8 +31,11 @@ const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string; description:
 
 const LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
-  { value: "ar", label: "العربية" },
-  { value: "zh", label: "中文" },
+  { value: "zh-CN", label: "简体中文" },
+  { value: "zh-TW", label: "繁體中文" },
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" },
+  { value: "es", label: "Español" },
 ];
 
 function platformUiStyleToFeedStyle(style: PlatformUiStyle): PlatformStyle {
@@ -187,7 +190,7 @@ export default function SurveyEditPage() {
   const [isUnsavedDraft, setIsUnsavedDraft] = useState(initialUnsavedDraft);
   const [translationLanguage, setTranslationLanguage] = useState("zh");
   const [defaultLanguage, setDefaultLanguage] = useState("en");
-  const [supportedLanguages, setSupportedLanguages] = useState<string[]>(["en", "ar", "zh"]);
+  const [supportedLanguages, setSupportedLanguages] = useState<string[]>(["en"]);
   const [translationFile, setTranslationFile] = useState<File | null>(null);
   const [translationBusy, setTranslationBusy] = useState(false);
   const [translationStatus, setTranslationStatus] = useState("");
@@ -198,7 +201,7 @@ export default function SurveyEditPage() {
   const shouldDiscardDraftRef = useRef(initialUnsavedDraft);
   const discardRequestedRef = useRef(false);
   const text =
-    locale === "zh"
+    (locale === "zh-CN" || locale === "zh-TW")
       ? {
           deleteConfirm: "确定删除这条帖子吗？",
           publishConfirm: "确定发布这份问卷吗？发布后参与者将可以访问。",
@@ -265,7 +268,7 @@ export default function SurveyEditPage() {
           languageSettings: "参与者语言",
           defaultLanguage: "默认语言",
           supportedLanguages: "可用语言",
-          languageCopy: "英文和阿拉伯语会保持可用；中文如果已在问卷中使用也会保留。",
+          languageCopy: "英文始终启用作为兜底；可按需添加简体中文、繁体中文、日语、韩语或西班牙语。",
           saveLanguages: "保存语言",
           languagesSaved: "语言设置已保存",
           abGroups: "A/B 分组",
@@ -366,7 +369,7 @@ export default function SurveyEditPage() {
           languageSettings: "Participant languages",
           defaultLanguage: "Default language",
           supportedLanguages: "Supported languages",
-          languageCopy: "English and Arabic remain available. Chinese stays enabled for surveys that already use it.",
+          languageCopy: "English is always available as the fallback. Add Simplified Chinese, Traditional Chinese, Japanese, Korean, or Spanish for the locales you support.",
           saveLanguages: "Save languages",
           languagesSaved: "Language settings saved",
           abGroups: "A/B groups",
@@ -410,8 +413,8 @@ export default function SurveyEditPage() {
       const nextSupportedLanguages =
         Array.isArray(nextSurvey.supported_languages) && nextSurvey.supported_languages.length
           ? nextSurvey.supported_languages
-          : ["en", "ar", "zh"];
-      const normalizedLanguages = Array.from(new Set([nextDefaultLanguage, "en", "ar", ...nextSupportedLanguages]));
+          : ["en"];
+      const normalizedLanguages = Array.from(new Set([nextDefaultLanguage, "en", ...nextSupportedLanguages]));
       setDefaultLanguage(nextDefaultLanguage);
       setSupportedLanguages(normalizedLanguages);
       setPreviewLanguage((current) => (normalizedLanguages.includes(current) ? current : nextDefaultLanguage));
@@ -751,7 +754,7 @@ export default function SurveyEditPage() {
 
   async function updateLanguageSettings() {
     if (!survey) return;
-    const languages = Array.from(new Set([defaultLanguage, "en", "ar", ...supportedLanguages]));
+    const languages = Array.from(new Set([defaultLanguage, "en", ...supportedLanguages]));
     setSupportedLanguages(languages);
     try {
       const updated = await api.updateSurvey(surveyId, {
@@ -861,9 +864,11 @@ export default function SurveyEditPage() {
 
   const shareUrl =
     typeof window !== "undefined" ? `${window.location.origin}/survey/${survey.share_code}/start` : "";
+  // Stable admin-side launcher (#62). Keyed on survey id so the URL never
+  // breaks when share_code rotates; resets prior preview state on every open.
   const previewSessionUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/survey/${survey.share_code}/start?preview=1&group=${previewGroup}&lang=${previewLanguage}`
+      ? `${window.location.origin}/admin/surveys/${survey.id}/test-session?group=${previewGroup}&lang=${previewLanguage}`
       : "";
   const publishedPosts = posts.filter((post) => !post.visible_to_groups || post.visible_to_groups.length > 0).length;
   const totalComments = posts.reduce(
@@ -1528,7 +1533,7 @@ export default function SurveyEditPage() {
               <div className="mt-2 flex flex-wrap gap-2">
                 {LANGUAGE_OPTIONS.map((option) => {
                   const checked = supportedLanguages.includes(option.value);
-                  const locked = option.value === defaultLanguage || option.value === "en" || option.value === "ar";
+                  const locked = option.value === defaultLanguage || option.value === "en";
                   return (
                     <label
                       key={option.value}
@@ -1643,9 +1648,12 @@ export default function SurveyEditPage() {
                 onChange={(event) => setTranslationLanguage(event.target.value)}
                 className="field-input h-11 text-[13px]"
               >
-                <option value="zh">中文</option>
-                <option value="ar">العربية</option>
-                <option value="en">English</option>
+                <option value="zh-CN">简体中文</option>
+              <option value="zh-TW">繁體中文</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+              <option value="es">Español</option>
+                                <option value="en">English</option>
               </select>
             </label>
 

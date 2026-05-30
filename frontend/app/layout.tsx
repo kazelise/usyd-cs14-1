@@ -17,25 +17,46 @@ export const metadata: Metadata = {
 // Picks the same admin/participant/default storage key that LocaleProvider
 // computes, so first paint reflects the right locale even before React
 // hydrates. Keep the key logic mirrored across both places.
+// Locales kept in sync with frontend/lib/i18n.ts supportedLocales.
+// Legacy values (zh, ar) are migrated/dropped on read so existing users
+// don't get stuck on a removed locale (#60).
+// One canonicalizer used for BOTH the URL query and any saved storage value,
+// case-insensitive, so ?lang=zh-cn / ZH-CN / zh-tw / ZH-TW / zh / ar all
+// resolve correctly instead of getting silently dropped. Mirror the alias
+// map in frontend/lib/i18n.ts so the React provider applies the same rules.
 const localeBootstrapScript = `(function () {
   try {
+    var SUPPORTED = ['en','zh-CN','zh-TW','ja','ko','es'];
+    function canonicalize(v) {
+      if (!v) return null;
+      // Already canonical (case-sensitive)?
+      if (SUPPORTED.indexOf(v) !== -1) return v;
+      var lower = ('' + v).toLowerCase();
+      // Legacy aliases / lowercase variants.
+      if (lower === 'zh' || lower === 'zh-cn') return 'zh-CN';
+      if (lower === 'zh-tw') return 'zh-TW';
+      if (lower === 'ar') return 'en';
+      // Case-insensitive match against canonical list (handles ZH-CN, JA, KO, EN, ES).
+      for (var i = 0; i < SUPPORTED.length; i++) {
+        if (SUPPORTED[i].toLowerCase() === lower) return SUPPORTED[i];
+      }
+      return null;
+    }
     var path = window.location.pathname;
     var key = path.indexOf('/admin') === 0 ? 'admin_locale'
             : path.indexOf('/survey/') === 0 ? 'participant_locale'
             : 'locale';
-    var q = new URLSearchParams(window.location.search).get('lang');
-    var l = (q === 'en' || q === 'zh' || q === 'ar')
-      ? q
-      : window.localStorage.getItem(key);
+    var rawQ = new URLSearchParams(window.location.search).get('lang');
+    var l = canonicalize(rawQ) || canonicalize(window.localStorage.getItem(key));
     if (!l && key !== 'locale') {
       // Back-compat: migrate from the legacy shared key on first load.
-      l = window.localStorage.getItem('locale');
+      l = canonicalize(window.localStorage.getItem('locale'));
     }
-    if (l === 'en' || l === 'zh' || l === 'ar') {
+    if (l) {
       window.localStorage.setItem(key, l);
       var html = document.documentElement;
       html.lang = l;
-      html.dir = l === 'ar' ? 'rtl' : 'ltr';
+      html.dir = 'ltr'; // no supported locale is RTL right now
     }
   } catch (e) {}
 })();`;

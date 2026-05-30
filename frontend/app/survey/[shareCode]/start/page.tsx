@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useLocale } from "@/components/locale-provider";
-import { isLocale, t, type Locale } from "@/lib/i18n";
+import { canonicalizeLocale, t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, SurveyIcon } from "@/components/icons";
 
 export default function StartScreen() {
@@ -32,10 +32,14 @@ export default function StartScreen() {
     // Participant flow lives under its own storage key (#59); fall back to
     // the legacy shared key for users who haven't been migrated yet.
     const saved =
-      (localStorage.getItem("participant_locale") as Locale | null) ??
-      (localStorage.getItem("locale") as Locale | null);
-    if (isLocale(queryLocale)) setLocale(queryLocale);
-    else if (isLocale(saved)) setLocale(saved);
+      localStorage.getItem("participant_locale") ?? localStorage.getItem("locale");
+    // canonicalizeLocale migrates legacy values (zh -> zh-CN, ar -> en) so
+    // that ?lang=zh and stale saved="ar" still resolve to a supported locale
+    // instead of getting silently dropped (#60 follow-up).
+    const canonicalQuery = canonicalizeLocale(queryLocale);
+    const canonicalSaved = canonicalizeLocale(saved);
+    if (canonicalQuery) setLocale(canonicalQuery);
+    else if (canonicalSaved) setLocale(canonicalSaved);
   }, [queryLocale, setLocale]);
 
   useEffect(() => {
@@ -94,9 +98,12 @@ export default function StartScreen() {
               }}
             >
               <option value="en">English</option>
-              <option value="zh">中文</option>
-              <option value="ar">العربية</option>
-            </select>
+              <option value="zh-CN">简体中文</option>
+              <option value="zh-TW">繁體中文</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+              <option value="es">Español</option>
+                          </select>
           </div>
         </div>
 

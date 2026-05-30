@@ -39,6 +39,7 @@ from app.models.researcher import Researcher
 from app.models.survey import PostComment, Survey, SurveyPost
 from app.models.tracking import CalibrationSession, ClickRecord, GazeRecord
 from app.schemas.survey import (
+    DEFAULT_SUPPORTED_LANGUAGES,
     AttentionSummaryIn,
     CommentIn,
     CommentOut,
@@ -121,17 +122,27 @@ _STRUCTURAL_SURVEY_FIELDS = frozenset(
 )
 
 
-def _require_researcher_jwt(authorization: str | None) -> None:
-    """Raise 403 if the Authorization header does not carry a valid researcher JWT."""
+def _require_researcher_jwt(authorization: str | None) -> int:
+    """Validate the Authorization header. Return the researcher id from `sub`.
+
+    Raises 403 if the header is missing/malformed or the JWT is invalid/expired.
+    Ownership of the target survey is NOT checked here — the caller is
+    responsible for confirming the returned id matches the survey owner before
+    granting researcher-only behaviors (such as previewing a draft).
+    """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=403, detail="Preview sessions require researcher authentication"
         )
     token = authorization.split(" ", 1)[1]
     try:
-        jose_jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jose_jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
     except (JWTError, Exception):
         raise HTTPException(status_code=403, detail="Invalid or expired researcher token")
+    try:
+        return int(payload.get("sub", 0))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=403, detail="Invalid researcher token payload")
 
 
 def validate_scale_config(question_type: str | None, config: dict | None) -> None:
@@ -217,8 +228,20 @@ async def _count_survey_responses(survey_id: int, db: AsyncSession) -> int:
     return result.scalar() or 0
 
 
+async def _count_real_survey_responses(survey_id: int, db: AsyncSession) -> int:
+    """Count NON-preview responses only. Preview rows are researcher dry-runs
+    that should not block edits (issue #62)."""
+    result = await db.execute(
+        select(func.count(SurveyResponse.id)).where(
+            SurveyResponse.survey_id == survey_id,
+            SurveyResponse.is_preview.is_(False),
+        )
+    )
+    return result.scalar() or 0
+
+
 async def _ensure_no_survey_responses(survey_id: int, db: AsyncSession, detail: str) -> None:
-    if await _count_survey_responses(survey_id, db) > 0:
+    if await _count_real_survey_responses(survey_id, db) > 0:
         raise HTTPException(status_code=409, detail=detail)
 
 
@@ -283,11 +306,11 @@ def build_participant_questions(survey: Survey, language_code: str | None) -> li
 
 
 def supported_languages_for_survey(survey: Survey) -> list[str]:
-    languages = list(getattr(survey, "supported_languages", None) or ["en", "ar", "zh"])
+    # Default to the canonical post-#60 locale set; always ensure 'en' is
+    # present as the universal fallback. (Arabic was dropped in #60.)
+    languages = list(getattr(survey, "supported_languages", None) or DEFAULT_SUPPORTED_LANGUAGES)
     if "en" not in languages:
         languages.insert(0, "en")
-    if "ar" not in languages:
-        languages.append("ar")
     return languages
 
 
@@ -565,6 +588,39 @@ async def reopen_survey(
     await db.flush()
     await db.refresh(survey)
     return survey
+
+
+@router.delete("/{survey_id}/preview-responses", status_code=204)
+async def delete_preview_responses(
+    survey_id: int,
+    researcher: Researcher = Depends(get_current_researcher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Wipe all preview (researcher dry-run) responses for a survey (issue #62).
+
+    Called by the admin test-session route on entry so each reopen of the
+    test session starts from a clean slate. Only the survey owner can call
+    this; real participant responses (`is_preview=False`) are NOT touched.
+    """
+    survey_result = await db.execute(
+        select(Survey).where(Survey.id == survey_id, Survey.researcher_id == researcher.id)
+    )
+    survey = survey_result.scalar_one_or_none()
+    if not survey:
+        raise HTTPException(status_code=404, detail="Survey not found")
+
+    preview_q = await db.execute(
+        select(SurveyResponse).where(
+            SurveyResponse.survey_id == survey_id,
+            SurveyResponse.is_preview.is_(True),
+        )
+    )
+    for response in preview_q.scalars().all():
+        # SA cascade handles interactions + calibration_session; DB-level
+        # ondelete CASCADE handles likes, comments, gaze, clicks, q-responses.
+        await db.delete(response)
+    await db.flush()
+    return None
 
 
 @router.get("/{survey_id}/export")
@@ -896,7 +952,7 @@ async def start_survey(
             .selectinload(SurveyPost.questions)
             .selectinload(Question.translations),
         )
-        .where(Survey.share_code == share_code, Survey.status == "published")
+        .where(Survey.share_code == share_code)
     )
     survey = result.scalar_one_or_none()
     if not survey:
@@ -904,15 +960,23 @@ async def start_survey(
     if survey.share_code_expires_at and survey.share_code_expires_at < datetime.utcnow():
         raise HTTPException(status_code=410, detail="Survey link has expired")
 
-    language_code = normalize_survey_language(survey, body.language if body else None)
+    # Status gating + preview auth, in one place so the two paths can't drift.
+    # - Anonymous participants: survey must be published.
+    # - Preview (issue #62): allow draft AND published, but only when the
+    #   caller carries a valid researcher JWT AND owns the survey. Closed
+    #   surveys remain unpreviewable (researchers retire studies via /close).
+    is_preview = bool(body and (body.is_preview or body.preview_assigned_group is not None))
+    if is_preview:
+        researcher_id = _require_researcher_jwt(authorization)
+        if survey.researcher_id != researcher_id:
+            raise HTTPException(status_code=403, detail="Not authorized to preview this survey")
+        if survey.status not in {"draft", "published"}:
+            raise HTTPException(status_code=404, detail="Survey not found or inactive")
+    else:
+        if survey.status != "published":
+            raise HTTPException(status_code=404, detail="Survey not found or inactive")
 
-    # Preview sessions must be initiated by an authenticated researcher, not anonymous participants.
-    # Frontend contract: when launching a preview via the share-code/start endpoint,
-    # the frontend must include `Authorization: Bearer <researcher_jwt>` in the request headers.
-    # The researcher JWT is obtained from the normal login flow (/api/v1/auth/login).
-    # preview_assigned_group is still optional; if omitted, random group assignment is used.
-    if body and (body.is_preview or body.preview_assigned_group is not None):
-        _require_researcher_jwt(authorization)
+    language_code = normalize_survey_language(survey, body.language if body else None)
 
     # Resume path: when the client supplies a token from a prior start_survey
     # call and it matches an in_progress response for THIS survey, reuse that
@@ -961,6 +1025,48 @@ async def start_survey(
         db.add(response)
         await db.flush()
         await db.refresh(response)
+
+        # Calibration carry (#56): if the client supplied a token from a
+        # PRIOR response on this survey that already passed calibration,
+        # clone that CalibrationSession onto this fresh response so the
+        # participant isn't asked to recalibrate after switching language.
+        # Preserves the per-locale response separation introduced in #59
+        # (each locale still gets its own analytics row).
+        if body and body.calibration_carry_token:
+            src_q = await db.execute(
+                select(CalibrationSession)
+                .join(SurveyResponse, CalibrationSession.response_id == SurveyResponse.id)
+                .where(
+                    SurveyResponse.survey_id == survey.id,
+                    SurveyResponse.participant_token == body.calibration_carry_token,
+                    CalibrationSession.status == "completed",
+                )
+            )
+            src_cal = src_q.scalar_one_or_none()
+            if src_cal and src_cal.quality != "poor" and src_cal.passed is not False:
+                cloned = CalibrationSession(
+                    response_id=response.id,
+                    status="completed",
+                    screen_width=src_cal.screen_width,
+                    screen_height=src_cal.screen_height,
+                    camera_width=src_cal.camera_width,
+                    camera_height=src_cal.camera_height,
+                    expected_points=src_cal.expected_points,
+                    face_detection_rate=src_cal.face_detection_rate,
+                    quality_score=src_cal.quality_score,
+                    passed=src_cal.passed,
+                    stability_score=src_cal.stability_score,
+                    quality_reason=src_cal.quality_reason,
+                    model_type=src_cal.model_type,
+                    model_params=src_cal.model_params,
+                    validation_error_px=src_cal.validation_error_px,
+                    quality=src_cal.quality,
+                    started_at=src_cal.started_at,
+                    completed_at=src_cal.completed_at,
+                )
+                db.add(cloned)
+                await db.flush()
+                calibration_completed = True
     else:
         assigned_group = response.assigned_group
         language_code = response.language
@@ -1024,19 +1130,34 @@ async def start_survey(
 async def get_public_survey(
     share_code: str,
     language: str | None = None,
+    preview: bool = False,
+    authorization: str | None = Header(default=None, alias="Authorization"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Public metadata for start screen before starting a session."""
+    """Public metadata for start screen before starting a session.
+
+    Drafts are gated to authenticated researchers via `?preview=1` + a valid
+    `Authorization` header that resolves to the survey's owner — same contract
+    as `start_survey`. Closed surveys remain unpreviewable.
+    """
     result = await db.execute(
         select(Survey)
         .options(selectinload(Survey.translations))
-        .where(Survey.share_code == share_code, Survey.status == "published")
+        .where(Survey.share_code == share_code)
     )
     survey = result.scalar_one_or_none()
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found or not published")
     if survey.share_code_expires_at and survey.share_code_expires_at < datetime.utcnow():
         raise HTTPException(status_code=410, detail="Survey link has expired")
+    if preview:
+        researcher_id = _require_researcher_jwt(authorization)
+        if survey.researcher_id != researcher_id:
+            raise HTTPException(status_code=403, detail="Not authorized to preview this survey")
+        if survey.status not in {"draft", "published"}:
+            raise HTTPException(status_code=404, detail="Survey not found or not published")
+    elif survey.status != "published":
+        raise HTTPException(status_code=404, detail="Survey not found or not published")
     public_survey = apply_translations_to_public_survey(
         survey, normalize_survey_language(survey, language)
     )

@@ -17,7 +17,7 @@ export default function AuthPage() {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
   const text =
-    locale === "zh"
+    (locale === "zh-CN" || locale === "zh-TW")
       ? {
           product: "CS14 问卷平台",
           workspace: "受控社交媒体研究工作台",

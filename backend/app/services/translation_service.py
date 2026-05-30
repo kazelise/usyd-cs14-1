@@ -21,7 +21,29 @@ from app.models.translation import PostTranslation, QuestionTranslation, SurveyT
 from app.schemas.survey import CommentOut, PostOut, PublicSurveyOut, QuestionOut
 
 DEFAULT_LANGUAGE_CODE = "en"
-SUPPORTED_LANGUAGE_CODES = {"en", "zh", "zh-cn", "zh-tw", "ar"}
+# Canonical BCP-47 forms used for storage and API output.
+CANONICAL_LANGUAGE_CODES = ("en", "zh-CN", "zh-TW", "ja", "ko", "es")
+# Legacy aliases the API still accepts on INPUT (older translation files /
+# old participant links). They are normalized to canonical forms on read.
+_LEGACY_ALIAS_MAP = {
+    "zh": "zh-CN",
+    "ar": "en",  # Arabic dropped (#60); fall back to English.
+}
+# Lowercased lookup -> canonical form. Built deterministically so case-
+# insensitive matching always returns the canonical (e.g. "zh-cn" -> "zh-CN").
+_LANGUAGE_LOOKUP: dict[str, str] = {code.lower(): code for code in CANONICAL_LANGUAGE_CODES}
+for alias, canonical in _LEGACY_ALIAS_MAP.items():
+    _LANGUAGE_LOOKUP.setdefault(alias.lower(), canonical)
+
+SUPPORTED_LANGUAGE_CODES = set(_LANGUAGE_LOOKUP.keys()) | set(CANONICAL_LANGUAGE_CODES)
+
+
+def _canonicalize(language_code: str | None) -> str | None:
+    if not language_code:
+        return None
+    return _LANGUAGE_LOOKUP.get(language_code.strip().lower())
+
+
 MORE_INFORMATION_LABEL = "More Information"
 
 TranslationFormat = Literal["json", "csv"]
@@ -48,26 +70,28 @@ class TranslationImportPlan:
 
 
 def validate_language_code(language_code: str | None) -> str:
-    normalized = (language_code or "").strip().lower()
-    if normalized not in SUPPORTED_LANGUAGE_CODES:
-        allowed = ", ".join(sorted(SUPPORTED_LANGUAGE_CODES))
+    canonical = _canonicalize(language_code)
+    if canonical is None:
+        allowed = ", ".join(CANONICAL_LANGUAGE_CODES)
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported language code. Supported languages: {allowed}",
         )
-    return normalized
+    return canonical
 
 
 def normalize_optional_language(language_code: str | None) -> str:
-    if not language_code:
-        return DEFAULT_LANGUAGE_CODE
-    normalized = language_code.strip().lower()
-    return normalized if normalized in SUPPORTED_LANGUAGE_CODES else DEFAULT_LANGUAGE_CODE
+    return _canonicalize(language_code) or DEFAULT_LANGUAGE_CODE
 
 
 def get_translation_fields(translations: Iterable[Any], language_code: str) -> dict[str, Any]:
+    # Match case-insensitively AND canonicalize both sides so legacy
+    # stored values (e.g. "zh") still resolve to the new canonical request
+    # ("zh-CN") and vice versa. See #60.
+    target = _canonicalize(language_code) or language_code
     for translation in translations or []:
-        if (translation.language_code or "").lower() == language_code:
+        stored = _canonicalize(translation.language_code) or (translation.language_code or "")
+        if stored == target:
             return dict(translation.translated_fields or {})
     return {}
 
@@ -85,7 +109,10 @@ def build_translation_export_payload(survey: Survey, language_code: str = "zh") 
         "survey_id": survey.id,
         "default_language": DEFAULT_LANGUAGE_CODE,
         "language_code": language_code,
-        "supported_languages": sorted(SUPPORTED_LANGUAGE_CODES),
+        # Expose CANONICAL codes only — SUPPORTED_LANGUAGE_CODES also contains
+        # lenient input aliases (legacy 'zh' / 'ar' / lowercase variants) that
+        # callers should not treat as a real locale catalog (#60).
+        "supported_languages": list(CANONICAL_LANGUAGE_CODES),
         "items": items,
     }
 

@@ -24,8 +24,7 @@ function statusClasses(status: string) {
 }
 
 function dateLocaleTag(locale: Locale) {
-  if (locale === "zh") return "zh-CN";
-  if (locale === "ar") return "ar";
+  if ((locale === "zh-CN" || locale === "zh-TW")) return "zh-CN";
   return "en";
 }
 
@@ -56,7 +55,7 @@ function SurveysPageContent() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const text =
-    locale === "zh"
+    (locale === "zh-CN" || locale === "zh-TW")
       ? {
           loading: "正在加载问卷",
           title: "问卷工作台",

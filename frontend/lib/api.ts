@@ -126,6 +126,8 @@ export const api = {
     request(`/surveys/${id}/close`, { method: "POST" }),
   reopenSurvey: (id: number) =>
     request(`/surveys/${id}/reopen`, { method: "POST" }),
+  deletePreviewResponses: (id: number) =>
+    request(`/surveys/${id}/preview-responses`, { method: "DELETE" }),
   getSurveyAnalytics: (id: number, filters?: SurveyExportFilters) =>
     request(analyticsSummaryPath(id, filters)),
   getSurveyParticipantComments: (id: number) => request(`/surveys/${id}/participant-comments`),
@@ -185,6 +187,7 @@ export const api = {
       participant_token?: string;
       is_preview?: boolean;
       preview_assigned_group?: number;
+      calibration_carry_token?: string;
     },
   ) => request(`/surveys/${shareCode}/start`, { method: "POST", body: JSON.stringify(data || {}) }),
   getPublicSurvey: (shareCode: string, language?: string) =>

@@ -93,7 +93,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [collapsed, setCollapsed] = useState(false);
   const profileRef = useRef<HTMLDivElement | null>(null);
   const text =
-    locale === "zh"
+    (locale === "zh-CN" || locale === "zh-TW")
       ? {
           checkingAuth: "正在检查登录状态",
           surveys: "问卷",

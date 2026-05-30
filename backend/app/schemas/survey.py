@@ -11,7 +11,7 @@ PlatformStyle = Literal["x", "facebook", "instagram", "xiaohongshu"]
 PlatformUiStyle = Literal[
     "twitter", "facebook", "instagram", "xiaohongshu", "truth_social", "bluesky", "douyin"
 ]
-DEFAULT_SUPPORTED_LANGUAGES = ["en", "ar", "zh"]
+DEFAULT_SUPPORTED_LANGUAGES = ["en", "zh-CN", "zh-TW", "ja", "ko", "es"]
 MAX_CALIBRATION_POINTS = 9
 
 
@@ -242,6 +242,20 @@ class StartSurveyRequest(BaseModel):
         default=None,
         ge=1,
         description="Optional fixed condition/group used only for researcher preview sessions.",
+    )
+    calibration_carry_token: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+        description=(
+            "Optional anonymous token of a PRIOR response on the same survey "
+            "that already completed a passing webcam calibration. When supplied "
+            "alongside a new (non-resumed) start_survey call, the backend "
+            "clones that calibration onto the new response so the participant "
+            "is not asked to recalibrate after switching language. Lets the "
+            "per-locale response separation introduced in #59 keep "
+            "single-calibration UX (issue #56)."
+        ),
     )
 
 

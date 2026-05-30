@@ -23,8 +23,11 @@ const PLATFORM_UI_OPTIONS: { value: PlatformUiStyle; label: string }[] = [
 
 const LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
-  { value: "ar", label: "العربية" },
-  { value: "zh", label: "中文" },
+  { value: "zh-CN", label: "简体中文" },
+  { value: "zh-TW", label: "繁體中文" },
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" },
+  { value: "es", label: "Español" },
 ];
 
 function platformUiStyleToFeedStyle(style: PlatformUiStyle): PlatformStyle {
@@ -40,14 +43,14 @@ export default function NewSurveyPage() {
   const [platformStyle, setPlatformStyle] = useState<PlatformStyle>("x");
   const [platformUiStyle, setPlatformUiStyle] = useState<PlatformUiStyle>("twitter");
   const [defaultLanguage, setDefaultLanguage] = useState("en");
-  const [supportedLanguages, setSupportedLanguages] = useState<string[]>(["en", "ar", "zh"]);
+  const [supportedLanguages, setSupportedLanguages] = useState<string[]>(["en"]);
   const [numGroups, setNumGroups] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showCalibrationPreview, setShowCalibrationPreview] = useState(false);
   const [mounted, setMounted] = useState(false);
   const text =
-    locale === "zh"
+    (locale === "zh-CN" || locale === "zh-TW")
       ? {
           closePreview: "关闭预览",
           createSurvey: "新建问卷",
@@ -63,7 +66,7 @@ export default function NewSurveyPage() {
           languageSettings: "参与者语言",
           defaultLanguage: "默认语言",
           supportedLanguages: "可用语言",
-          languageCopy: "默认会提供英文和阿拉伯语；如果项目已有中文翻译，也会继续保留中文入口。",
+          languageCopy: "英文始终启用作为兜底；可按需勾选简体中文、繁体中文、日语、韩语或西班牙语。",
           oneGroup: "1 组 · 不做 A/B 测试",
           assignedRandomly: "参与者打开实验链接时会被随机分配到已配置分组。",
           sameFeed: "所有参与者都会看到相同的帖子信息流和互动数值。",
@@ -103,7 +106,7 @@ export default function NewSurveyPage() {
           languageSettings: "Participant languages",
           defaultLanguage: "Default language",
           supportedLanguages: "Supported languages",
-          languageCopy: "English and Arabic stay available for the participant flow; Chinese remains enabled when translation work is present.",
+          languageCopy: "English is always available as the fallback. Tick Simplified Chinese, Traditional Chinese, Japanese, Korean, or Spanish for the locales you support.",
           oneGroup: "1 group · no A/B testing",
           assignedRandomly: "Participants will be randomly assigned to a configured group when they open the study link.",
           sameFeed: "All participants will view the same post feed and engagement values.",
@@ -268,7 +271,7 @@ export default function NewSurveyPage() {
                   <div className="mt-2 flex flex-wrap gap-2">
                     {LANGUAGE_OPTIONS.map((option) => {
                       const checked = supportedLanguages.includes(option.value);
-                      const locked = option.value === defaultLanguage || option.value === "en" || option.value === "ar";
+                      const locked = option.value === defaultLanguage || option.value === "en";
                       return (
                         <label
                           key={option.value}
