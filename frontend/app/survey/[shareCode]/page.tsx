@@ -543,6 +543,7 @@ export default function SurveyParticipantPage() {
   const likeInFlightRef = useRef<Set<number>>(new Set());
   const initializedSessionRef = useRef<string | null>(null);
   const gazePipVideoRef = useRef<HTMLVideoElement | null>(null);
+  const participantCommentOriginalsRef = useRef<Record<number, string>>({});
 
   const handleTrackedClick = useCallback((e: MouseEvent) => {
     const target = e.target as HTMLElement | null;
@@ -1343,6 +1344,9 @@ export default function SurveyParticipantPage() {
                                   <input
                                     className={`mt-2 w-full border-0 bg-transparent p-0 text-[13px] leading-6 outline-none ${feedSkin === "douyin" ? "text-white/75" : "text-slate-600"}`}
                                     value={comment.text}
+                                    onFocus={(e) => {
+                                      participantCommentOriginalsRef.current[comment.id] = e.target.value;
+                                    }}
                                     onChange={(e) => {
                                       const value = e.target.value;
                                       setParticipantComments((prev) => ({
@@ -1354,26 +1358,49 @@ export default function SurveyParticipantPage() {
                                     }}
                                     onBlur={async (e) => {
                                       const value = e.target.value;
-                                      if (!value.trim()) {
-                                        try {
-                                          setActionError("");
-                                          await api.deleteParticipantComment(session.response_id, comment.id, session.participant_token);
+                                      const originalValue =
+                                        participantCommentOriginalsRef.current[comment.id] ?? value;
+                                      try {
+                                        setActionError("");
+                                        if (!value.trim()) {
+                                          await api.deleteParticipantComment(
+                                            session.response_id,
+                                            comment.id,
+                                            session.participant_token,
+                                          );
                                           setParticipantComments((prev) => ({
                                             ...prev,
-                                            [post.id]: (prev[post.id] || []).filter((item) => item.id !== comment.id),
+                                            [post.id]: (prev[post.id] || []).filter(
+                                              (item) => item.id !== comment.id,
+                                            ),
                                           }));
-                                        } catch (err: any) {
-                                          setActionError(err.message || t(locale, "networkRequestFailed"));
+                                          delete participantCommentOriginalsRef.current[comment.id];
+                                          return;
                                         }
-                                        return;
-                                      }
-                                      if (value.trim()) {
-                                        try {
-                                          setActionError("");
-                                          await api.updateParticipantComment(session.response_id, comment.id, value, session.participant_token);
-                                        } catch (err: any) {
-                                          setActionError(err.message || t(locale, "networkRequestFailed"));
-                                        }
+
+                                        const updated = await api.updateParticipantComment(
+                                          session.response_id,
+                                          comment.id,
+                                          value,
+                                          session.participant_token,
+                                        );
+                                        setParticipantComments((prev) => ({
+                                          ...prev,
+                                          [post.id]: (prev[post.id] || []).map((item) =>
+                                            item.id === comment.id ? updated : item,
+                                          ),
+                                        }));
+                                        participantCommentOriginalsRef.current[comment.id] = updated.text;
+                                      } catch (err: any) {
+                                        setParticipantComments((prev) => ({
+                                          ...prev,
+                                          [post.id]: (prev[post.id] || []).map((item) =>
+                                            item.id === comment.id
+                                              ? { ...item, text: originalValue }
+                                              : item,
+                                          ),
+                                        }));
+                                        setActionError(err.message || t(locale, "networkRequestFailed"));
                                       }
                                     }}
                                   />
@@ -1388,6 +1415,7 @@ export default function SurveyParticipantPage() {
                                         ...prev,
                                         [post.id]: (prev[post.id] || []).filter((item) => item.id !== comment.id),
                                       }));
+                                      delete participantCommentOriginalsRef.current[comment.id];
                                     } catch (err: any) {
                                       setActionError(err.message || t(locale, "networkRequestFailed"));
                                     }
