@@ -499,7 +499,9 @@ export default function SurveyEditPage() {
     setAddingPost(true);
     setError("");
     try {
-      await api.createPost(surveyId, { original_url: newUrl, order: posts.length + 1 });
+      const nextOrder =
+        posts.length === 0 ? 1 : Math.max(...posts.map((post) => post.order)) + 1;
+      await api.createPost(surveyId, { original_url: newUrl, order: nextOrder });
       setNewUrl("");
       await loadData();
       setIsUnsavedDraft(false);
