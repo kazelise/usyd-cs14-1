@@ -198,7 +198,16 @@ frontend/
 docs/                   Markdown runbooks and engineering docs
 docs-site/              Published VitePress handbook source
 scripts/                Public smoke verifier
+cs14.sql                PostgreSQL schema handover for final submission
 ```
+
+## Database And Testing Handover
+
+| Checklist item | Repository evidence |
+| --- | --- |
+| `cs14.sql` schema handover | `cs14.sql` provides the PostgreSQL table, constraint, and index baseline generated from the Alembic-backed data model. |
+| Database deployment guide | `docker-compose.yml`, `docs/deployment.md`, and `backend/alembic/versions/` show PostgreSQL 16, Docker Compose, `DATABASE_URL`, and migration startup. |
+| Performance testing | `cs14.sql`, `docs/tracking-data-flow.md`, and backend tests cover indexed response queries, batched gaze/click ingestion, analytics, and export paths. |
 
 ## Documentation Map
 
