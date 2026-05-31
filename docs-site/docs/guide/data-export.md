@@ -49,7 +49,7 @@ Exported participant identifiers should be anonymous. Raw participant tokens, pa
 
 1. Open the survey editor.
 2. Go to the translations panel.
-3. Select the target language, such as `zh` or `ar`.
+3. Select the target language, such as `zh-CN` or `ja`.
 4. Choose `Export CSV`.
 5. Keep stable IDs unchanged.
 6. Translate only the editable text fields.
@@ -92,7 +92,6 @@ JSON is best for structured review, developer inspection, and version control.
 Participants choose language on the start page before calibration and before the feed. The selected language should:
 
 - Set the participant UI language.
-- Set text direction where relevant, such as Arabic RTL.
 - Determine translated survey title, instructions, posts, comments, and questions.
 - Be stored on the survey response.
 - Be available as an analytics/export filter.
@@ -112,7 +111,7 @@ Each CSV row is **one participant response** (one session). Columns are fixed in
 | `randomization_seed` | Server-side seed for stimulus ordering when used. |
 | `shown_post_order` | JSON array of post ids as shown to the participant. |
 | `is_preview` | `true` if this run was a researcher preview / test session. |
-| `language` | Participant UI language code (e.g. `en`, `zh`, `ar`). |
+| `language` | Participant UI language code (e.g. `en`, `zh-CN`, `ja`). |
 | `response_status` | `completed`, `in_progress`, or `flagged`, etc. |
 | `started_at` / `completed_at` | ISO timestamps. |
 | **Calibration (flat)** | See below. |

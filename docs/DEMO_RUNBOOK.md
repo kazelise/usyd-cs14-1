@@ -11,7 +11,7 @@ Use this alongside the README **Demo Showcase** section. It gathers examiner-fac
 | App (researcher admin + participant entry) | <https://cs14.kazelis.top/> |
 | Participant surveys | `https://cs14.kazelis.top/survey/<SHARE_CODE>` (often via `/start` for consent/calibration) |
 | Public documentation site | <https://cs14-docs.kazelis.top/> |
-| Swagger / OpenAPI | <https://cs14.kazelis.top/docs> |
+| Swagger / OpenAPI | local stack only — <http://localhost:8000/docs> (not exposed in production) |
 
 ---
 
@@ -26,8 +26,10 @@ For the **staging host** seeded by the COMP5703 team:
 | Field | Value |
 |-------|-------|
 | Sign-in URL | `https://cs14.kazelis.top/auth` |
-| Email | `cs14.demopresenter@students.sydney.edu.au` |
-| Password | `Cs14DemoMay2026!` |
+| Email | `cs14.demo@kazelis.top` |
+| Password | `Cs14Demo!2026` |
+
+> Provisioned fresh on 2026-05-31. This login currently owns **no** seeded surveys — the seeded decks below belong to whoever last ran `seed_client_demo`. The participant share links are public and work regardless of this account; to also show the seeded decks **inside this researcher dashboard**, re-run the seed with `DEMO_RESEARCHER_EMAIL=cs14.demo@kazelis.top`.
 
 Seed defaults (`cs14.demo@example.com` / `change-me-client-demo`) are only for unattended local smoke runs — swap them via env vars for any shared environment.
 
@@ -50,7 +52,7 @@ The seed is **idempotent** on fixed share codes below: wipes and recreates each 
 
 Stimulus URLs embed **controlled copy** (`*.example`, lab vignettes, or stable CDN-free summaries) — demo runs avoid live Open Graph fetches that could fail mid-talk.
 
-Translations: Chinese strings are seeded per post/question; Arabic remains in **`supported_languages`** for RTL layout checks even when copy is thinner than Chinese.
+Translations: English and Chinese strings are seeded per post/question. Each survey's **`supported_languages`** lists exactly the locales a participant can pick from — the picker and analytics enforce that set.
 
 ---
 
@@ -73,7 +75,7 @@ Translations: Chinese strings are seeded per post/question; Arabic remains in **
 | **CS14BSKY2026** | Bluesky-style column | <https://cs14.kazelis.top/survey/CS14BSKY2026> |
 | **CS14DOUYIN26** | Douyin/TikTok **vertical feed** | <https://cs14.kazelis.top/survey/CS14DOUYIN26> |
 
-Add `?lang=en`, `?lang=zh`, or `?lang=ar` to force participant locale previews.
+Add `?lang=en` or `?lang=zh-CN` to force a participant locale preview (only languages enabled on the survey are honoured; others fall back to its default).
 
 Opening a participant link assigns a synthetic session automatically—no standalone “participant login”.
 
@@ -84,11 +86,10 @@ Opening a participant link assigns a synthetic session automatically—no standa
 | What | Link / value |
 | --- | --- |
 | Public demo URL (researcher + participant) | `https://cs14.kazelis.top/` |
-| API base / Swagger | `https://cs14.kazelis.top/docs` |
+| API base | `https://cs14.kazelis.top/api/v1` (Swagger only on the local stack: `http://localhost:8000/docs`) |
 | Public docs site | `https://cs14-docs.kazelis.top/` |
 | Participant deep link (EN) | `https://cs14.kazelis.top/survey/CS14DEMO2026?lang=en` |
-| Participant deep link (中文) | `https://cs14.kazelis.top/survey/CS14DEMO2026?lang=zh` |
-| Participant RTL smoke (ar) | `https://cs14.kazelis.top/survey/CS14DEMO2026?lang=ar` |
+| Participant deep link (中文) | `https://cs14.kazelis.top/survey/CS14DEMO2026?lang=zh-CN` |
 | Project docs index | [`docs/README.md`](./README.md); deeper guides: [`researcher-user-guide.md`](./researcher-user-guide.md), [`deployment.md`](./deployment.md), tracking docs |
 | Repo demo seed | [`backend/scripts/seed_client_demo.py`](../backend/scripts/seed_client_demo.py) |
 
@@ -198,7 +199,7 @@ Minute **0‑2 framing:** Multilingual simulated feeds + optional webcam gaze—
 
 Minute **2‑8 researcher:** Admin Surveys → show six-card deck, bilingual fields, **`Control` vs `High engagement cues` overrides**, gaze interval (1 Hz demo default), translations panel, publish state (**never flash `.env` / API secrets**).
 
-Minute **8‑14 participant:** Open share link HTTPS → toggle `zh/ar` briefly → calibration story → interact with feed + Likert.
+Minute **8‑14 participant:** Open share link HTTPS → toggle `zh-CN` briefly → calibration story → interact with feed + Likert.
 
 Minute **14‑18 data-out:** Analytics dashboard + export artefacts (explain anonymised IDs, calibration gating columns).
 
@@ -220,7 +221,7 @@ Minute **18‑20 Q&A:** Highlight privacy ledger, indicative gaze accuracy, OG f
 
 ```bash
 curl -sf https://cs14.kazelis.top/health
-curl -sf "https://cs14.kazelis.top/api/v1/surveys/public/CS14DEMO2026?language=zh" | head -c 200
+curl -sf "https://cs14.kazelis.top/api/v1/surveys/public/CS14DEMO2026?language=zh-CN" | head -c 200
 curl -sf "https://cs14.kazelis.top/api/v1/surveys/public/CS14BSKY2026?language=en" | head -c 120
 ```
 

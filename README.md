@@ -42,19 +42,14 @@ passwords or production secrets to the repository.
   produce numeric quality/gaze/click signals. Raw webcam video is not persisted.
 - **Researcher exports:** analytics and CSV/JSON exports support group, language,
   completion status, calibration, and preview filters.
-- **Multilingual delivery:** English and Chinese are fully supported, with Arabic
-  RTL layout support for interface and smoke validation.
+- **Multilingual delivery:** English, Simplified and Traditional Chinese, Japanese,
+  Korean, and Spanish, with per-survey participant language selection.
 
-<table>
-  <tr>
-    <td><img src="docs/screenshots/start-en.png" alt="Participant start screen in English" /></td>
-    <td><img src="docs/screenshots/start-ar.png" alt="Participant start screen in Arabic RTL" /></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Participant start screen - English</sub></td>
-    <td align="center"><sub>Same flow in Arabic - RTL layout</sub></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/screenshots/start-en.png" alt="Participant start screen" width="640" />
+  <br/>
+  <sub>Participant start screen</sub>
+</p>
 
 ## Research Workflow
 
