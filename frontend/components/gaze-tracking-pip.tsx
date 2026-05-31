@@ -41,7 +41,6 @@ export function GazeTrackingPip({ snapshot, locale, videoRef }: GazeTrackingPipP
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const [pos, setPos] = useState({ x: MARGIN, y: MARGIN });
   const [box, setBox] = useState({ w: 200, h: 260 });
-  const [collapsed, setCollapsed] = useState(false);
 
   const clampPos = useCallback(
     (x: number, y: number) => {
@@ -113,7 +112,6 @@ export function GazeTrackingPip({ snapshot, locale, videoRef }: GazeTrackingPipP
     dragRef.current = null;
   }, []);
 
-  const coveragePct = Math.round(Math.min(1, Math.max(0, snapshot.coverage)) * 100);
   const ring = STATUS_RING[snapshot.status];
   const dot = STATUS_DOT[snapshot.status];
   const labelKey = STATUS_LABEL[snapshot.status];
@@ -145,28 +143,16 @@ export function GazeTrackingPip({ snapshot, locale, videoRef }: GazeTrackingPipP
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/80">
             {t(locale, "trackingStatusTitle")}
           </p>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              aria-label={collapsed ? t(locale, "pipExpand") : t(locale, "pipMinimize")}
-              onClick={() => setCollapsed((c) => !c)}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="flex h-4 w-4 items-center justify-center rounded text-[8px] text-white/60 hover:bg-white/15 hover:text-white/90"
-            >
-              {collapsed ? "▲" : "▼"}
-            </button>
-            <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden />
-          </div>
+          <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden />
         </div>
         {/*
-          Keep the <video> MOUNTED while collapsed (just hidden via display:none).
-          Unmounting it drops the camera stream binding from the element; on
-          re-expand the new video element starts with srcObject=null and the
-          face never reappears until the user reloads. Hiding via CSS keeps
-          the same element in the DOM so the MediaStream stays attached and
-          frames continue to flow to MediaPipe.
+          Keep the <video> MOUNTED but permanently hidden (display:none). The
+          PIP is now a drag-only status chip and never expands, yet the camera
+          stream binding must stay attached to this element so frames keep
+          flowing to MediaPipe — unmounting it would drop the stream and the
+          face would never reappear without a reload.
         */}
-        <div className="relative aspect-[16/10] bg-slate-950" style={{ display: collapsed ? "none" : "block" }}>
+        <div className="relative aspect-[16/10] bg-slate-950" style={{ display: "none" }}>
           <video
             ref={videoRef as Ref<HTMLVideoElement>}
             className="h-full w-full scale-x-[-1] object-cover"
@@ -174,49 +160,8 @@ export function GazeTrackingPip({ snapshot, locale, videoRef }: GazeTrackingPipP
             muted
             playsInline
           />
-          {snapshot.status === "starting" && (
-            // Cold-start window after a refresh: MediaPipe scripts reload
-            // from CDN and the Camera wrapper hasn't bound a stream yet, so
-            // the <video> is a black box. Without an explicit message,
-            // participants read "my face is lost" (issue #55). The overlay
-            // disappears the moment Camera.start() resolves and frames flow.
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 px-2 text-center text-[10px] font-semibold leading-tight text-white">
-              <span className="inline-flex h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white/90" aria-hidden />
-              <span>{t(locale, "trackingStatusStarting")}</span>
-            </div>
-          )}
-          {snapshot.status === "lost" && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 px-2 text-center text-[10px] font-semibold leading-tight text-white">
-              {t(locale, "trackingStatusLost")}
-            </div>
-          )}
         </div>
-        {!collapsed && (
-          <>
-            <div className="space-y-1 border-t border-white/10 bg-black/75 px-2 py-1.5 text-[10px] text-white/85">
-              <div className="flex items-center justify-between gap-2 font-medium">
-                <span className="truncate">{t(locale, labelKey)}</span>
-                <span className={snapshot.faceDetected ? "text-emerald-400" : "text-rose-400"}>
-                  {snapshot.faceDetected ? "●" : "○"}
-                </span>
-              </div>
-              {snapshot.expectedSamples > 0 && (
-                <div>
-                  <div className="mb-0.5 flex justify-between text-[9px] uppercase tracking-[0.12em] text-white/50">
-                    <span>{t(locale, "trackingCoverageLabel")}</span>
-                    <span>{coveragePct}%</span>
-                  </div>
-                  <div className="h-1 overflow-hidden rounded-full bg-white/15">
-                    <div className="h-full rounded-full bg-emerald-500/90 transition-all" style={{ width: `${coveragePct}%` }} />
-                  </div>
-                </div>
-              )}
-              <p className="leading-snug text-[9px] text-white/45">{t(locale, "trackingPrivacyNote")}</p>
-            </div>
-          </>
-        )}
       </div>
-      <p className="mt-1 text-center text-[9px] text-slate-500">{t(locale, "trackingPipDragHint")}</p>
     </div>
   );
 }
