@@ -1,5 +1,4 @@
 -- CS14-1 PostgreSQL schema handover
--- Owner: Zhenyu Zhang
 -- Scope: cs14.sql schema export, database deployment reference, and performance-testing baseline.
 -- Source of truth: PostgreSQL 16 plus Alembic migrations under backend/alembic/versions/.
 -- Deployment baseline: docker-compose Postgres service + backend Alembic startup.
