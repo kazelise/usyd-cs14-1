@@ -38,7 +38,7 @@ Use the preview panel to check the participant-facing order before publishing.
 
 ## 4. Translate the Survey
 
-The platform supports English, Chinese, and Arabic UI flows, including right-to-left layout for Arabic.
+The platform supports English, Simplified and Traditional Chinese, Japanese, Korean, and Spanish. Each survey enables a subset of these, and participants choose among the enabled languages.
 
 1. Open the survey workspace translation panel.
 2. Select the target language.
