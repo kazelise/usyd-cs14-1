@@ -8,6 +8,10 @@ Human-facing docs live in this directory. For deployment and live-demo scripts, 
 | --- | --- | --- |
 | [`DEMO_RUNBOOK.md`](./DEMO_RUNBOOK.md) | Presenters | ~20-minute client meeting script: URLs, timings, slide wording for gaze claims, export, camera fallback |
 | [`deployment.md`](./deployment.md) | Operators | Prod host layout, `.env`, Caddy, Compose commands, HTTPS/CORS/smoke checklist |
+| [`deployment-video-script.md`](./deployment-video-script.md) | Presenters / DevOps | Recording script for the deployment guide video: clean checkout → compose up → migrate → seed → working URL |
+| [`ci-cd.md`](./ci-cd.md) | DevOps / Operators | CI/CD pipeline: GitHub Actions checks, branch/PR gate, Docker image artifacts, production delivery (replaces the sample-group Jenkins items) |
+| [`performance-baseline.md`](./performance-baseline.md) | Backend / DevOps | Runtime latency baseline for public read endpoints; pairs with `scripts/perf_baseline.sh` |
+| [`server-credentials.template.md`](./server-credentials.template.md) | Operators | Template (placeholders only) for the server detail & credentials handover — real secrets stay out of git |
 | [`researcher-user-guide.md`](./researcher-user-guide.md) | Researchers | Building surveys, translations, publishing, export |
 | [`CS14_ACCEPTANCE_CHECKLIST.md`](./CS14_ACCEPTANCE_CHECKLIST.md) | Team | Requirement vs implementation matrix |
 | [`architecture.md`](./architecture.md) and docs-site Project pages | Engineers / client | Subsystem overview, frontend design, database design, API reference |
