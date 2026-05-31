@@ -47,7 +47,9 @@ class Survey(Base):
     )
     platform_style: Mapped[str] = mapped_column(String(32), default="x", server_default="x")
     default_language: Mapped[str] = mapped_column(String(10), default="en", server_default="en")
-    supported_languages: Mapped[list[str]] = mapped_column(JSON, default=lambda: ["en", "ar", "zh"])
+    supported_languages: Mapped[list[str]] = mapped_column(
+        JSON, default=lambda: ["en", "zh-CN", "zh-TW", "ja", "ko", "es"]
+    )
 
     # ── A/B Testing Configuration ────────────────────
     num_groups: Mapped[int] = mapped_column(SmallInteger, default=1)  # 1 = no A/B testing

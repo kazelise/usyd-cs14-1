@@ -7,6 +7,15 @@ import { useLocale } from "@/components/locale-provider";
 import { canonicalizeLocale, t, type Locale } from "@/lib/i18n";
 import { CheckCircleIcon, GlobeIcon, SurveyIcon } from "@/components/icons";
 
+const LANGUAGE_OPTIONS: { value: Locale; label: string }[] = [
+  { value: "en", label: "English" },
+  { value: "zh-CN", label: "简体中文" },
+  { value: "zh-TW", label: "繁體中文" },
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" },
+  { value: "es", label: "Español" },
+];
+
 export default function StartScreen() {
   const { shareCode } = useParams();
   const router = useRouter();
@@ -25,7 +34,12 @@ export default function StartScreen() {
   const [error, setError] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [consentError, setConsentError] = useState("");
-  const [meta, setMeta] = useState<{ title: string; description?: string } | null>(null);
+  const [meta, setMeta] = useState<{
+    title: string;
+    description?: string;
+    supported_languages?: string[];
+    default_language?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -33,9 +47,10 @@ export default function StartScreen() {
     // the legacy shared key for users who haven't been migrated yet.
     const saved =
       localStorage.getItem("participant_locale") ?? localStorage.getItem("locale");
-    // canonicalizeLocale migrates legacy values (zh -> zh-CN, ar -> en) so
-    // that ?lang=zh and stale saved="ar" still resolve to a supported locale
-    // instead of getting silently dropped (#60 follow-up).
+    // canonicalizeLocale migrates the legacy "zh" to zh-CN so a shared
+    // ?lang=zh or a stale saved value still resolves to a supported locale
+    // instead of getting silently dropped. The survey's enabled-language
+    // gate (below) then snaps anything outside this survey's set to default.
     const canonicalQuery = canonicalizeLocale(queryLocale);
     const canonicalSaved = canonicalizeLocale(saved);
     if (canonicalQuery) setLocale(canonicalQuery);
@@ -56,6 +71,18 @@ export default function StartScreen() {
       }
     })();
   }, [locale, shareCode]);
+
+  // Gate the participant's locale to the languages the researcher enabled for
+  // this survey. A stale saved locale or a ?lang= override pointing at a
+  // language this survey doesn't support snaps back to the survey default
+  // (the picker below only offers the enabled languages).
+  useEffect(() => {
+    const allowed = meta?.supported_languages;
+    if (!allowed || allowed.length === 0 || allowed.includes(locale)) return;
+    const preferred = meta?.default_language;
+    const fallback = (preferred && allowed.includes(preferred) ? preferred : allowed[0]) as Locale;
+    setLocale(fallback);
+  }, [meta?.supported_languages, meta?.default_language, locale, setLocale]);
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-sm uppercase tracking-[0.24em] text-slate-400">{t(locale, "loadingStudy")}</div>;
@@ -97,13 +124,14 @@ export default function StartScreen() {
                 setLocale(next);
               }}
             >
-              <option value="en">English</option>
-              <option value="zh-CN">简体中文</option>
-              <option value="zh-TW">繁體中文</option>
-              <option value="ja">日本語</option>
-              <option value="ko">한국어</option>
-              <option value="es">Español</option>
-                          </select>
+              {LANGUAGE_OPTIONS.filter((opt) =>
+                (meta.supported_languages ?? ["en"]).includes(opt.value),
+              ).map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

@@ -1,41 +1,26 @@
-// Supported participant + researcher locales. Arabic was removed in #60
-// (RTL layout was never fully end-to-end). zh-CN inherits the legacy "zh"
+// Supported participant + researcher locales. zh-CN inherits the legacy "zh"
 // content; zh-TW / ja / ko / es are filled in by the translation workflow.
 export type Locale = "en" | "zh-CN" | "zh-TW" | "ja" | "ko" | "es";
 export const supportedLocales: Locale[] = ["en", "zh-CN", "zh-TW", "ja", "ko", "es"];
-
-// No supported locale reads right-to-left right now; kept as an empty array
-// (not deleted) so the LocaleProvider's dir wiring stays a no-op rather
-// than a special case, and a future RTL locale can be slotted in here.
-export const rtlLocales: readonly Locale[] = [] as const;
 
 export function isLocale(value: string | null): value is Locale {
   return supportedLocales.includes(value as Locale);
 }
 
-// Legacy locale codes that were dropped or split in #60. Mapped to canonical
-// values so a saved/shared ?lang=zh or ?lang=ar URL still produces sensible
-// behaviour instead of silently falling back to default English. Mirror this
-// map in the bootstrap script in app/layout.tsx.
+// Legacy locale codes that were split (the old single "zh" predates the
+// zh-CN / zh-TW split). Mapped to canonical values so a saved/shared
+// ?lang=zh URL still resolves sensibly instead of falling back to English.
+// Mirror this map in the bootstrap script in app/layout.tsx.
 const LEGACY_LOCALE_ALIASES: Record<string, Locale> = {
   zh: "zh-CN",
   "zh-cn": "zh-CN",
   "zh-tw": "zh-TW",
-  ar: "en", // Arabic dropped — fall back to English rather than ignoring.
 };
 
 export function canonicalizeLocale(value: string | null | undefined): Locale | null {
   if (!value) return null;
   if (isLocale(value)) return value;
   return LEGACY_LOCALE_ALIASES[value] ?? LEGACY_LOCALE_ALIASES[value.toLowerCase()] ?? null;
-}
-
-export function isRtl(locale: Locale): boolean {
-  return rtlLocales.includes(locale);
-}
-
-export function localeDir(locale: Locale): "ltr" | "rtl" {
-  return isRtl(locale) ? "rtl" : "ltr";
 }
 
 export const dict = {

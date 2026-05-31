@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ── Survey ────────────────────────────────────────────
 
@@ -13,6 +13,39 @@ PlatformUiStyle = Literal[
 ]
 DEFAULT_SUPPORTED_LANGUAGES = ["en", "zh-CN", "zh-TW", "ja", "ko", "es"]
 MAX_CALIBRATION_POINTS = 9
+
+# Legacy language aliases accepted on input (the old single "zh" predates the
+# zh-CN / zh-TW split) and normalized to canonical codes. Codes outside the
+# supported set are rejected so a survey can only enable real locales.
+# Mirror the alias map in app/services/translation_service.py and
+# frontend/lib/i18n.ts.
+_LANGUAGE_ALIASES = {"zh": "zh-CN", "zh-cn": "zh-CN", "zh-tw": "zh-TW"}
+
+
+def _canonical_language(code: str) -> str:
+    """Return the canonical code for ``code`` or raise ValueError if unsupported."""
+    if code in DEFAULT_SUPPORTED_LANGUAGES:
+        return code
+    lowered = code.strip().lower()
+    if lowered in _LANGUAGE_ALIASES:
+        return _LANGUAGE_ALIASES[lowered]
+    for canonical in DEFAULT_SUPPORTED_LANGUAGES:
+        if canonical.lower() == lowered:
+            return canonical
+    raise ValueError(
+        f"Unsupported language code: {code!r}. Allowed: {', '.join(DEFAULT_SUPPORTED_LANGUAGES)}"
+    )
+
+
+def _canonical_language_list(codes: list[str]) -> list[str]:
+    if not codes:
+        raise ValueError("supported_languages must include at least one language")
+    result: list[str] = []
+    for code in codes:
+        canonical = _canonical_language(code)
+        if canonical not in result:
+            result.append(canonical)
+    return result
 
 
 class CreateSurveyRequest(BaseModel):
@@ -32,6 +65,22 @@ class CreateSurveyRequest(BaseModel):
         default_factory=lambda: DEFAULT_SUPPORTED_LANGUAGES.copy()
     )
 
+    @field_validator("default_language")
+    @classmethod
+    def _canonical_default_language(cls, value: str) -> str:
+        return _canonical_language(value)
+
+    @field_validator("supported_languages")
+    @classmethod
+    def _canonical_supported_languages(cls, value: list[str]) -> list[str]:
+        return _canonical_language_list(value)
+
+    @model_validator(mode="after")
+    def _default_within_supported(self) -> "CreateSurveyRequest":
+        if self.default_language not in self.supported_languages:
+            self.supported_languages = [self.default_language, *self.supported_languages]
+        return self
+
 
 class UpdateSurveyRequest(BaseModel):
     title: str | None = None
@@ -47,6 +96,16 @@ class UpdateSurveyRequest(BaseModel):
     platform_ui_style: PlatformUiStyle | None = None
     default_language: str | None = None
     supported_languages: list[str] | None = None
+
+    @field_validator("default_language")
+    @classmethod
+    def _canonical_default_language(cls, value: str | None) -> str | None:
+        return None if value is None else _canonical_language(value)
+
+    @field_validator("supported_languages")
+    @classmethod
+    def _canonical_supported_languages(cls, value: list[str] | None) -> list[str] | None:
+        return None if value is None else _canonical_language_list(value)
 
 
 class SurveyOut(BaseModel):
