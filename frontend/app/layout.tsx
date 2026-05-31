@@ -9,21 +9,18 @@ export const metadata: Metadata = {
 
 // Runs synchronously in <head> before React hydrates. Reads the cached
 // locale from localStorage (or a ?lang= query override, useful for
-// link-shareable previews and translator screenshots) and applies
-// lang/dir on <html> so the very first paint is already in the correct
-// reading direction. Without this the page flashes LTR/English for one
-// frame before LocaleProvider's effect flips it to RTL/Arabic, which
-// the user perceives as flicker.
+// link-shareable previews and translator screenshots) and applies <html lang>
+// so the very first paint is already in the correct locale. Without this the
+// page flashes English for one frame before LocaleProvider's effect swaps in
+// the saved locale.
 // Picks the same admin/participant/default storage key that LocaleProvider
 // computes, so first paint reflects the right locale even before React
 // hydrates. Keep the key logic mirrored across both places.
-// Locales kept in sync with frontend/lib/i18n.ts supportedLocales.
-// Legacy values (zh, ar) are migrated/dropped on read so existing users
-// don't get stuck on a removed locale (#60).
-// One canonicalizer used for BOTH the URL query and any saved storage value,
-// case-insensitive, so ?lang=zh-cn / ZH-CN / zh-tw / ZH-TW / zh / ar all
-// resolve correctly instead of getting silently dropped. Mirror the alias
-// map in frontend/lib/i18n.ts so the React provider applies the same rules.
+// Locales kept in sync with frontend/lib/i18n.ts supportedLocales. The
+// canonicalizer (case-insensitive, shared by the URL query and saved storage)
+// migrates the legacy "zh" to zh-CN so ?lang=zh / ZH-CN / zh-tw all resolve
+// instead of getting silently dropped. Mirror the alias map in
+// frontend/lib/i18n.ts so the React provider applies the same rules.
 const localeBootstrapScript = `(function () {
   try {
     var SUPPORTED = ['en','zh-CN','zh-TW','ja','ko','es'];
@@ -35,7 +32,6 @@ const localeBootstrapScript = `(function () {
       // Legacy aliases / lowercase variants.
       if (lower === 'zh' || lower === 'zh-cn') return 'zh-CN';
       if (lower === 'zh-tw') return 'zh-TW';
-      if (lower === 'ar') return 'en';
       // Case-insensitive match against canonical list (handles ZH-CN, JA, KO, EN, ES).
       for (var i = 0; i < SUPPORTED.length; i++) {
         if (SUPPORTED[i].toLowerCase() === lower) return SUPPORTED[i];
@@ -54,9 +50,7 @@ const localeBootstrapScript = `(function () {
     }
     if (l) {
       window.localStorage.setItem(key, l);
-      var html = document.documentElement;
-      html.lang = l;
-      html.dir = 'ltr'; // no supported locale is RTL right now
+      document.documentElement.lang = l;
     }
   } catch (e) {}
 })();`;

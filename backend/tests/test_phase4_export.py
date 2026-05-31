@@ -122,7 +122,7 @@ def make_survey() -> Survey:
         calibration_enabled=True,
         calibration_points=9,
         default_language="en",
-        supported_languages=["en", "ar", "zh"],
+        supported_languages=["en", "zh-CN"],
         created_at=now,
         updated_at=now,
     )

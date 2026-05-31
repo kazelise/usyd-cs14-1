@@ -26,8 +26,7 @@ CANONICAL_LANGUAGE_CODES = ("en", "zh-CN", "zh-TW", "ja", "ko", "es")
 # Legacy aliases the API still accepts on INPUT (older translation files /
 # old participant links). They are normalized to canonical forms on read.
 _LEGACY_ALIAS_MAP = {
-    "zh": "zh-CN",
-    "ar": "en",  # Arabic dropped (#60); fall back to English.
+    "zh": "zh-CN",  # legacy single "zh" predates the zh-CN / zh-TW split.
 }
 # Lowercased lookup -> canonical form. Built deterministically so case-
 # insensitive matching always returns the canonical (e.g. "zh-cn" -> "zh-CN").
@@ -110,8 +109,8 @@ def build_translation_export_payload(survey: Survey, language_code: str = "zh") 
         "default_language": DEFAULT_LANGUAGE_CODE,
         "language_code": language_code,
         # Expose CANONICAL codes only — SUPPORTED_LANGUAGE_CODES also contains
-        # lenient input aliases (legacy 'zh' / 'ar' / lowercase variants) that
-        # callers should not treat as a real locale catalog (#60).
+        # lenient input aliases (legacy 'zh' / lowercase variants) that
+        # callers should not treat as a real locale catalog.
         "supported_languages": list(CANONICAL_LANGUAGE_CODES),
         "items": items,
     }

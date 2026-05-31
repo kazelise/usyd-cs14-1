@@ -478,6 +478,15 @@ interface Post {
   questions: Question[];
 }
 
+const LANGUAGE_OPTIONS: { value: Locale; label: string }[] = [
+  { value: "en", label: "English" },
+  { value: "zh-CN", label: "简体中文" },
+  { value: "zh-TW", label: "繁體中文" },
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" },
+  { value: "es", label: "Español" },
+];
+
 interface SurveySession {
   response_id: number;
   participant_token: string;
@@ -491,6 +500,8 @@ interface SurveySession {
   gaze_tracking_enabled: boolean;
   gaze_interval_ms: number;
   click_tracking_enabled: boolean;
+  supported_languages?: string[];
+  default_language?: string;
   posts: Post[];
   questions: Question[];
 }
@@ -514,8 +525,8 @@ export default function SurveyParticipantPage() {
   // Use "en" fallback, not the live locale context: locale-provider hydrates
   // from localStorage via useEffect, so using `locale` here would make
   // initialLocale change post-mount and re-trigger the session init effect.
-  // Migrate legacy values (zh -> zh-CN, ar -> en) before falling back so
-  // shared/older ?lang= URLs still produce a sensible session locale (#60).
+  // Migrate the legacy "zh" to zh-CN before falling back so shared/older
+  // ?lang= URLs still produce a sensible session locale.
   const initialLocale: Locale = canonicalizeLocale(requestedLocale) ?? "en";
 
   const [session, setSession] = useState<SurveySession | null>(null);
@@ -606,6 +617,18 @@ export default function SurveyParticipantPage() {
   useEffect(() => {
     setLocale(initialLocale);
   }, [initialLocale, setLocale]);
+
+  // Gate the participant UI locale to the survey's enabled languages. The
+  // backend already serves post/question content in the default language for
+  // an unsupported request, so this keeps the surrounding UI from rendering in
+  // a language the researcher didn't enable (e.g. a stale ?lang=es).
+  useEffect(() => {
+    const allowed = session?.supported_languages;
+    if (!allowed || allowed.length === 0 || allowed.includes(locale)) return;
+    const preferred = session?.default_language;
+    const fallback = (preferred && allowed.includes(preferred) ? preferred : allowed[0]) as Locale;
+    setLocale(fallback);
+  }, [session?.supported_languages, session?.default_language, locale, setLocale]);
 
   useEffect(() => {
     const sessionScope = `${shareCode}:${isPreviewSession ? `preview:${previewScope}:${initialLocale}` : `live:${initialLocale}`}`;
@@ -1049,13 +1072,14 @@ export default function SurveyParticipantPage() {
                     window.location.assign(`/survey/${shareCode}?${params.toString()}`);
                   }}
                 >
-                  <option value="en">English</option>
-                  <option value="zh-CN">简体中文</option>
-              <option value="zh-TW">繁體中文</option>
-              <option value="ja">日本語</option>
-              <option value="ko">한국어</option>
-              <option value="es">Español</option>
-                                  </select>
+                  {LANGUAGE_OPTIONS.filter((opt) =>
+                    (session.supported_languages ?? ["en"]).includes(opt.value),
+                  ).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
